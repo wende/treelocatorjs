@@ -1,47 +1,51 @@
-![LocatorJS](./docs/logo-noborders.png)
+# Component Ancestry Clipboard
 
-# LocatorJS
+Alt+click on any UI component to copy its ancestry chain to clipboard.
 
-Click on UI Component in the browser to open its code in your IDE.
+## What it does
 
-![Intro](./docs/intro.gif)
+Hold Alt (or Option on Mac) and click on any element in your app. The component ancestry tree is copied to your clipboard in a readable format:
 
-go to [www.locatorjs.com](https://www.locatorjs.com) for more info
+```
+div in App at src/App.tsx:5
+    └─ main in Layout at src/components/Layout.tsx:12
+        └─ section in Content at src/components/Content.tsx:8
+            └─ button in Button at src/components/Button.tsx:15
+```
 
-> [!NOTE]
-> For Next.js 15+ with Turbopack or SWC, use the [@locator/webpack-loader](https://www.locatorjs.com/install/react) instead of the direct babel plugin.
+## Installation
 
-## Install Browser extension
+```bash
+npm install @locator/runtime
+```
 
-[Install extension from Chrome Web Store](https://chrome.google.com/webstore/detail/locatorjs/npbfdllefekhdplbkdigpncggmojpefi) (works for Chrome, Brave, Opera and Edge)
+## Usage
 
-[Install extension from Firefox Add-ons](https://addons.mozilla.org/cs/firefox/addon/locatorjs/)
+```js
+import "@locator/runtime";
+```
 
-[Extension readme](./apps/extension/README.md) (requirements, troubleshooting, etc)
+Or with options:
 
-## Install as a library (or combination with extension)
+```js
+import { setup } from "@locator/runtime";
 
-[installation docs](https://www.locatorjs.com/install)
+setup({
+  adapter: "react", // or "vue", "svelte", "jsx"
+});
+```
 
-- [React DevTools based](https://www.locatorjs.com/install/react)
-- [React data-id based](https://www.locatorjs.com/install/react-data-id)
-- [SolidJS](https://www.locatorjs.com/install/solidjs)
-- [Preact](https://www.locatorjs.com/install/preact)
-- [Svelte](https://www.locatorjs.com/install/svelte)
-- [Vue](https://www.locatorjs.com/install/vue)
+## Supported Frameworks
 
-## Contributing
+- React (via React DevTools)
+- Vue
+- Svelte
+- Preact
+- Any JSX framework (with babel plugin)
 
-Feel free to create issue or pull request.
+## Development
 
-[more info](./contributing.md)
-
-## Similar projects and alternatives
-
-- [click-to-component](https://github.com/ericclemmons/click-to-component)
-- [react-dev-inspector](https://github.com/zthxxx/react-dev-inspector)
-- [vite-plugin-react-inspector](https://github.com/sudongyuer/vite-plugin-react-inspector)
-- [vite-plugin-svelte](https://github.com/sveltejs/vite-plugin-svelte/tree/main/packages/vite-plugin-svelte/src/ui/inspector)
-- [vite-plugin-vue-inspector](https://github.com/webfansplz/vite-plugin-vue-inspector)
-- [solid-devtools/locator](https://github.com/thetarnav/solid-devtools/tree/main/packages/locator)
-- [code-inspector-plugin](https://github.com/zh-lx/code-inspector)
+```bash
+pnpm install
+pnpm dev
+```

@@ -1,12 +1,6 @@
 import type { Targets } from "@locator/shared";
-import { createEffect } from "solid-js";
 import type { FullElementInfo } from "../adapters/adapterApi";
-import { getParentsPaths } from "../adapters/getParentsPath";
-import { Button } from "./Button";
-import { ClipboardButton } from "./ClipboardButton";
-import { ComponentOutline } from "./ComponentOutline";
 import { RenderBoxes } from "./RenderBoxes";
-import Tooltip from "./Tooltip";
 
 type Box = {
   top: number;
@@ -30,9 +24,6 @@ export type AllBoxes = {
 
 export function Outline(props: {
   element: FullElementInfo;
-  showTreeFromElement: (element: HTMLElement) => void;
-  showParentsPath: (element: HTMLElement, x: number, y: number) => void;
-  copyToClipboard: (element: HTMLElement) => void;
   targets: Targets;
 }) {
   const box = () => props.element.thisElement.box;
@@ -133,33 +124,6 @@ export function Outline(props: {
     return null;
   };
 
-  let buttonsWrapper: HTMLDivElement | undefined;
-
-  function getOffset() {
-    const buttonsWrapperWidth = buttonsWrapper?.clientWidth || 80;
-
-    const offset = {
-      top: -16,
-      left: 0,
-    };
-
-    if (box().width < buttonsWrapperWidth) {
-      offset.left = -buttonsWrapperWidth / 2 + box().width / 2 - 1;
-    }
-
-    if (box().height < 40) {
-      offset.top = -30;
-    }
-
-    return {
-      top: offset.top + "px",
-      left: offset.left + "px",
-    };
-  }
-
-  const parentsWithLinks = () =>
-    getParentsPaths(props.element.htmlElement).filter((parent) => parent.link);
-
   return (
     <>
       <div>
@@ -177,87 +141,9 @@ export function Outline(props: {
             "text-overflow": "ellipsis",
           }}
         >
-          <div
-            class="absolute bg-black/60 text-white font-bold rounded-md px-1 py-1 flex"
-            style={{
-              "text-shadow": "none",
-              "pointer-events": "auto",
-              ...getOffset(),
-            }}
-            ref={buttonsWrapper}
-          >
-            <Tooltip tooltipText="Tree view">
-              <Button
-                onClick={() => {
-                  props.showTreeFromElement(props.element.htmlElement);
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    "pointer-events": "none",
-                  }}
-                  viewBox="0 0 24 24"
-                >
-                  <title>sitemap</title>
-                  <path
-                    fill="currentColor"
-                    d="M9,2V8H11V11H5C3.89,11 3,11.89 3,13V16H1V22H7V16H5V13H11V16H9V22H15V16H13V13H19V16H17V22H23V16H21V13C21,11.89 20.11,11 19,11H13V8H15V2H9Z"
-                  />
-                </svg>
-              </Button>
-            </Tooltip>
-            {parentsWithLinks().length > 1 && (
-              <Tooltip tooltipText="Parents">
-                <Button
-                  onClick={() => {
-                    props.showParentsPath(
-                      props.element.htmlElement,
-                      box().x + 2,
-                      box().y + 20
-                    );
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                      "pointer-events": "none",
-                    }}
-                    viewBox="0 0 24 24"
-                  >
-                    <title>format-list-text</title>
-                    <path
-                      fill="currentColor"
-                      d="M2 14H8V20H2M16 8H10V10H16M2 10H8V4H2M10 4V6H22V4M10 20H16V18H10M10 16H22V14H10"
-                    />
-                  </svg>
-                </Button>
-              </Tooltip>
-            )}
-            <Tooltip tooltipText="Copy path">
-              <ClipboardButton
-                onClick={() => {
-                  props.copyToClipboard(props.element.htmlElement);
-                }}
-              />
-            </Tooltip>
-          </div>
           {props.element.thisElement.label}
         </div>
       </div>
-      {props.element.componentsLabels.length > 0 && (
-        <ComponentOutline
-          labels={props.element.componentsLabels}
-          bbox={props.element.componentBox}
-          element={props.element.htmlElement}
-          showTreeFromElement={props.showTreeFromElement}
-          targets={props.targets}
-        />
-      )}
     </>
   );
 }

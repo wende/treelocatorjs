@@ -2,18 +2,13 @@ import { allTargets, Target } from "@locator/shared";
 import { AdapterId, fontFamily } from "./consts";
 import generatedStyles from "./_generated_styles";
 import { MAX_ZINDEX } from "./index";
-import { setInternalProjectPath } from "./functions/buildLink";
 
 export function initRuntime({
   adapter,
   targets,
-  projectPath,
-  showIntro,
 }: {
   adapter?: AdapterId;
   targets?: { [k: string]: Target | string };
-  projectPath?: string;
-  showIntro?: boolean;
 } = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -21,10 +16,6 @@ export function initRuntime({
   if (document.getElementById("locatorjs-wrapper")) {
     // already initialized
     return;
-  }
-
-  if (projectPath) {
-    setInternalProjectPath(projectPath);
   }
 
   // add style tag to head
@@ -42,9 +33,6 @@ export function initRuntime({
       #locatorjs-labels-wrapper {
         display: flex;
         gap: 8px;
-      }
-      .locatorjs-tree-node:hover {
-        background-color: #eee;
       }
       ${generatedStyles}
     `;
@@ -69,8 +57,6 @@ export function initRuntime({
   const layer = document.createElement("div");
   layer.setAttribute("id", "locatorjs-layer");
 
-  // wrapper.appendChild(style);
-  // wrapper.appendChild(layer);
   shadow.appendChild(style);
   shadow.appendChild(layer);
 
@@ -84,10 +70,10 @@ export function initRuntime({
   if (typeof require !== "undefined") {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { initRender } = require("./components/Runtime");
-    initRender(layer, adapter, targets || allTargets, showIntro);
+    initRender(layer, adapter, targets || allTargets);
   } else {
     import("./components/Runtime").then(({ initRender }) => {
-      initRender(layer, adapter, targets || allTargets, showIntro);
+      initRender(layer, adapter, targets || allTargets);
     });
   }
 }
