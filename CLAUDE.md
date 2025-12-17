@@ -33,20 +33,26 @@ pnpm build      # Build all packages
 pnpm test       # Run tests
 ```
 
-### End-User Setup (CLI Wizard)
+### End-User Setup
 
-The `@treelocator/init` package provides an automated setup wizard for TreeLocatorJS:
-
+**Install directly:**
 ```bash
-npx treelocatorjs init  # or npx @treelocator/init
+npm install @treelocator/runtime
 ```
+
+**Or use the CLI wizard:**
+```bash
+npx @treelocator/init
+```
+
+The `@treelocator/init` package provides an automated setup wizard:
 
 **What it does:**
 1. Auto-detects project configuration (package manager, build tool, framework)
-2. Installs required packages (`@treelocator/runtime`, babel/webpack plugins)
+2. Installs required packages (`@treelocator/runtime`, `@locator/babel-jsx`, `@locator/webpack-loader`)
 3. Configures build tools:
-   - **Vite**: Adds `@treelocator/babel-jsx` plugin to `vite.config.js/ts`
-   - **Next.js**: Adds `@treelocator/webpack-loader` to `next.config.js/ts`
+   - **Vite**: Adds `@locator/babel-jsx` plugin to `vite.config.js/ts`
+   - **Next.js**: Adds `@locator/webpack-loader` to `next.config.js/ts`
 4. Injects runtime import into entry file (`src/main.tsx`, `src/index.tsx`, etc.)
 
 **Supported:**
@@ -124,8 +130,21 @@ cd packages/runtime && pnpm test:dev  # Watch mode
 
 ## Publishing
 
+TreeLocatorJS publishes 2 packages to npm:
+- `@treelocator/runtime@0.1.0` - Core runtime
+- `@treelocator/init@0.1.0` - CLI setup wizard
+
+Reuses from original LocatorJS:
+- `@locator/shared@^0.5.0`
+- `@locator/babel-jsx@^0.5.1`
+- `@locator/webpack-loader@^0.5.1`
+
+To publish a new version:
 ```bash
-pnpm publishPackages  # Lerna publish (version 0.5.1)
+# 1. Update version in lerna.json and package.json files
+# 2. Build and publish:
+pnpm build
+pnpm lerna publish from-package --yes
 ```
 
 ## Supported Frameworks
