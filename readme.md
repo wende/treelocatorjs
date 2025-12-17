@@ -40,20 +40,19 @@ div in App at src/App.tsx:5
 
 ### Installation
 
-**TBD** - Package publication coming soon.
+```bash
+npm install @treelocator/runtime
+```
 
-For now, clone and build from source:
+Or use the automated setup wizard:
 
 ```bash
-git clone https://github.com/wende/treelocatorjs.git
-cd treelocatorjs
-pnpm install
-pnpm build
+npx @treelocator/init
 ```
 
 ### Basic Usage
 
-Once published, add one line to your app's entry point:
+Add one line to your app's entry point:
 
 ```js
 import "@treelocator/runtime";
@@ -246,12 +245,24 @@ cd apps/playwright && pnpm test
 
 ## Publishing
 
-```bash
-# Publish all packages (requires npm access)
-pnpm publishPackages
-```
+TreeLocatorJS is published to npm under the `@treelocator` scope:
+- **@treelocator/runtime** - Core functionality
+- **@treelocator/init** - CLI setup wizard
+
+Reuses the following packages from the original LocatorJS:
+- **@locator/shared** - Shared types and utilities
+- **@locator/babel-jsx** - Babel plugin for JSX tracking
+- **@locator/webpack-loader** - Webpack integration
 
 Current version: **0.1.0**
+
+To publish a new version:
+```bash
+# Update version in lerna.json and package.json files
+# Then run:
+pnpm build
+pnpm lerna publish from-package --yes
+```
 
 ## Contributing
 
