@@ -1,5 +1,5 @@
 import { Targets } from "@locator/shared";
-import { batch, createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import { render } from "solid-js/web";
 import { AdapterId } from "../consts";
 import { isCombinationModifiersPressed } from "../functions/isCombinationModifiersPressed";
@@ -42,6 +42,11 @@ function Runtime(props: RuntimeProps) {
     setHoldingModKey(isCombinationModifiersPressed(e, true));
   }
 
+  function mouseMoveListener(e: MouseEvent) {
+    // Update modifier state from mouse events - more reliable than keydown/keyup
+    setHoldingModKey(e.altKey);
+  }
+
   function mouseOverListener(e: MouseEvent) {
     const target = e.target;
     if (target && target instanceof HTMLElement) {
@@ -49,23 +54,25 @@ function Runtime(props: RuntimeProps) {
         return;
       }
 
-      setHoldingModKey(isCombinationModifiersPressed(e, true));
-
-      batch(() => {
-        setCurrentElement(target);
-      });
+      setCurrentElement(target);
+      // Also update modifier state
+      setHoldingModKey(e.altKey);
     }
   }
 
   function mouseDownUpListener(e: MouseEvent) {
-    if (isCombinationModifiersPressed(e) || locatorActive()) {
+    // Update modifier state
+    setHoldingModKey(e.altKey);
+
+    if (e.altKey || locatorActive()) {
       e.preventDefault();
       e.stopPropagation();
     }
   }
 
   function clickListener(e: MouseEvent) {
-    if (!isCombinationModifiersPressed(e) && !locatorActive()) {
+    // Check altKey directly for more reliable first-click detection
+    if (!e.altKey && !isCombinationModifiersPressed(e) && !locatorActive()) {
       return;
     }
 
@@ -115,6 +122,9 @@ function Runtime(props: RuntimeProps) {
 
   for (const root of roots) {
     root.addEventListener("mouseover", mouseOverListener as EventListener, {
+      capture: true,
+    });
+    root.addEventListener("mousemove", mouseMoveListener as EventListener, {
       capture: true,
     });
     root.addEventListener("keydown", keyDownListener as EventListener);

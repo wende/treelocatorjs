@@ -21,23 +21,32 @@ export function MaybeOutline(props: {
           targets={props.targets}
         />
       ) : (
-        <div class="fixed top-0 left-0 w-screen h-screen flex items-center justify-center">
+        <div>
+          {/* Element outline box */}
           <div
-            class="flex items-center justify-center"
+            class="fixed rounded border border-solid border-amber-500"
             style={{
-              position: "absolute",
+              "z-index": 2,
               left: box().x + "px",
               top: box().y + "px",
               width: box().width + "px",
               height: box().height + "px",
-              "background-color": "rgba(222, 0, 0, 0.3)",
-              border: "1px solid rgba(222, 0, 0, 0.5)",
-              "border-radius": "2px",
-              "font-size": "12px",
-              "font-weight": "bold",
-              "text-shadow":
-                "-1px 1px 0 #fff, 1px 1px 0 #fff, 1px -1px 0 #fff, -1px -1px 0 #fff",
-              "text-overflow": "ellipsis",
+            }}
+          />
+          {/* Glass morphism label */}
+          <div
+            class="fixed text-xs font-medium rounded-md"
+            style={{
+              "z-index": 3,
+              left: box().x + 4 + "px",
+              top: box().y + 4 + "px",
+              padding: "4px 10px",
+              background: "rgba(120, 53, 15, 0.85)",
+              color: "#fff",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              "box-shadow": "0 4px 16px rgba(0, 0, 0, 0.2)",
+              "font-family": "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
+              "letter-spacing": "0.01em",
             }}
           >
             No source found

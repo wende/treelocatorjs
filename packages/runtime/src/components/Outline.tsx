@@ -128,17 +128,35 @@ export function Outline(props: {
     <>
       <div>
         {domElementInfo() && <RenderBoxes allBoxes={domElementInfo()!} />}
+        {/* Element outline box */}
         <div
-          class="fixed flex text-xs font-bold items-center justify-center text-sky-500 rounded border border-solid border-sky-500"
+          class="fixed rounded border border-solid border-sky-500"
           style={{
             "z-index": 2,
             left: box().x + "px",
             top: box().y + "px",
             width: box().width + "px",
             height: box().height + "px",
-            "text-shadow":
-              "-1px 1px 0 #fff, 1px 1px 0 #fff, 1px -1px 0 #fff, -1px -1px 0 #fff",
+          }}
+        />
+        {/* Glass morphism label */}
+        <div
+          class="fixed text-xs font-medium rounded-md"
+          style={{
+            "z-index": 3,
+            left: box().x + 4 + "px",
+            top: box().y + 4 + "px",
+            padding: "4px 10px",
+            background: "rgba(15, 23, 42, 0.85)",
+            color: "#fff",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            "box-shadow": "0 4px 16px rgba(0, 0, 0, 0.2)",
+            "font-family": "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
+            "letter-spacing": "0.01em",
+            "max-width": box().width - 8 + "px",
+            overflow: "hidden",
             "text-overflow": "ellipsis",
+            "white-space": "nowrap",
           }}
         >
           {props.element.thisElement.label}
