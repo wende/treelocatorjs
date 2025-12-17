@@ -168,7 +168,7 @@ function addRuntimeImport(entryFile, isNextApp) {
   const importLine = `import setupLocatorUI from "@treelocator/runtime";
 `;
   const setupCall = isNextApp ? "" : `
-if (typeof window !== "undefined") {
+if (import.meta.env.DEV) {
   setupLocatorUI();
 }
 `;

@@ -1,6 +1,6 @@
 {
   "name": "@treelocator/runtime",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TreeLocatorJS runtime for component ancestry tracking. Alt+click any element to copy its component tree to clipboard. Exposes window.__treelocator__ API for browser automation (Playwright, Puppeteer, Selenium, Cypress).",
   "keywords": [
     "locator",
@@ -21,6 +21,7 @@
     "e2e"
   ],
   "main": "dist/index.js",
+  "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },

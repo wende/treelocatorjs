@@ -216,7 +216,7 @@ function addRuntimeImport(entryFile: string, isNextApp: boolean): void {
   const importLine = `import setupLocatorUI from "@treelocator/runtime";\n`;
   const setupCall = isNextApp
     ? "" // For Next.js, we need a different approach
-    : `\nif (typeof window !== "undefined") {\n  setupLocatorUI();\n}\n`;
+    : `\nif (import.meta.env.DEV) {\n  setupLocatorUI();\n}\n`;
 
   if (isNextApp) {
     // For Next.js app router, suggest creating a provider

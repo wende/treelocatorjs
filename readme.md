@@ -261,7 +261,7 @@ Reuses the following packages from the original LocatorJS:
 - **@locator/babel-jsx** - Babel plugin for JSX tracking
 - **@locator/webpack-loader** - Webpack integration
 
-Current version: **0.1.2**
+Current version: **0.1.3**
 
 To publish a new version:
 ```bash
