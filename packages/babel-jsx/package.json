@@ -1,7 +1,7 @@
 {
   "name": "@locator/babel-jsx",
   "main": "dist/index.js",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "scripts": {
     "test": "jest tests/",
     "test:update": "jest tests/ -u",
@@ -31,10 +31,11 @@
     "prettier": "^3.3.3",
     "typescript": "^5.6.3"
   },
-  "author": "Michael Musil",
+  "author": "Krzysztof Wende",
   "repository": {
     "type": "git",
-    "url": "https://github.com/infi-pc/locatorjs"
+    "url": "https://github.com/wende/treelocatorjs",
+    "directory": "packages/babel-jsx"
   },
   "license": "MIT",
   "gitHead": "64d49c931e745b61713e3349b9f872c115632c94"

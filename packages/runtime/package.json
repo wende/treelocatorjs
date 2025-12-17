@@ -1,7 +1,7 @@
 {
   "name": "@locator/runtime",
-  "version": "0.5.1",
-  "description": "LocatorJS runtime for component ancestry tracking. Alt+click any element to copy its component tree to clipboard. Exposes window.__locatorjs__ API for browser automation (Playwright, Puppeteer, Selenium, Cypress).",
+  "version": "1.0.0",
+  "description": "TreeLocatorJS runtime for component ancestry tracking. Alt+click any element to copy its component tree to clipboard. Exposes window.__locatorjs__ API for browser automation (Playwright, Puppeteer, Selenium, Cypress).",
   "keywords": [
     "locator",
     "locatorjs",
@@ -61,10 +61,11 @@
     "vitest": "^2.1.4",
     "vue": "^3.5.12"
   },
-  "author": "Michael Musil",
+  "author": "Krzysztof Wende",
   "repository": {
     "type": "git",
-    "url": "https://github.com/infi-pc/locatorjs"
+    "url": "https://github.com/wende/treelocatorjs",
+    "directory": "packages/runtime"
   },
   "license": "MIT",
   "gitHead": "64d49c931e745b61713e3349b9f872c115632c94"

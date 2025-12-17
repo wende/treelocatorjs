@@ -1,6 +1,6 @@
 {
   "name": "@locator/init",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "description": "Setup wizard for TreeLocatorJS - auto-configure component ancestry tracking",
   "bin": {
     "treelocatorjs": "./dist/index.js",

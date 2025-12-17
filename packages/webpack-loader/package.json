@@ -1,6 +1,6 @@
 {
   "name": "@locator/webpack-loader",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "publishConfig": {
@@ -27,10 +27,11 @@
   "peerDependencies": {
     "webpack": "^5.96.1"
   },
-  "author": "Michael Musil",
+  "author": "Krzysztof Wende",
   "repository": {
     "type": "git",
-    "url": "https://github.com/infi-pc/locatorjs"
+    "url": "https://github.com/wende/treelocatorjs",
+    "directory": "packages/webpack-loader"
   },
   "license": "MIT"
 }
