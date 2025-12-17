@@ -7,7 +7,7 @@
 
   *Alt+click any UI element to copy its complete component tree*
 
-  [![npm version](https://badge.fury.io/js/%40locator%2Fruntime.svg)](https://www.npmjs.com/package/@locator/runtime)
+  [![npm version](https://badge.fury.io/js/%40treelocator%2Fruntime.svg)](https://www.npmjs.com/package/@treelocator/runtime)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
@@ -44,11 +44,17 @@ div in App at src/App.tsx:5
 npm install @treelocator/runtime
 ```
 
-Or use the automated setup wizard:
+Or use the automated setup wizard (recommended):
 
 ```bash
 npx @treelocator/init
 ```
+
+The wizard will:
+- Auto-detect your project (package manager, build tool, framework)
+- Install required packages
+- Configure your build tool (Vite, Next.js, etc.)
+- Add the runtime import to your entry file
 
 ### Basic Usage
 
@@ -254,7 +260,7 @@ Reuses the following packages from the original LocatorJS:
 - **@locator/babel-jsx** - Babel plugin for JSX tracking
 - **@locator/webpack-loader** - Webpack integration
 
-Current version: **0.1.0**
+Current version: **0.1.1**
 
 To publish a new version:
 ```bash
