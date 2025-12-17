@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Krzysztof Wende | Software Architect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Montserrat:wght@400&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Manrope', 'sans-serif'],
+              display: ['Space Grotesk', 'sans-serif'],
+            },
+            colors: {
+              'off-white': '#FAFAFA',
+              'charcoal': '#1A1A1A',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #FAFAFA;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #D4D4D4;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #A3A3A3;
+      }
+
+      /* Animated Alphabet CSS */
+      :root {
+        --delay-step: 0.08s;
+      }
+
+      .animated-heading {
+        line-height: 1;
+      }
+      
+      .animated-heading .letter text {
+        stroke: currentColor;
+        stroke-width: 2px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 320;
+        stroke-dashoffset: 320;
+        fill: none;
+        opacity: 0; /* Hide initially */
+      }
+
+      .animated-heading.is-visible .letter text {
+        opacity: 1;
+        animation: draw 1.8s ease forwards;
+        animation-delay: calc(var(--order) * var(--delay-step));
+      }
+
+      .animated-heading.is-visible .letter .outline-2 {
+        opacity: 0.55;
+        animation-delay: calc(var(--order) * var(--delay-step) + 0.15s);
+      }
+
+      .animated-heading.is-visible .letter .outline-3 {
+        opacity: 0.25;
+        animation-delay: calc(var(--order) * var(--delay-step) + 0.3s);
+      }
+
+      .animated-heading .fill-band {
+        fill: currentColor;
+        transform-origin: left center;
+        transform-box: fill-box;
+        transform: scaleX(0);
+        opacity: 0;
+      }
+
+      .animated-heading.is-visible .fill-band {
+        opacity: 0.75;
+        animation: sweep 1.4s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+        animation-delay: calc(var(--order) * var(--delay-step) + 0.35s);
+      }
+
+      .animated-heading.is-visible .fill-band.fill-2 {
+        opacity: 0.85;
+        animation-duration: 1.6s;
+        animation-delay: calc(var(--order) * var(--delay-step) + 0.5s);
+      }
+
+      .animated-heading.is-visible .fill-band.fill-3 {
+        opacity: 0.95;
+        animation-duration: 1.8s;
+        animation-delay: calc(var(--order) * var(--delay-step) + 0.7s);
+      }
+
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes sweep {
+        to {
+          transform: scaleX(1);
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-off-white text-black antialiased">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

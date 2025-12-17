@@ -6,13 +6,14 @@ const fs = require("fs-extra");
 
 async function run() {
   const content = await fs.readFile("./dist/output.css", "utf-8");
-  const wrapped = `export default \`${content
+  const escaped = content
     .replaceAll("`", "\\`")
     .replaceAll("\\:", "\\\\:")
     .replaceAll("\\[", "\\\\[")
     .replaceAll("\\]", "\\\\]")
     .replaceAll("\\.", "\\\\.")
-    .replaceAll("\\/", "\\\\/")}\``;
+    .replaceAll("\\/", "\\\\/");
+  const wrapped = `const styles: string = \`${escaped}\`;\nexport default styles;`;
 
   await fs.writeFile("./src/_generated_styles.ts", wrapped);
   console.log("CSS file generated");

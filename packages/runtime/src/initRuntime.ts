@@ -2,6 +2,7 @@ import { allTargets, Target } from "@locator/shared";
 import { AdapterId, fontFamily } from "./consts";
 import generatedStyles from "./_generated_styles";
 import { MAX_ZINDEX } from "./index";
+import { installBrowserAPI } from "./browserApi";
 
 export function initRuntime({
   adapter,
@@ -17,6 +18,9 @@ export function initRuntime({
     // already initialized
     return;
   }
+
+  // Install browser API on window.__locatorjs__
+  installBrowserAPI(adapter);
 
   // add style tag to head
   const style = document.createElement("style");

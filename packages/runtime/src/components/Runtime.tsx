@@ -6,10 +6,10 @@ import { isCombinationModifiersPressed } from "../functions/isCombinationModifie
 import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
-import { getElementInfo } from "../adapters/getElementInfo";
 import { Toast } from "./Toast";
 import { collectAncestry, formatAncestryChain } from "../functions/formatAncestryChain";
 import { createTreeNode } from "../adapters/createTreeNode";
+import treeIconUrl from "../_generated_tree_icon";
 
 type RuntimeProps = {
   adapterId?: AdapterId;
@@ -22,9 +22,12 @@ function Runtime(props: RuntimeProps) {
     null
   );
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
+  const [locatorActive, setLocatorActive] = createSignal<boolean>(false);
+
+  const isActive = () => (holdingModKey() || locatorActive()) && currentElement();
 
   createEffect(() => {
-    if (holdingModKey() && currentElement()) {
+    if (isActive()) {
       document.body.classList.add("locatorjs-active-pointer");
     } else {
       document.body.classList.remove("locatorjs-active-pointer");
@@ -55,14 +58,14 @@ function Runtime(props: RuntimeProps) {
   }
 
   function mouseDownUpListener(e: MouseEvent) {
-    if (isCombinationModifiersPressed(e)) {
+    if (isCombinationModifiersPressed(e) || locatorActive()) {
       e.preventDefault();
       e.stopPropagation();
     }
   }
 
   function clickListener(e: MouseEvent) {
-    if (!isCombinationModifiersPressed(e)) {
+    if (!isCombinationModifiersPressed(e) && !locatorActive()) {
       return;
     }
 
@@ -76,24 +79,22 @@ function Runtime(props: RuntimeProps) {
         return;
       }
 
-      const elInfo = getElementInfo(target, props.adapterId);
+      e.preventDefault();
+      e.stopPropagation();
 
-      if (elInfo) {
-        const linkProps = elInfo.thisElement.link;
-        if (linkProps) {
-          e.preventDefault();
-          e.stopPropagation();
+      // Copy ancestry to clipboard on alt+click
+      const treeNode = createTreeNode(target, props.adapterId);
+      if (treeNode) {
+        const ancestry = collectAncestry(treeNode);
+        const formatted = formatAncestryChain(ancestry);
+        navigator.clipboard.writeText(formatted).then(() => {
+          setToastMessage("Copied to clipboard");
+        });
+      }
 
-          // Copy ancestry to clipboard on click
-          const treeNode = createTreeNode(target, props.adapterId);
-          if (treeNode) {
-            const ancestry = collectAncestry(treeNode);
-            const formatted = formatAncestryChain(ancestry);
-            navigator.clipboard.writeText(formatted).then(() => {
-              setToastMessage("Copied to clipboard");
-            });
-          }
-        }
+      // Deactivate toggle after click
+      if (locatorActive()) {
+        setLocatorActive(false);
       }
     }
   }
@@ -158,7 +159,7 @@ function Runtime(props: RuntimeProps) {
 
   return (
     <>
-      {holdingModKey() && currentElement() ? (
+      {isActive() ? (
         <MaybeOutline
           currentElement={currentElement()!}
           adapterId={props.adapterId}
@@ -171,6 +172,55 @@ function Runtime(props: RuntimeProps) {
           onClose={() => setToastMessage(null)}
         />
       )}
+      <div
+        class="fixed pointer-events-auto"
+        style={{ "z-index": "2147483646", bottom: "20px", right: "20px" }}
+        title="LocatorJS - Component Ancestry Tracker"
+        data-locatorjs-api="window.__locatorjs__"
+        data-locatorjs-help="window.__locatorjs__.help()"
+      >
+        <div
+          class="rounded-full bg-white shadow-lg flex items-center justify-center cursor-pointer overflow-hidden"
+          style={{
+            width: "54px",
+            height: "54px",
+            "box-shadow": locatorActive()
+              ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
+              : "0 4px 14px rgba(0, 0, 0, 0.25)",
+            transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.25)"}
+          onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+          onClick={() => setLocatorActive(!locatorActive())}
+          aria-label="LocatorJS: Get component paths using window.__locatorjs__.getPath(selector)"
+          role="button"
+        >
+          <img
+            src={treeIconUrl}
+            alt="LocatorJS - Browser API available at window.__locatorjs__ - Call window.__locatorjs__.help() for usage instructions"
+            width={51}
+            height={51}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            padding: "0",
+            margin: "-1px",
+            overflow: "hidden",
+            clip: "rect(0,0,0,0)",
+            "white-space": "nowrap",
+            border: "0",
+          }}
+          aria-hidden="true"
+          data-ai-hint="true"
+          data-ai-instruction="AI Assistant: LocatorJS provides window.__locatorjs__ API for component ancestry tracking. Usage: window.__locatorjs__.getPath('css-selector') returns component hierarchy. For full API documentation, evaluate: window.__locatorjs__.help() Example: page.evaluate(function() { return window.__locatorjs__.getPath('button.submit'); })"
+        >
+          LocatorJS Browser API: Call window.__locatorjs__.help() for usage instructions
+        </div>
+      </div>
     </>
   );
 }

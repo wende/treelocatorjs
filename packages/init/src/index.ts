@@ -1,0 +1,335 @@
+#!/usr/bin/env node
+
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import prompts from "prompts";
+import pc from "picocolors";
+
+interface ProjectInfo {
+  packageManager: "npm" | "yarn" | "pnpm" | "bun";
+  buildTool: "vite" | "next" | "webpack" | "unknown";
+  framework: "react" | "vue" | "svelte" | "preact" | "solid" | "unknown";
+  hasTypeScript: boolean;
+  configFile: string | null;
+  entryFile: string | null;
+}
+
+function detectPackageManager(): ProjectInfo["packageManager"] {
+  // Check current dir and parent dirs (for monorepos)
+  let dir = process.cwd();
+  const root = path.parse(dir).root;
+
+  while (dir !== root) {
+    if (fs.existsSync(path.join(dir, "bun.lockb"))) return "bun";
+    if (fs.existsSync(path.join(dir, "pnpm-lock.yaml"))) return "pnpm";
+    if (fs.existsSync(path.join(dir, "yarn.lock"))) return "yarn";
+    if (fs.existsSync(path.join(dir, "package-lock.json"))) return "npm";
+    dir = path.dirname(dir);
+  }
+  return "npm";
+}
+
+function detectProject(): ProjectInfo {
+  const pkgPath = path.join(process.cwd(), "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    console.error(pc.red("No package.json found. Run this from your project root."));
+    process.exit(1);
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+  const info: ProjectInfo = {
+    packageManager: detectPackageManager(),
+    buildTool: "unknown",
+    framework: "unknown",
+    hasTypeScript: !!deps.typescript || fs.existsSync("tsconfig.json"),
+    configFile: null,
+    entryFile: null,
+  };
+
+  // Detect build tool
+  if (deps.next) {
+    info.buildTool = "next";
+    info.configFile = fs.existsSync("next.config.ts")
+      ? "next.config.ts"
+      : fs.existsSync("next.config.mjs")
+        ? "next.config.mjs"
+        : "next.config.js";
+  } else if (deps.vite) {
+    info.buildTool = "vite";
+    info.configFile = fs.existsSync("vite.config.ts")
+      ? "vite.config.ts"
+      : "vite.config.js";
+  }
+
+  // Detect framework
+  if (deps.react || deps["react-dom"]) {
+    info.framework = "react";
+  } else if (deps.vue) {
+    info.framework = "vue";
+  } else if (deps.svelte) {
+    info.framework = "svelte";
+  } else if (deps.preact) {
+    info.framework = "preact";
+  } else if (deps["solid-js"]) {
+    info.framework = "solid";
+  }
+
+  // Detect entry file
+  const entryPaths = [
+    "src/main.tsx",
+    "src/main.ts",
+    "src/main.jsx",
+    "src/main.js",
+    "src/index.tsx",
+    "src/index.ts",
+    "src/index.jsx",
+    "src/index.js",
+    "app/layout.tsx", // Next.js app router
+    "app/layout.js",
+    "pages/_app.tsx", // Next.js pages router
+    "pages/_app.js",
+  ];
+
+  for (const entry of entryPaths) {
+    if (fs.existsSync(entry)) {
+      info.entryFile = entry;
+      break;
+    }
+  }
+
+  return info;
+}
+
+function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[]): string {
+  const pkgs = packages.join(" ");
+  switch (pm) {
+    case "bun":
+      return `bun add -D ${pkgs}`;
+    case "pnpm":
+      return `pnpm add -D ${pkgs}`;
+    case "yarn":
+      return `yarn add -D ${pkgs}`;
+    default:
+      return `npm install -D ${pkgs}`;
+  }
+}
+
+function updateViteConfig(configFile: string, framework: string): void {
+  let content = fs.readFileSync(configFile, "utf-8");
+
+  // Check if already configured
+  if (content.includes("@locator/babel-jsx")) {
+    console.log(pc.yellow("TreeLocatorJS babel plugin already configured in vite.config"));
+    return;
+  }
+
+  // For React with Vite, add babel plugin
+  if (framework === "react") {
+    // Find the react plugin and add babel config
+    const reactPluginRegex = /react\(\s*\)/;
+    const reactPluginWithOptionsRegex = /react\(\s*\{/;
+
+    if (reactPluginRegex.test(content)) {
+      content = content.replace(
+        reactPluginRegex,
+        `react({
+      babel: {
+        plugins: [
+          ["@locator/babel-jsx/dist", { env: "development" }],
+        ],
+      },
+    })`
+      );
+    } else if (reactPluginWithOptionsRegex.test(content)) {
+      // Already has options, need to add babel config
+      content = content.replace(
+        /react\(\s*\{/,
+        `react({
+      babel: {
+        plugins: [
+          ["@locator/babel-jsx/dist", { env: "development" }],
+        ],
+      },`
+      );
+    }
+  }
+
+  fs.writeFileSync(configFile, content);
+  console.log(pc.green(`Updated ${configFile}`));
+}
+
+function updateNextConfig(configFile: string): void {
+  let content = fs.readFileSync(configFile, "utf-8");
+
+  // Check if already configured
+  if (content.includes("@locator/webpack-loader")) {
+    console.log(pc.yellow("TreeLocatorJS webpack loader already configured in next.config"));
+    return;
+  }
+
+  // Add webpack config
+  const webpackConfig = `
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\\.tsx?$/,
+      use: [
+        { loader: "@locator/webpack-loader", options: { env: "development" } },
+      ],
+    });
+    return config;
+  },`;
+
+  // Try to insert webpack config
+  if (content.includes("const nextConfig = {")) {
+    content = content.replace(
+      "const nextConfig = {",
+      `const nextConfig = {${webpackConfig}`
+    );
+  } else if (content.includes("module.exports = {")) {
+    content = content.replace(
+      "module.exports = {",
+      `module.exports = {${webpackConfig}`
+    );
+  } else if (content.includes("export default {")) {
+    content = content.replace(
+      "export default {",
+      `export default {${webpackConfig}`
+    );
+  }
+
+  fs.writeFileSync(configFile, content);
+  console.log(pc.green(`Updated ${configFile}`));
+}
+
+function addRuntimeImport(entryFile: string, isNextApp: boolean): void {
+  let content = fs.readFileSync(entryFile, "utf-8");
+
+  // Check if already configured
+  if (content.includes("@locator/runtime")) {
+    console.log(pc.yellow("TreeLocatorJS runtime already imported"));
+    return;
+  }
+
+  const importLine = `import setupLocatorUI from "@locator/runtime";\n`;
+  const setupCall = isNextApp
+    ? "" // For Next.js, we need a different approach
+    : `\nif (typeof window !== "undefined") {\n  setupLocatorUI();\n}\n`;
+
+  if (isNextApp) {
+    // For Next.js app router, suggest creating a provider
+    console.log(pc.yellow("\nFor Next.js App Router, create a client component:"));
+    console.log(pc.cyan(`
+// app/LocatorProvider.tsx
+"use client";
+import { useEffect } from "react";
+import setupLocatorUI from "@locator/runtime";
+
+export function LocatorProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      setupLocatorUI();
+    }
+  }, []);
+  return <>{children}</>;
+}
+
+// Then wrap your app in app/layout.tsx:
+// <LocatorProvider>{children}</LocatorProvider>
+`));
+    return;
+  }
+
+  // Add import at the top
+  content = importLine + content;
+
+  // Add setup call after imports
+  const lastImportIndex = content.lastIndexOf("import ");
+  if (lastImportIndex !== -1) {
+    const lineEnd = content.indexOf("\n", lastImportIndex);
+    content = content.slice(0, lineEnd + 1) + setupCall + content.slice(lineEnd + 1);
+  } else {
+    content = content + setupCall;
+  }
+
+  fs.writeFileSync(entryFile, content);
+  console.log(pc.green(`Updated ${entryFile}`));
+}
+
+async function main() {
+  console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
+
+  const info = detectProject();
+
+  console.log(pc.dim("Detected:"));
+  console.log(pc.dim(`  Package manager: ${info.packageManager}`));
+  console.log(pc.dim(`  Build tool: ${info.buildTool}`));
+  console.log(pc.dim(`  Framework: ${info.framework}`));
+  console.log(pc.dim(`  TypeScript: ${info.hasTypeScript}`));
+  console.log();
+
+  if (info.buildTool === "unknown") {
+    console.log(pc.red("Could not detect build tool (Vite or Next.js)."));
+    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
+    process.exit(1);
+  }
+
+  if (info.framework === "unknown") {
+    console.log(pc.red("Could not detect framework."));
+    process.exit(1);
+  }
+
+  const { confirm } = await prompts({
+    type: "confirm",
+    name: "confirm",
+    message: "Install and configure TreeLocatorJS?",
+    initial: true,
+  });
+
+  if (!confirm) {
+    console.log(pc.dim("Cancelled."));
+    process.exit(0);
+  }
+
+  // Determine packages to install
+  const packages = ["@locator/runtime"];
+  if (info.buildTool === "vite") {
+    packages.push("@locator/babel-jsx");
+  } else if (info.buildTool === "next") {
+    packages.push("@locator/webpack-loader");
+  }
+
+  // Install packages
+  console.log(pc.dim(`\nInstalling ${packages.join(", ")}...`));
+  const installCmd = getInstallCommand(info.packageManager, packages);
+  try {
+    execSync(installCmd, { stdio: "inherit" });
+  } catch {
+    console.error(pc.red("Failed to install packages."));
+    process.exit(1);
+  }
+
+  // Update config
+  if (info.configFile) {
+    console.log(pc.dim(`\nUpdating ${info.configFile}...`));
+    if (info.buildTool === "vite") {
+      updateViteConfig(info.configFile, info.framework);
+    } else if (info.buildTool === "next") {
+      updateNextConfig(info.configFile);
+    }
+  }
+
+  // Add runtime import
+  if (info.entryFile) {
+    console.log(pc.dim(`\nUpdating ${info.entryFile}...`));
+    const isNextApp = info.entryFile.startsWith("app/");
+    addRuntimeImport(info.entryFile, isNextApp);
+  }
+
+  console.log(pc.bold(pc.green("\nTreeLocatorJS installed successfully!")));
+  console.log(pc.dim("\nUsage: Hold Alt and click any component to copy its ancestry.\n"));
+}
+
+main().catch(console.error);

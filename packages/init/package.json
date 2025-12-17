@@ -1,0 +1,48 @@
+{
+  "name": "@locator/init",
+  "version": "0.5.1",
+  "description": "Setup wizard for TreeLocatorJS - auto-configure component ancestry tracking",
+  "bin": {
+    "treelocatorjs": "./dist/index.js",
+    "locatorjs": "./dist/index.js",
+    "@locator/init": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --watch"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wende/treelocatorjs.git",
+    "directory": "packages/init"
+  },
+  "keywords": [
+    "treelocatorjs",
+    "locatorjs",
+    "devtools",
+    "react",
+    "vue",
+    "svelte",
+    "cli",
+    "component-ancestry"
+  ],
+  "license": "MIT"
+}
