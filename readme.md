@@ -9,6 +9,7 @@
 
   [![npm version](https://badge.fury.io/js/%40treelocator%2Fruntime.svg)](https://www.npmjs.com/package/@treelocator/runtime)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+  [![Live Demo](https://img.shields.io/badge/Live_Demo-Try_it!-brightgreen)](https://wende.github.io/treelocatorjs)
 
 </div>
 
