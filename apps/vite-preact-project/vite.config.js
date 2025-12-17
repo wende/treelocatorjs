@@ -8,7 +8,7 @@ export default defineConfig({
       babel: {
         plugins: [
           [
-            "@locator/babel-jsx/dist",
+            "@treelocator/babel-jsx/dist",
             {
               env: "development",
             },

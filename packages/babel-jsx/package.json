@@ -1,5 +1,6 @@
 {
-  "name": "@locator/babel-jsx",
+  "name": "@treelocator/babel-jsx",
+  "private": true,
   "main": "dist/index.js",
   "version": "0.1.0",
   "scripts": {
@@ -17,12 +18,12 @@
     "@babel/preset-typescript": "^7.26.0",
     "@babel/traverse": "^7.26.2",
     "@babel/types": "^7.26.0",
-    "@locator/runtime": "workspace:^",
-    "@locator/shared": "workspace:^"
+    "@treelocator/runtime": "workspace:^",
+    "@treelocator/shared": "workspace:^"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.26.0",
-    "@locator/dev-config": "workspace:^",
+    "@treelocator/dev-config": "workspace:^",
     "@types/babel__traverse": "^7.20.6",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.9.0",

@@ -13,8 +13,8 @@
     "react-dom": "^18"
   },
   "devDependencies": {
-    "@locator/runtime": "workspace:^",
-    "@locator/webpack-loader": "workspace:^",
+    "@treelocator/runtime": "workspace:^",
+    "@treelocator/webpack-loader": "workspace:^",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -1,5 +1,5 @@
 import "../styles/globals.css";
-import setupLocatorUI from "@locator/runtime";
+import setupLocatorUI from "@treelocator/runtime";
 import Head from "next/head";
 import { useEffect } from "react";
 

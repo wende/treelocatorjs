@@ -7,7 +7,7 @@ import type {
   FileStorage,
   SourceLocation,
   StyledDefinitionInfo,
-} from "@locator/shared";
+} from "@treelocator/shared";
 import { isDisallowedComponent } from "./isDisallowedComponent";
 
 export interface PluginOptions {
@@ -297,7 +297,7 @@ export default function transformLocatorJsComponents(babel: Babel): {
           })()`;
 
           // `function __bindLocatorExpression(id) {
-          //   return require("@locator/runtime").__bindLocatorExpression(${createFullPath(
+          //   return require("@treelocator/runtime").__bindLocatorExpression(${createFullPath(
           //     fileStorage
           //   )}, id);
           // }`;

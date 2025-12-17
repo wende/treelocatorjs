@@ -56,7 +56,7 @@ pnpm build
 Once published, add one line to your app's entry point:
 
 ```js
-import "@locator/runtime";
+import "@treelocator/runtime";
 ```
 
 That's it! Now you can:
@@ -70,7 +70,7 @@ The component ancestry is instantly copied to your clipboard.
 Customize the behavior with options:
 
 ```js
-import { setup } from "@locator/runtime";
+import { setup } from "@treelocator/runtime";
 
 setup({
   adapter: "react",     // Framework: "react" | "vue" | "svelte" | "jsx"
@@ -176,12 +176,14 @@ TreeLocatorJS is a **monorepo** using:
 
 | Package | Description |
 |---------|-------------|
-| `@locator/runtime` | Core runtime with Alt+click handler and overlay UI |
-| `@locator/shared` | Shared TypeScript types and utilities |
-| `@locator/babel-jsx` | Babel plugin for JSX source location tracking |
-| `@locator/webpack-loader` | Webpack loader integration |
-| `@locator/react-devtools-hook` | React DevTools integration |
-| `@locator/dev-config` | Shared ESLint and TypeScript configurations |
+| `@treelocator/runtime` | Core runtime with Alt+click handler and overlay UI |
+| `@treelocator/init` | CLI setup wizard for easy project configuration |
+
+**Dependencies (from original LocatorJS):**
+- `@locator/shared` - Shared TypeScript types and utilities
+- `@locator/babel-jsx` - Babel plugin for JSX source location tracking
+- `@locator/webpack-loader` - Webpack loader integration
+- `@locator/react-devtools-hook` - React DevTools integration
 
 ### Demo Applications
 

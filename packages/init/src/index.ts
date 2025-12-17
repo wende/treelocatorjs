@@ -208,12 +208,12 @@ function addRuntimeImport(entryFile: string, isNextApp: boolean): void {
   let content = fs.readFileSync(entryFile, "utf-8");
 
   // Check if already configured
-  if (content.includes("@locator/runtime")) {
+  if (content.includes("@treelocator/runtime")) {
     console.log(pc.yellow("TreeLocatorJS runtime already imported"));
     return;
   }
 
-  const importLine = `import setupLocatorUI from "@locator/runtime";\n`;
+  const importLine = `import setupLocatorUI from "@treelocator/runtime";\n`;
   const setupCall = isNextApp
     ? "" // For Next.js, we need a different approach
     : `\nif (typeof window !== "undefined") {\n  setupLocatorUI();\n}\n`;
@@ -225,7 +225,7 @@ function addRuntimeImport(entryFile: string, isNextApp: boolean): void {
 // app/LocatorProvider.tsx
 "use client";
 import { useEffect } from "react";
-import setupLocatorUI from "@locator/runtime";
+import setupLocatorUI from "@treelocator/runtime";
 
 export function LocatorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -294,7 +294,7 @@ async function main() {
   }
 
   // Determine packages to install
-  const packages = ["@locator/runtime"];
+  const packages = ["@treelocator/runtime"];
   if (info.buildTool === "vite") {
     packages.push("@locator/babel-jsx");
   } else if (info.buildTool === "next") {

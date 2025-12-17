@@ -22,7 +22,7 @@ interface LoaderContext<T = Record<string, unknown>> {
 }
 
 /**
- * Webpack loader for @locator/babel-jsx plugin
+ * Webpack loader for @treelocator/babel-jsx plugin
  *
  * This loader applies the LocatorJS babel transformation to JSX/TSX files,
  * enabling component location tracking for projects using SWC or Turbopack
@@ -40,7 +40,7 @@ interface LoaderContext<T = Record<string, unknown>> {
  *       test: /\.(tsx|ts|jsx|js)$/,
  *       exclude: /node_modules/,
  *       use: [{
- *         loader: '@locator/webpack-loader',
+ *         loader: '@treelocator/webpack-loader',
  *         options: { env: 'development' }
  *       }]
  *     });
@@ -66,7 +66,7 @@ function locatorLoader(
 
   try {
     // Use babel to transform the source with the locator plugin
-    const locatorPlugin = require("@locator/babel-jsx");
+    const locatorPlugin = require("@treelocator/babel-jsx");
 
     const result = transformSync(source, {
       filename: filePath,
@@ -101,7 +101,7 @@ function locatorLoader(
   } catch (error) {
     // If transformation fails, return original source and log warning
     console.warn(
-      `[@locator/webpack-loader] Failed to transform ${filePath}:`,
+      `[@treelocator/webpack-loader] Failed to transform ${filePath}:`,
       error instanceof Error ? error.message : String(error)
     );
     callback(null, source);

@@ -1,6 +1,6 @@
 /* @refresh reload */
 import { render } from "solid-js/web";
-import setupLocatorUI from "@locator/runtime";
+import setupLocatorUI from "@treelocator/runtime";
 import "./index.css";
 import App from "./App";
 

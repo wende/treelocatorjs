@@ -1,5 +1,6 @@
 {
-  "name": "@locator/shared",
+  "name": "@treelocator/shared",
+  "private": true,
   "version": "0.1.0",
   "main": "./dist/index.js",
   "license": "MIT",
@@ -11,7 +12,7 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.26.2",
-    "@locator/dev-config": "workspace:^",
+    "@treelocator/dev-config": "workspace:^",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/semver": "^7.5.0",

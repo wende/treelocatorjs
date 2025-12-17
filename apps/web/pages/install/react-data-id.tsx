@@ -20,7 +20,7 @@ export const babelPluginMinimalConfig = `
 {
   "plugins": [
     [
-      "@locator/babel-jsx/dist",
+      "@treelocator/babel-jsx/dist",
       {
         "env": "development"
       }
@@ -48,7 +48,7 @@ export default function InstallReactDataId() {
             <Step title="Add Babel plugin" no={1}>
               You need a babel plugin to gather all the component{"'"}s
               locations in their files.
-              <InstallByAnything packageName="@locator/babel-jsx" />
+              <InstallByAnything packageName="@treelocator/babel-jsx" />
               <Tabs
                 queryId="stack"
                 items={[
@@ -57,7 +57,7 @@ export default function InstallReactDataId() {
                     content: (
                       <>
                         For Next.js:
-                        <InstallByAnything packageName="@locator/webpack-loader" />
+                        <InstallByAnything packageName="@treelocator/webpack-loader" />
                         <div className="mt-2 mb-1 font-semibold">
                           For Turbopack (Next.js 15+):
                         </div>
@@ -74,7 +74,7 @@ const nextConfig: NextConfig = {
     rules: {
       "**/*.{tsx,jsx}": {
         loaders: [{
-          loader: "@locator/webpack-loader",
+          loader: "@treelocator/webpack-loader",
           options: { env: "development" }
         }]
       }
@@ -100,7 +100,7 @@ export default nextConfig;`}
         test: /\\.(tsx|ts|jsx|js)$/,
         exclude: /node_modules/,
         use: [{
-          loader: '@locator/webpack-loader',
+          loader: '@treelocator/webpack-loader',
           options: { 
             env: 'development'
           }
@@ -128,7 +128,7 @@ export default nextConfig;`}
                           {`module.exports = {
   presets: ["next/babel"],
   plugins: [
-    ["@locator/babel-jsx/dist", {
+    ["@treelocator/babel-jsx/dist", {
       env: "development",
     }]
   ]
@@ -155,7 +155,7 @@ export default nextConfig;`}
                           {`module.exports = {
   babel: {
     plugins: [
-      ["@locator/babel-jsx/dist", {
+      ["@treelocator/babel-jsx/dist", {
         env: "development"
       }]
     ],
@@ -185,7 +185,7 @@ export default defineConfig({
         plugins: [
           // other Babel plugins
           [
-            "@locator/babel-jsx/dist",
+            "@treelocator/babel-jsx/dist",
             {
               env: "development",
             },
@@ -247,7 +247,7 @@ export default defineConfig({
             >
               Import and call setup function to show the components and handle
               the clickings.
-              <InstallByAnything packageName="@locator/runtime" />
+              <InstallByAnything packageName="@treelocator/runtime" />
               <InstallReactRuntime />
               <AlternativelyInstallExtension />
             </Step>

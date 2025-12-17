@@ -42,10 +42,10 @@ importers:
         specifier: ^18
         version: 18.2.0(react@18.2.0)
     devDependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
-      '@locator/webpack-loader':
+      '@treelocator/webpack-loader':
         specifier: workspace:^
         version: link:../../packages/webpack-loader
       '@types/node':
@@ -73,10 +73,10 @@ importers:
         specifier: 19.2.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
-      '@locator/webpack-loader':
+      '@treelocator/webpack-loader':
         specifier: workspace:^
         version: link:../../packages/webpack-loader
       '@types/node':
@@ -100,19 +100,19 @@ importers:
 
   apps/vite-preact-project:
     dependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
       preact:
         specifier: ^10.9.0
         version: 10.9.0
     devDependencies:
-      '@locator/babel-jsx':
-        specifier: workspace:^
-        version: link:../../packages/babel-jsx
       '@preact/preset-vite':
         specifier: ^2.3.0
         version: 2.3.0(@babel/core@7.28.5)(preact@10.9.0)(vite@3.0.7)
+      '@treelocator/babel-jsx':
+        specifier: workspace:^
+        version: link:../../packages/babel-jsx
       vite:
         specifier: ^3.0.7
         version: 3.0.7
@@ -141,7 +141,7 @@ importers:
 
   apps/vite-react-project:
     dependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
       react:
@@ -154,9 +154,6 @@ importers:
       '@babel/core':
         specifier: ^7.22.5
         version: 7.22.5
-      '@locator/babel-jsx':
-        specifier: workspace:^
-        version: link:../../packages/babel-jsx
       '@storybook/addon-actions':
         specifier: ^6.5.9
         version: 6.5.9(react-dom@18.2.0)(react@18.2.0)
@@ -178,6 +175,9 @@ importers:
       '@storybook/testing-library':
         specifier: ^0.0.13
         version: 0.0.13(react-dom@18.2.0)(react@18.2.0)
+      '@treelocator/babel-jsx':
+        specifier: workspace:^
+        version: link:../../packages/babel-jsx
       '@types/react':
         specifier: ^18.0.15
         version: 18.0.15
@@ -199,14 +199,14 @@ importers:
 
   apps/vite-solid-project:
     dependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
       solid-js:
         specifier: ^1.9.2
         version: 1.9.9
     devDependencies:
-      '@locator/babel-jsx':
+      '@treelocator/babel-jsx':
         specifier: workspace:^
         version: link:../../packages/babel-jsx
       vite:
@@ -230,12 +230,12 @@ importers:
 
   apps/vite-svelte-project:
     devDependencies:
-      '@locator/runtime':
-        specifier: workspace:^
-        version: link:../../packages/runtime
       '@sveltejs/vite-plugin-svelte':
         specifier: ^1.0.1
         version: 1.0.1(svelte@3.49.0)(vite@3.0.7)
+      '@treelocator/runtime':
+        specifier: workspace:^
+        version: link:../../packages/runtime
       svelte:
         specifier: ^3.49.0
         version: 3.49.0
@@ -249,7 +249,7 @@ importers:
         specifier: ^3.2.37
         version: 3.2.37
     devDependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
       '@vitejs/plugin-vue':
@@ -261,7 +261,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../../packages/runtime
       '@types/react-syntax-highlighter':
@@ -292,7 +292,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
     devDependencies:
-      '@locator/babel-jsx':
+      '@treelocator/babel-jsx':
         specifier: workspace:^
         version: link:../../packages/babel-jsx
       '@types/node':
@@ -316,10 +316,10 @@ importers:
 
   apps/wende-demo:
     dependencies:
-      '@locator/babel-jsx':
+      '@treelocator/babel-jsx':
         specifier: workspace:*
         version: link:../../packages/babel-jsx
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
       framer-motion:
@@ -377,14 +377,14 @@ importers:
       '@babel/types':
         specifier: ^7.26.0
         version: 7.28.5
-      '@locator/runtime':
+      '@treelocator/runtime':
         specifier: workspace:^
         version: link:../runtime
-      '@locator/shared':
+      '@treelocator/shared':
         specifier: workspace:^
         version: link:../shared
     devDependencies:
-      '@locator/dev-config':
+      '@treelocator/dev-config':
         specifier: workspace:^
         version: link:../dev-config
       '@types/babel__traverse':
@@ -452,10 +452,10 @@ importers:
         specifier: ^7.7.3
         version: 7.7.3
     devDependencies:
-      '@locator/dev-config':
+      '@treelocator/dev-config':
         specifier: workspace:^
         version: link:../dev-config
-      '@locator/shared':
+      '@treelocator/shared':
         specifier: workspace:^
         version: link:../shared
       '@types/node':
@@ -474,8 +474,8 @@ importers:
         specifier: ^1.6.12
         version: 1.7.4
       '@locator/shared':
-        specifier: workspace:^
-        version: link:../shared
+        specifier: ^0.5.0
+        version: 0.5.0
       solid-js:
         specifier: ^1.9.2
         version: 1.9.9
@@ -489,7 +489,7 @@ importers:
       '@babel/core':
         specifier: ^7.26.0
         version: 7.28.5
-      '@locator/dev-config':
+      '@treelocator/dev-config':
         specifier: workspace:^
         version: link:../dev-config
       '@types/jsdom':
@@ -532,7 +532,7 @@ importers:
       '@babel/parser':
         specifier: ^7.26.2
         version: 7.28.5
-      '@locator/dev-config':
+      '@treelocator/dev-config':
         specifier: workspace:^
         version: link:../dev-config
       '@types/react':
@@ -565,12 +565,12 @@ importers:
       '@babel/preset-typescript':
         specifier: ^7.26.0
         version: 7.28.5(@babel/core@7.28.5)
-      '@locator/babel-jsx':
-        specifier: workspace:^
+      '@treelocator/babel-jsx':
+        specifier: ^0.1.0
         version: link:../babel-jsx
     devDependencies:
-      '@locator/dev-config':
-        specifier: workspace:^
+      '@treelocator/dev-config':
+        specifier: ^0.1.0
         version: link:../dev-config
       '@types/babel__core':
         specifier: ^7.20.5
@@ -5124,6 +5124,12 @@ packages:
       - encoding
       - supports-color
     dev: true
+
+  /@locator/shared@0.5.0:
+    resolution: {integrity: sha512-NS46z7y1et5YFrD4S6VIWs5uSEkvEL0TaCDuZfUBUyK/1oFQMvwYI5K6+FyqDaYbkaE+fuInOOJ3vWzQtkX/ig==}
+    dependencies:
+      semver: 7.7.3
+    dev: false
 
   /@mdx-js/mdx@1.6.22:
     resolution: {integrity: sha512-AMxuLxPz2j5/6TpF/XSdKpQP1NlG0z11dFOlq+2IP/lSgl11GY8ji6S/rgsViN/L0BDvHvUMruRb7ub+24LUYA==}

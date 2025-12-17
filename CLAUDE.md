@@ -35,18 +35,18 @@ pnpm test       # Run tests
 
 ### End-User Setup (CLI Wizard)
 
-The `@locator/init` package provides an automated setup wizard for TreeLocatorJS:
+The `@treelocator/init` package provides an automated setup wizard for TreeLocatorJS:
 
 ```bash
-npx treelocatorjs init  # or npx @locator/init
+npx treelocatorjs init  # or npx @treelocator/init
 ```
 
 **What it does:**
 1. Auto-detects project configuration (package manager, build tool, framework)
-2. Installs required packages (`@locator/runtime`, babel/webpack plugins)
+2. Installs required packages (`@treelocator/runtime`, babel/webpack plugins)
 3. Configures build tools:
-   - **Vite**: Adds `@locator/babel-jsx` plugin to `vite.config.js/ts`
-   - **Next.js**: Adds `@locator/webpack-loader` to `next.config.js/ts`
+   - **Vite**: Adds `@treelocator/babel-jsx` plugin to `vite.config.js/ts`
+   - **Next.js**: Adds `@treelocator/webpack-loader` to `next.config.js/ts`
 4. Injects runtime import into entry file (`src/main.tsx`, `src/index.tsx`, etc.)
 
 **Supported:**
@@ -62,15 +62,17 @@ Requires: Node.js >=22.0.0, pnpm 8.7.5
 
 ### Packages
 
+**TreeLocatorJS publishes:**
 | Package | Description |
 |---------|-------------|
-| `@locator/runtime` | Core runtime - Alt+click handler, overlay UI (SolidJS), ancestry tree builder |
-| `@locator/shared` | Shared types (React Fiber, messages) and utilities |
-| `@locator/babel-jsx` | Babel plugin for JSX source location tracking |
-| `@locator/webpack-loader` | Webpack loader integration |
-| `@locator/react-devtools-hook` | React DevTools integration hook |
-| `@locator/dev-config` | Shared ESLint and TypeScript configs |
-| `@locator/init` | CLI setup wizard - auto-configures TreeLocatorJS in existing projects |
+| `@treelocator/runtime` | Core runtime - Alt+click handler, overlay UI (SolidJS), ancestry tree builder |
+| `@treelocator/init` | CLI setup wizard - auto-configures TreeLocatorJS in existing projects |
+
+**Uses from original LocatorJS:**
+- `@locator/shared` - Shared types (React Fiber, messages) and utilities
+- `@locator/babel-jsx` - Babel plugin for JSX source location tracking
+- `@locator/webpack-loader` - Webpack loader integration
+- `@locator/react-devtools-hook` - React DevTools integration hook
 
 ### Demo Apps (`apps/`)
 
@@ -87,9 +89,12 @@ See [CLAUDE-DEMO-APP.md](./CLAUDE-DEMO-APP.md) for how to set up new demo apps.
 - **Tree icon asset**: `packages/runtime/src/assets/tree-icon.png` + `scripts/wrapImage.js`
 - **Framework adapters**: `packages/runtime/src/adapters/` (react/, vue/, svelte/, jsx/)
 - **Ancestry formatting**: `packages/runtime/src/functions/formatAncestryChain.ts`
-- **Shared types**: `packages/shared/src/types.ts` (Fiber types, messages)
-- **Babel plugin**: `packages/babel-jsx/src/`
 - **CLI setup wizard**: `packages/init/src/index.ts`
+
+**From @locator packages:**
+- Shared types: `@locator/shared` types.ts (Fiber types, messages)
+- Babel plugin: `@locator/babel-jsx`
+- Webpack loader: `@locator/webpack-loader`
 
 ## Technical Notes
 

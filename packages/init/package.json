@@ -1,11 +1,11 @@
 {
-  "name": "@locator/init",
+  "name": "@treelocator/init",
   "version": "0.1.0",
   "description": "Setup wizard for TreeLocatorJS - auto-configure component ancestry tracking",
   "bin": {
     "treelocatorjs": "./dist/index.js",
     "locatorjs": "./dist/index.js",
-    "@locator/init": "./dist/index.js"
+    "@treelocator/init": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "type": "module",
@@ -17,8 +17,8 @@
     "dev": "tsup src/index.ts --format esm --watch"
   },
   "dependencies": {
-    "prompts": "^2.4.2",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -44,5 +44,6 @@
     "cli",
     "component-ancestry"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "gitHead": "fa84321e5f68f25cfc8a619c8cf5a19baa272c05"
 }

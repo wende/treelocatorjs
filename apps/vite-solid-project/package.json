@@ -11,10 +11,10 @@
   "devDependencies": {
     "vite": "^3.0.7",
     "vite-plugin-solid": "^2.3.0",
-    "@locator/babel-jsx": "workspace:^"
+    "@treelocator/babel-jsx": "workspace:^"
   },
   "dependencies": {
     "solid-js": "^1.9.2",
-    "@locator/runtime": "workspace:^"
+    "@treelocator/runtime": "workspace:^"
   }
 }

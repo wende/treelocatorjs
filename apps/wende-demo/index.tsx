@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { setup } from '@locator/runtime';
+import { setup } from '@treelocator/runtime';
 import App from './App';
 
 setup();

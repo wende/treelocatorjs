@@ -83,7 +83,7 @@ export default function InstallReact() {
             >
               If you would like to install Locator to your project, so all team
               members can use it. You can install it as a library.
-              <InstallByAnything packageName="@locator/runtime" />
+              <InstallByAnything packageName="@treelocator/runtime" />
               <InstallReactRuntime />
               <Expandable title="storybook">
                 <>
@@ -98,7 +98,7 @@ export default function InstallReact() {
             <Step title="Next.js 15+ with Turbopack/SWC" no={3}>
               For Next.js 15+ using Turbopack or SWC (where babel plugins don
               {"'"}t work), use the webpack/turbopack loader:
-              <InstallByAnything packageName="@locator/webpack-loader" />
+              <InstallByAnything packageName="@treelocator/webpack-loader" />
               <div className="mt-2 mb-1 font-semibold">
                 For Turbopack (Next.js 15+):
               </div>
@@ -111,7 +111,7 @@ const nextConfig: NextConfig = {
     rules: {
       "**/*.{tsx,jsx}": {
         loaders: [{
-          loader: "@locator/webpack-loader",
+          loader: "@treelocator/webpack-loader",
           options: { env: "development" }
         }]
       }
@@ -131,7 +131,7 @@ export default nextConfig;`}
         test: /\\.(tsx|ts|jsx|js)$/,
         exclude: /node_modules/,
         use: [{
-          loader: '@locator/webpack-loader',
+          loader: '@treelocator/webpack-loader',
           options: { 
             env: 'development'
           }

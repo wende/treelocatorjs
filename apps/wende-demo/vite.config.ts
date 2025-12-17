@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
             ],
             plugins: isDev ? [
               '@babel/plugin-transform-react-jsx-source',
-              ['@locator/babel-jsx/dist', { env: 'development' }],
+              ['@treelocator/babel-jsx/dist', { env: 'development' }],
             ] : [],
           },
         }),

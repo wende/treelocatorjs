@@ -7,7 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@locator/runtime": "workspace:^",
+    "@treelocator/runtime": "workspace:^",
     "@types/react-syntax-highlighter": "^15.5.7",
     "bowser": "^2.11.0",
     "next": "^15",
@@ -19,7 +19,7 @@
     "typescript": "^5.6.3"
   },
   "devDependencies": {
-    "@locator/babel-jsx": "workspace:^",
+    "@treelocator/babel-jsx": "workspace:^",
     "@types/node": "^22",
     "@types/react": "^18.2.79",
     "@types/react-dom": "^18.2.25",

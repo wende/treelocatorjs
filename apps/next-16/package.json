@@ -13,8 +13,8 @@
     "next": "16.0.0"
   },
   "devDependencies": {
-    "@locator/runtime": "workspace:^",
-    "@locator/webpack-loader": "workspace:^",
+    "@treelocator/runtime": "workspace:^",
+    "@treelocator/webpack-loader": "workspace:^",
     "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^19",

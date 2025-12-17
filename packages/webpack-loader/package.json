@@ -1,5 +1,6 @@
 {
-  "name": "@locator/webpack-loader",
+  "name": "@treelocator/webpack-loader",
+  "private": true,
   "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,10 +16,10 @@
     "@babel/plugin-syntax-jsx": "^7.25.9",
     "@babel/plugin-syntax-typescript": "^7.25.9",
     "@babel/preset-typescript": "^7.26.0",
-    "@locator/babel-jsx": "workspace:^"
+    "@treelocator/babel-jsx": "^0.1.0"
   },
   "devDependencies": {
-    "@locator/dev-config": "workspace:^",
+    "@treelocator/dev-config": "^0.1.0",
     "@types/babel__core": "^7.20.5",
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3",
@@ -33,5 +34,6 @@
     "url": "https://github.com/wende/treelocatorjs",
     "directory": "packages/webpack-loader"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "gitHead": "fa84321e5f68f25cfc8a619c8cf5a19baa272c05"
 }

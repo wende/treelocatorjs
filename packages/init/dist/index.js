@@ -161,11 +161,11 @@ function updateNextConfig(configFile) {
 }
 function addRuntimeImport(entryFile, isNextApp) {
   let content = fs.readFileSync(entryFile, "utf-8");
-  if (content.includes("@locator/runtime")) {
+  if (content.includes("@treelocator/runtime")) {
     console.log(pc.yellow("TreeLocatorJS runtime already imported"));
     return;
   }
-  const importLine = `import setupLocatorUI from "@locator/runtime";
+  const importLine = `import setupLocatorUI from "@treelocator/runtime";
 `;
   const setupCall = isNextApp ? "" : `
 if (typeof window !== "undefined") {
@@ -178,7 +178,7 @@ if (typeof window !== "undefined") {
 // app/LocatorProvider.tsx
 "use client";
 import { useEffect } from "react";
-import setupLocatorUI from "@locator/runtime";
+import setupLocatorUI from "@treelocator/runtime";
 
 export function LocatorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -233,7 +233,7 @@ async function main() {
     console.log(pc.dim("Cancelled."));
     process.exit(0);
   }
-  const packages = ["@locator/runtime"];
+  const packages = ["@treelocator/runtime"];
   if (info.buildTool === "vite") {
     packages.push("@locator/babel-jsx");
   } else if (info.buildTool === "next") {

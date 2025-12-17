@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
       "**/*.{tsx,jsx}": {
         loaders: [
           {
-            loader: "@locator/webpack-loader",
+            loader: "@treelocator/webpack-loader",
             options: {
               env: "development",
             },

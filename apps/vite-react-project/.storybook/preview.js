@@ -1,4 +1,4 @@
-import setupLocatorUI from "@locator/runtime";
+import setupLocatorUI from "@treelocator/runtime";
 
 if (process.env.NODE_ENV === "development") {
   setupLocatorUI();

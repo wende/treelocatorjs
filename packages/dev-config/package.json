@@ -1,5 +1,6 @@
 {
-  "name": "@locator/dev-config",
+  "name": "@treelocator/dev-config",
+  "private": true,
   "version": "0.1.0",
   "main": "index.js",
   "license": "MIT",
