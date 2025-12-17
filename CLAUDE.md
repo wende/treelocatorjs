@@ -20,7 +20,7 @@ const path = window.__treelocator__.getPath('button.submit');
 const ancestry = window.__treelocator__.getAncestry(element);
 ```
 
-See [BROWSER-API.md](./BROWSER-API.md) for full API reference and examples.
+See [BROWSER-API.md](./docs/BROWSER-API.md) for full API reference and examples.
 
 ## Quick Start
 
@@ -84,7 +84,7 @@ Requires: Node.js >=22.0.0, pnpm 8.7.5
 
 Test apps for different frameworks: `next-14`, `next-16`, `vite-react-*`, `vite-preact-*`, `vite-svelte-*`, `vite-vue-*`, `vite-solid-*`. E2E tests in `playwright/`.
 
-See [CLAUDE-DEMO-APP.md](./CLAUDE-DEMO-APP.md) for how to set up new demo apps.
+See [CLAUDE-DEMO-APP.md](./docs/CLAUDE-DEMO-APP.md) for how to set up new demo apps.
 
 ## Key Code Locations
 

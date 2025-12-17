@@ -115,7 +115,7 @@ const element = document.querySelector('.my-component');
 const ancestry = window.__treelocator__.getAncestry(element);
 ```
 
-Perfect for E2E tests with Playwright, Puppeteer, Selenium, or Cypress. See [BROWSER-API.md](./BROWSER-API.md) for complete API documentation.
+Perfect for E2E tests with Playwright, Puppeteer, Selenium, or Cypress. See [BROWSER-API.md](./docs/BROWSER-API.md) for complete API documentation.
 
 ### 🎨 Framework Support
 
