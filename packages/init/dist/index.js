@@ -92,7 +92,7 @@ function getInstallCommand(pm, packages) {
 function updateViteConfig(configFile, framework) {
   let content = fs.readFileSync(configFile, "utf-8");
   if (content.includes("@locator/babel-jsx")) {
-    console.log(pc.yellow("LocatorJS babel plugin already configured in vite.config"));
+    console.log(pc.yellow("TreeLocatorJS babel plugin already configured in vite.config"));
     return;
   }
   if (framework === "react") {
@@ -127,7 +127,7 @@ function updateViteConfig(configFile, framework) {
 function updateNextConfig(configFile) {
   let content = fs.readFileSync(configFile, "utf-8");
   if (content.includes("@locator/webpack-loader")) {
-    console.log(pc.yellow("LocatorJS webpack loader already configured in next.config"));
+    console.log(pc.yellow("TreeLocatorJS webpack loader already configured in next.config"));
     return;
   }
   const webpackConfig = `
@@ -162,7 +162,7 @@ function updateNextConfig(configFile) {
 function addRuntimeImport(entryFile, isNextApp) {
   let content = fs.readFileSync(entryFile, "utf-8");
   if (content.includes("@locator/runtime")) {
-    console.log(pc.yellow("LocatorJS runtime already imported"));
+    console.log(pc.yellow("TreeLocatorJS runtime already imported"));
     return;
   }
   const importLine = `import setupLocatorUI from "@locator/runtime";
@@ -206,7 +206,7 @@ export function LocatorProvider({ children }: { children: React.ReactNode }) {
   console.log(pc.green(`Updated ${entryFile}`));
 }
 async function main() {
-  console.log(pc.bold(pc.cyan("\n  LocatorJS Setup Wizard\n")));
+  console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
   const info = detectProject();
   console.log(pc.dim("Detected:"));
   console.log(pc.dim(`  Package manager: ${info.packageManager}`));
@@ -216,7 +216,7 @@ async function main() {
   console.log();
   if (info.buildTool === "unknown") {
     console.log(pc.red("Could not detect build tool (Vite or Next.js)."));
-    console.log(pc.dim("LocatorJS currently supports Vite and Next.js projects."));
+    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
     process.exit(1);
   }
   if (info.framework === "unknown") {
@@ -226,7 +226,7 @@ async function main() {
   const { confirm } = await prompts({
     type: "confirm",
     name: "confirm",
-    message: "Install and configure LocatorJS?",
+    message: "Install and configure TreeLocatorJS?",
     initial: true
   });
   if (!confirm) {
@@ -263,7 +263,7 @@ Updating ${info.entryFile}...`));
     const isNextApp = info.entryFile.startsWith("app/");
     addRuntimeImport(info.entryFile, isNextApp);
   }
-  console.log(pc.bold(pc.green("\nLocatorJS installed successfully!")));
+  console.log(pc.bold(pc.green("\nTreeLocatorJS installed successfully!")));
   console.log(pc.dim("\nUsage: Hold Alt and click any component to copy its ancestry.\n"));
 }
 main().catch(console.error);
