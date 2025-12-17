@@ -19,7 +19,7 @@ export function initRuntime({
     return;
   }
 
-  // Install browser API on window.__locatorjs__
+  // Install browser API on window.__treelocator__
   installBrowserAPI(adapter);
 
   // add style tag to head

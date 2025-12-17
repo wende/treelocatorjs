@@ -1,6 +1,6 @@
-# LocatorJS Browser API
+# TreeLocatorJS Browser API
 
-LocatorJS exposes a global API (`window.__locatorjs__`) that allows browser automation tools to programmatically access component ancestry information for any element on the page.
+TreeLocatorJS exposes a global API (`window.__treelocator__`) that allows browser automation tools to programmatically access component ancestry information for any element on the page.
 
 ## API Reference
 
@@ -58,21 +58,21 @@ Returns both formatted path and raw ancestry data in a single call.
 ```javascript
 // Get path for a specific element
 const path = await page.evaluate(() => {
-  return window.__locatorjs__.getPath('button.submit');
+  return window.__treelocator__.getPath('button.submit');
 });
 console.log(path);
 
 // Get ancestry data
 const ancestry = await page.evaluate(() => {
   const element = document.querySelector('button.submit');
-  return window.__locatorjs__.getAncestry(element);
+  return window.__treelocator__.getAncestry(element);
 });
 console.log(ancestry);
 
 // Use in a test helper
 async function getComponentPath(page, selector) {
   return await page.evaluate((sel) => {
-    return window.__locatorjs__.getPath(sel);
+    return window.__treelocator__.getPath(sel);
   }, selector);
 }
 
@@ -93,13 +93,13 @@ await page.goto('http://localhost:3000');
 
 // Get component path
 const path = await page.evaluate(() => {
-  return window.__locatorjs__.getPath('.my-button');
+  return window.__treelocator__.getPath('.my-button');
 });
 console.log(path);
 
 // Get full data
 const data = await page.evaluate(() => {
-  return window.__locatorjs__.getPathData('.my-button');
+  return window.__treelocator__.getPathData('.my-button');
 });
 console.log('Path:', data.path);
 console.log('Ancestry:', data.ancestry);
@@ -115,13 +115,13 @@ await driver.get('http://localhost:3000');
 
 // Get component path
 const path = await driver.executeScript(() => {
-  return window.__locatorjs__.getPath('button.submit');
+  return window.__treelocator__.getPath('button.submit');
 });
 console.log(path);
 
 // Get ancestry array
 const ancestry = await driver.executeScript(() => {
-  return window.__locatorjs__.getAncestry('button.submit');
+  return window.__treelocator__.getAncestry('button.submit');
 });
 console.log(ancestry);
 ```
@@ -133,7 +133,7 @@ console.log(ancestry);
 cy.visit('http://localhost:3000');
 
 cy.window().then((win) => {
-  const path = win.__locatorjs__.getPath('button.submit');
+  const path = win.__treelocator__.getPath('button.submit');
   cy.log(path);
   expect(path).to.include('SubmitButton');
 });
@@ -141,7 +141,7 @@ cy.window().then((win) => {
 // Or as a custom command
 Cypress.Commands.add('getComponentPath', (selector) => {
   return cy.window().then((win) => {
-    return win.__locatorjs__.getPath(selector);
+    return win.__treelocator__.getPath(selector);
   });
 });
 
@@ -165,7 +165,7 @@ test('should display error message', async ({ page }) => {
     // Log the actual component tree for debugging
     const path = await page.evaluate(() => {
       const body = document.querySelector('body');
-      return window.__locatorjs__.getPath(body);
+      return window.__treelocator__.getPath(body);
     });
     console.log('Current component tree:', path);
   }
@@ -181,7 +181,7 @@ Assert that elements are rendered within specific components:
 ```javascript
 async function assertComponentAncestry(page, selector, expectedComponents) {
   const ancestry = await page.evaluate((sel) => {
-    return window.__locatorjs__.getAncestry(sel);
+    return window.__treelocator__.getAncestry(sel);
   }, selector);
 
   const componentNames = ancestry
@@ -219,7 +219,7 @@ test('should match screenshot', async ({ page }) => {
   } catch (error) {
     // Add component context to the error
     const path = await page.evaluate((sel) => {
-      return window.__locatorjs__.getPath(sel);
+      return window.__treelocator__.getPath(sel);
     }, '.widget');
 
     console.error('Visual regression failed for:', path);
@@ -230,7 +230,7 @@ test('should match screenshot', async ({ page }) => {
 
 ## Notes
 
-- The API is automatically available when LocatorJS runtime is initialized
-- Works with all frameworks supported by LocatorJS (React, Vue, Svelte, Preact, etc.)
+- The API is automatically available when TreeLocatorJS runtime is initialized
+- Works with all frameworks supported by TreeLocatorJS (React, Vue, Svelte, Preact, etc.)
 - Returns `null` if the element is not found or the framework adapter doesn't support it
 - The API uses the same underlying logic as the Alt+click feature

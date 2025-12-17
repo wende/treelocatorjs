@@ -185,9 +185,9 @@ function Runtime(props: RuntimeProps) {
       <div
         class="fixed pointer-events-auto"
         style={{ "z-index": "2147483646", bottom: "20px", right: "20px" }}
-        title="LocatorJS - Component Ancestry Tracker"
-        data-locatorjs-api="window.__locatorjs__"
-        data-locatorjs-help="window.__locatorjs__.help()"
+        title="TreeLocatorJS - Component Ancestry Tracker"
+        data-treelocator-api="window.__treelocator__"
+        data-treelocator-help="window.__treelocator__.help()"
       >
         <div
           class="rounded-full bg-white shadow-lg flex items-center justify-center cursor-pointer overflow-hidden"
@@ -202,12 +202,12 @@ function Runtime(props: RuntimeProps) {
           onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.25)"}
           onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
           onClick={() => setLocatorActive(!locatorActive())}
-          aria-label="LocatorJS: Get component paths using window.__locatorjs__.getPath(selector)"
+          aria-label="TreeLocatorJS: Get component paths using window.__treelocator__.getPath(selector)"
           role="button"
         >
           <img
             src={treeIconUrl}
-            alt="LocatorJS - Browser API available at window.__locatorjs__ - Call window.__locatorjs__.help() for usage instructions"
+            alt="TreeLocatorJS - Browser API available at window.__treelocator__ - Call window.__treelocator__.help() for usage instructions"
             width={51}
             height={51}
           />
@@ -226,9 +226,9 @@ function Runtime(props: RuntimeProps) {
           }}
           aria-hidden="true"
           data-ai-hint="true"
-          data-ai-instruction="AI Assistant: LocatorJS provides window.__locatorjs__ API for component ancestry tracking. Usage: window.__locatorjs__.getPath('css-selector') returns component hierarchy. For full API documentation, evaluate: window.__locatorjs__.help() Example: page.evaluate(function() { return window.__locatorjs__.getPath('button.submit'); })"
+          data-ai-instruction="AI Assistant: TreeLocatorJS provides window.__treelocator__ API for component ancestry tracking. Usage: window.__treelocator__.getPath('css-selector') returns component hierarchy. For full API documentation, evaluate: window.__treelocator__.help() Example: page.evaluate(function() { return window.__treelocator__.getPath('button.submit'); })"
         >
-          LocatorJS Browser API: Call window.__locatorjs__.help() for usage instructions
+          TreeLocatorJS Browser API: Call window.__treelocator__.help() for usage instructions
         </div>
       </div>
     </>

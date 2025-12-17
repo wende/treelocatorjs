@@ -16,7 +16,7 @@ export interface LocatorJSAPI {
    *
    * @example
    * // Basic usage with CSS selector
-   * window.__locatorjs__.getPath('button.submit');
+   * window.__treelocator__.getPath('button.submit');
    * // Returns:
    * // "div in App at src/App.tsx:15
    * //  └─ button in SubmitButton at src/components/SubmitButton.tsx:12"
@@ -24,12 +24,12 @@ export interface LocatorJSAPI {
    * @example
    * // Usage with HTMLElement
    * const button = document.querySelector('button.submit');
-   * window.__locatorjs__.getPath(button);
+   * window.__treelocator__.getPath(button);
    *
    * @example
    * // In Playwright
    * const path = await page.evaluate(() => {
-   *   return window.__locatorjs__.getPath('button.submit');
+   *   return window.__treelocator__.getPath('button.submit');
    * });
    * console.log(path);
    */
@@ -48,7 +48,7 @@ export interface LocatorJSAPI {
    *
    * @example
    * // Get structured ancestry data
-   * const ancestry = window.__locatorjs__.getAncestry('button.submit');
+   * const ancestry = window.__treelocator__.getAncestry('button.submit');
    * // Returns: [
    * //   { elementName: 'div', componentName: 'App', filePath: 'src/App.tsx', line: 15 },
    * //   { elementName: 'button', componentName: 'SubmitButton', filePath: 'src/components/SubmitButton.tsx', line: 12 }
@@ -57,7 +57,7 @@ export interface LocatorJSAPI {
    * @example
    * // In Playwright - extract just component names
    * const components = await page.evaluate(() => {
-   *   const ancestry = window.__locatorjs__.getAncestry('.my-element');
+   *   const ancestry = window.__treelocator__.getAncestry('.my-element');
    *   return ancestry?.map(item => item.componentName).filter(Boolean);
    * });
    */
@@ -72,14 +72,14 @@ export interface LocatorJSAPI {
    *
    * @example
    * // Get both formats at once
-   * const data = window.__locatorjs__.getPathData('button.submit');
+   * const data = window.__treelocator__.getPathData('button.submit');
    * console.log(data.path);      // Human-readable string
    * console.log(data.ancestry);  // Structured array
    *
    * @example
    * // In Playwright - useful for comprehensive debugging
    * const data = await page.evaluate(() => {
-   *   return window.__locatorjs__.getPathData('.error-message');
+   *   return window.__treelocator__.getPathData('.error-message');
    * });
    * if (data) {
    *   console.log('Component tree:', data.path);
@@ -98,11 +98,11 @@ export interface LocatorJSAPI {
    *
    * @example
    * // View help in browser console
-   * console.log(window.__locatorjs__.help());
+   * console.log(window.__treelocator__.help());
    *
    * @example
    * // In Playwright - view help
-   * const help = await page.evaluate(() => window.__locatorjs__.help());
+   * const help = await page.evaluate(() => window.__treelocator__.help());
    * console.log(help);
    */
   help(): string;
@@ -130,7 +130,7 @@ function getAncestryForElement(element: HTMLElement): AncestryItem[] | null {
 
 const HELP_TEXT = `
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║                          LocatorJS Browser API                            ║
+║                        TreeLocatorJS Browser API                          ║
 ║                  Programmatic Component Ancestry Access                   ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 
@@ -141,8 +141,8 @@ METHODS:
    Returns a formatted string showing the component hierarchy.
 
    Usage:
-     window.__locatorjs__.getPath('button.submit')
-     window.__locatorjs__.getPath(document.querySelector('.my-button'))
+     window.__treelocator__.getPath('button.submit')
+     window.__treelocator__.getPath(document.querySelector('.my-button'))
 
    Returns:
      "div in App at src/App.tsx:15
@@ -152,7 +152,7 @@ METHODS:
    Returns raw ancestry data as an array of objects.
 
    Usage:
-     window.__locatorjs__.getAncestry('button.submit')
+     window.__treelocator__.getAncestry('button.submit')
 
    Returns:
      [
@@ -166,7 +166,7 @@ METHODS:
    Returns both formatted path and raw ancestry in one call.
 
    Usage:
-     const data = window.__locatorjs__.getPathData('button.submit')
+     const data = window.__treelocator__.getPathData('button.submit')
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
@@ -178,20 +178,20 @@ PLAYWRIGHT EXAMPLES:
 
 // Get component path for debugging
 const path = await page.evaluate(() => {
-  return window.__locatorjs__.getPath('button.submit');
+  return window.__treelocator__.getPath('button.submit');
 });
 console.log(path);
 
 // Extract component names
 const components = await page.evaluate(() => {
-  const ancestry = window.__locatorjs__.getAncestry('.error-message');
+  const ancestry = window.__treelocator__.getAncestry('.error-message');
   return ancestry?.map(item => item.componentName).filter(Boolean);
 });
 
 // Create a test helper
 async function getComponentPath(page, selector) {
   return await page.evaluate((sel) => {
-    return window.__locatorjs__.getPath(sel);
+    return window.__treelocator__.getPath(sel);
   }, selector);
 }
 
@@ -199,14 +199,14 @@ PUPPETEER EXAMPLES:
 ------------------
 
 const path = await page.evaluate(() => {
-  return window.__locatorjs__.getPath('.my-button');
+  return window.__treelocator__.getPath('.my-button');
 });
 
 SELENIUM EXAMPLES:
 -----------------
 
 const path = await driver.executeScript(() => {
-  return window.__locatorjs__.getPath('button.submit');
+  return window.__treelocator__.getPath('button.submit');
 });
 
 CYPRESS EXAMPLES:
@@ -222,9 +222,9 @@ NOTES:
 • Accepts CSS selectors or HTMLElement objects
 • Returns null if element not found or framework not supported
 • Works with React, Vue, Svelte, Preact, and any JSX framework
-• Automatically installed when LocatorJS runtime initializes
+• Automatically installed when TreeLocatorJS runtime initializes
 
-Documentation: https://github.com/infi-pc/locatorjs
+Documentation: https://github.com/wende/treelocatorjs
 `;
 
 export function createBrowserAPI(
@@ -283,6 +283,6 @@ export function createBrowserAPI(
 
 export function installBrowserAPI(adapterIdParam?: AdapterId): void {
   if (typeof window !== "undefined") {
-    (window as any).__locatorjs__ = createBrowserAPI(adapterIdParam);
+    (window as any).__treelocator__ = createBrowserAPI(adapterIdParam);
   }
 }

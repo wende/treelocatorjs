@@ -10,14 +10,14 @@ Two ways to activate the locator:
 
 ### Browser API (Programmatic Access)
 
-LocatorJS exposes `window.__locatorjs__` for browser automation tools (Playwright, Puppeteer, Selenium, Cypress):
+TreeLocatorJS exposes `window.__treelocator__` for browser automation tools (Playwright, Puppeteer, Selenium, Cypress):
 
 ```js
 // Get formatted ancestry path
-const path = window.__locatorjs__.getPath('button.submit');
+const path = window.__treelocator__.getPath('button.submit');
 
 // Get raw ancestry data
-const ancestry = window.__locatorjs__.getAncestry(element);
+const ancestry = window.__treelocator__.getAncestry(element);
 ```
 
 See [BROWSER-API.md](./BROWSER-API.md) for full API reference and examples.
@@ -89,7 +89,7 @@ See [CLAUDE-DEMO-APP.md](./CLAUDE-DEMO-APP.md) for how to set up new demo apps.
 ## Key Code Locations
 
 - **Runtime entry**: `packages/runtime/src/index.ts` → `initRuntime.ts`
-- **Browser API**: `packages/runtime/src/browserApi.ts` (window.__locatorjs__ for automation tools)
+- **Browser API**: `packages/runtime/src/browserApi.ts` (window.__treelocator__ for automation tools)
 - **Overlay UI**: `packages/runtime/src/components/Runtime.tsx` (SolidJS)
 - **Tree icon toggle**: `packages/runtime/src/components/Runtime.tsx` (lines 25, 67-98, 170-201)
 - **Tree icon asset**: `packages/runtime/src/assets/tree-icon.png` + `scripts/wrapImage.js`

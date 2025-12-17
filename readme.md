@@ -105,13 +105,13 @@ TreeLocatorJS exposes a programmatic API for testing frameworks:
 
 ```javascript
 // Get formatted ancestry path for any selector
-const path = window.__locatorjs__.getPath('button.submit');
+const path = window.__treelocator__.getPath('button.submit');
 console.log(path);
 // Output: "button in LoginForm at src/components/LoginForm.tsx:23"
 
 // Get raw ancestry data
 const element = document.querySelector('.my-component');
-const ancestry = window.__locatorjs__.getAncestry(element);
+const ancestry = window.__treelocator__.getAncestry(element);
 ```
 
 Perfect for E2E tests with Playwright, Puppeteer, Selenium, or Cypress. See [BROWSER-API.md](./BROWSER-API.md) for complete API documentation.
@@ -162,7 +162,7 @@ Write more maintainable E2E tests:
 ```javascript
 // In your Playwright test
 const path = await page.evaluate(() => {
-  return window.__locatorjs__.getPath('button.submit');
+  return window.__treelocator__.getPath('button.submit');
 });
 ```
 
@@ -260,7 +260,7 @@ Reuses the following packages from the original LocatorJS:
 - **@locator/babel-jsx** - Babel plugin for JSX tracking
 - **@locator/webpack-loader** - Webpack integration
 
-Current version: **0.1.1**
+Current version: **0.1.2**
 
 To publish a new version:
 ```bash
