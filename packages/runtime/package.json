@@ -21,6 +21,9 @@
     "e2e"
   ],
   "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "test:dev": "vitest watch",
@@ -68,5 +71,5 @@
     "directory": "packages/runtime"
   },
   "license": "MIT",
-  "gitHead": "53bca74332ce143e672983b2b0667eee5dd0730f"
+  "gitHead": "b09f87fc3414dc3839084c2c29e6eac7c322d53e"
 }

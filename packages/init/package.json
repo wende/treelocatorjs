@@ -9,6 +9,9 @@
   },
   "main": "./dist/index.js",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
@@ -45,5 +48,5 @@
     "component-ancestry"
   ],
   "license": "MIT",
-  "gitHead": "53bca74332ce143e672983b2b0667eee5dd0730f"
+  "gitHead": "b09f87fc3414dc3839084c2c29e6eac7c322d53e"
 }
