@@ -24,8 +24,8 @@ Perfect for debugging, documentation, code navigation, and understanding complex
 ```
 div in App at src/App.tsx:5
     └─ main in Layout at src/components/Layout.tsx:12
-        └─ section in Content at src/components/Content.tsx:8
-            └─ button in Button at src/components/Button.tsx:15
+        └─ section:nth-child(2) in Content at src/components/Content.tsx:8
+            └─ button#submit-btn in Button at src/components/Button.tsx:15
 ```
 
 ## Why TreeLocatorJS?
@@ -92,9 +92,14 @@ setup({
 Hold Alt and click any element to instantly copy its ancestry tree. The format is clean and readable:
 
 ```
-ComponentName in ParentName at src/path/to/Component.tsx:42
-    └─ ChildComponentName in ComponentName at src/path/to/Child.tsx:15
+div in ParentName at src/path/to/Component.tsx:42
+    └─ ul:nth-child(2) in ListContainer at src/path/to/List.tsx:8
+        └─ li:nth-child(3)#item-active in ListItem at src/path/to/Child.tsx:15
 ```
+
+The output includes:
+- **`:nth-child(n)`** - Position among siblings of the same type (only when ambiguous)
+- **`#id`** - Element ID when present (useful for unique identification)
 
 ### 🌳 Tree Icon Toggle
 
@@ -108,7 +113,7 @@ TreeLocatorJS exposes a programmatic API for testing frameworks:
 // Get formatted ancestry path for any selector
 const path = window.__treelocator__.getPath('button.submit');
 console.log(path);
-// Output: "button in LoginForm at src/components/LoginForm.tsx:23"
+// Output: "button#submit-btn in LoginForm at src/components/LoginForm.tsx:23"
 
 // Get raw ancestry data
 const element = document.querySelector('.my-component');
@@ -261,7 +266,7 @@ Reuses the following packages from the original LocatorJS:
 - **@locator/babel-jsx** - Babel plugin for JSX tracking
 - **@locator/webpack-loader** - Webpack integration
 
-Current version: **0.1.3**
+Current version: **0.1.4**
 
 To publish a new version:
 ```bash
