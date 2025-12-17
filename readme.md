@@ -249,7 +249,7 @@ cd apps/playwright && pnpm test
 pnpm publishPackages
 ```
 
-Current version: **1.0.0**
+Current version: **0.1.0**
 
 ## Contributing
 
