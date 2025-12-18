@@ -49,8 +49,25 @@ function detectProject() {
     info.framework = "svelte";
   } else if (deps.preact) {
     info.framework = "preact";
-  } else if (deps["solid-js"]) {
+  } else if (deps["solid-js"] || deps["vite-plugin-solid"]) {
     info.framework = "solid";
+  }
+  if (info.buildTool === "vite" && info.configFile) {
+    try {
+      const viteConfig = fs.readFileSync(info.configFile, "utf-8");
+      if (viteConfig.includes("vite-plugin-solid") || viteConfig.includes("solidPlugin")) {
+        info.framework = "solid";
+      } else if (viteConfig.includes("@vitejs/plugin-react") || viteConfig.includes("react()")) {
+        info.framework = "react";
+      } else if (viteConfig.includes("@vitejs/plugin-vue") || viteConfig.includes("vue()")) {
+        info.framework = "vue";
+      } else if (viteConfig.includes("@sveltejs/vite-plugin-svelte") || viteConfig.includes("svelte()")) {
+        info.framework = "svelte";
+      } else if (viteConfig.includes("@preact/preset-vite") || viteConfig.includes("preact()")) {
+        info.framework = "preact";
+      }
+    } catch {
+    }
   }
   const entryPaths = [
     "src/main.tsx",
