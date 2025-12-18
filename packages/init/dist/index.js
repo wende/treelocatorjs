@@ -95,6 +95,11 @@ function updateViteConfig(configFile, framework) {
     console.log(pc.yellow("TreeLocatorJS babel plugin already configured in vite.config"));
     return;
   }
+  const babelConfig = `babel: {
+        plugins: [
+          ["@locator/babel-jsx/dist", { env: "development" }],
+        ],
+      }`;
   if (framework === "react") {
     const reactPluginRegex = /react\(\s*\)/;
     const reactPluginWithOptionsRegex = /react\(\s*\{/;
@@ -102,22 +107,50 @@ function updateViteConfig(configFile, framework) {
       content = content.replace(
         reactPluginRegex,
         `react({
-      babel: {
-        plugins: [
-          ["@locator/babel-jsx/dist", { env: "development" }],
-        ],
-      },
+      ${babelConfig},
     })`
       );
     } else if (reactPluginWithOptionsRegex.test(content)) {
       content = content.replace(
         /react\(\s*\{/,
         `react({
-      babel: {
-        plugins: [
-          ["@locator/babel-jsx/dist", { env: "development" }],
-        ],
-      },`
+      ${babelConfig},`
+      );
+    }
+  }
+  if (framework === "solid") {
+    const solidPluginRegex = /solidPlugin\(\s*\)/;
+    const solidPluginWithOptionsRegex = /solidPlugin\(\s*\{/;
+    if (solidPluginRegex.test(content)) {
+      content = content.replace(
+        solidPluginRegex,
+        `solidPlugin({
+      ${babelConfig},
+    })`
+      );
+    } else if (solidPluginWithOptionsRegex.test(content)) {
+      content = content.replace(
+        /solidPlugin\(\s*\{/,
+        `solidPlugin({
+      ${babelConfig},`
+      );
+    }
+  }
+  if (framework === "preact") {
+    const preactPluginRegex = /preact\(\s*\)/;
+    const preactPluginWithOptionsRegex = /preact\(\s*\{/;
+    if (preactPluginRegex.test(content)) {
+      content = content.replace(
+        preactPluginRegex,
+        `preact({
+      ${babelConfig},
+    })`
+      );
+    } else if (preactPluginWithOptionsRegex.test(content)) {
+      content = content.replace(
+        /preact\(\s*\{/,
+        `preact({
+      ${babelConfig},`
       );
     }
   }

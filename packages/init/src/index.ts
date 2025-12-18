@@ -126,6 +126,12 @@ function updateViteConfig(configFile: string, framework: string): void {
     return;
   }
 
+  const babelConfig = `babel: {
+        plugins: [
+          ["@locator/babel-jsx/dist", { env: "development" }],
+        ],
+      }`;
+
   // For React with Vite, add babel plugin
   if (framework === "react") {
     // Find the react plugin and add babel config
@@ -136,11 +142,7 @@ function updateViteConfig(configFile: string, framework: string): void {
       content = content.replace(
         reactPluginRegex,
         `react({
-      babel: {
-        plugins: [
-          ["@locator/babel-jsx/dist", { env: "development" }],
-        ],
-      },
+      ${babelConfig},
     })`
       );
     } else if (reactPluginWithOptionsRegex.test(content)) {
@@ -148,11 +150,51 @@ function updateViteConfig(configFile: string, framework: string): void {
       content = content.replace(
         /react\(\s*\{/,
         `react({
-      babel: {
-        plugins: [
-          ["@locator/babel-jsx/dist", { env: "development" }],
-        ],
-      },`
+      ${babelConfig},`
+      );
+    }
+  }
+
+  // For SolidJS with Vite, add babel plugin
+  if (framework === "solid") {
+    const solidPluginRegex = /solidPlugin\(\s*\)/;
+    const solidPluginWithOptionsRegex = /solidPlugin\(\s*\{/;
+
+    if (solidPluginRegex.test(content)) {
+      content = content.replace(
+        solidPluginRegex,
+        `solidPlugin({
+      ${babelConfig},
+    })`
+      );
+    } else if (solidPluginWithOptionsRegex.test(content)) {
+      // Already has options, need to add babel config
+      content = content.replace(
+        /solidPlugin\(\s*\{/,
+        `solidPlugin({
+      ${babelConfig},`
+      );
+    }
+  }
+
+  // For Preact with Vite, add babel plugin
+  if (framework === "preact") {
+    const preactPluginRegex = /preact\(\s*\)/;
+    const preactPluginWithOptionsRegex = /preact\(\s*\{/;
+
+    if (preactPluginRegex.test(content)) {
+      content = content.replace(
+        preactPluginRegex,
+        `preact({
+      ${babelConfig},
+    })`
+      );
+    } else if (preactPluginWithOptionsRegex.test(content)) {
+      // Already has options, need to add babel config
+      content = content.replace(
+        /preact\(\s*\{/,
+        `preact({
+      ${babelConfig},`
       );
     }
   }
