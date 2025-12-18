@@ -240,14 +240,14 @@ function getTree(element: HTMLElement): TreeState | null {
 function getParentsPaths(element: HTMLElement): ParentPathItem[] {
   const path: ParentPathItem[] = [];
   let currentElement: HTMLElement | null = element;
-  let previousComponentKey: string | null = null;
+  let previousElementKey: string | null = null;
 
   do {
     if (currentElement) {
       const info = getElementInfo(currentElement);
-      const currentComponentKey = JSON.stringify(info?.componentsLabels);
-      if (info && currentComponentKey !== previousComponentKey) {
-        previousComponentKey = currentComponentKey;
+      const currentElementKey = JSON.stringify(info?.thisElement.link);
+      if (info && currentElementKey !== previousElementKey) {
+        previousElementKey = currentElementKey;
 
         const link = info.thisElement.link;
         const label = info.thisElement.label;
