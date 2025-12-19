@@ -81,29 +81,67 @@ export class ReactTreeNodeElement extends HtmlElementTreeNode {
     }
     return null;
   }
+
+  private fiberToTreeNodeComponent(fiber: Fiber): TreeNodeComponent {
+    const fiberLabel = getFiberLabel(fiber, findDebugSource(fiber)?.source);
+    return {
+      label: fiberLabel.label,
+      callLink:
+        (fiberLabel.link && {
+          fileName: fiberLabel.link.filePath,
+          lineNumber: fiberLabel.link.line,
+          columnNumber: fiberLabel.link.column,
+          projectPath: fiberLabel.link.projectPath,
+        }) ||
+        undefined,
+    };
+  }
+
   getComponent(): TreeNodeComponent | null {
     const fiber = findFiberByHtmlElement(this.element, false);
     const componentFiber = fiber?._debugOwner;
 
     if (componentFiber) {
-      const fiberLabel = getFiberLabel(
-        componentFiber,
-        findDebugSource(componentFiber)?.source
-      );
-
-      return {
-        label: fiberLabel.label,
-        callLink:
-          (fiberLabel.link && {
-            fileName: fiberLabel.link.filePath,
-            lineNumber: fiberLabel.link.line,
-            columnNumber: fiberLabel.link.column,
-            projectPath: fiberLabel.link.projectPath,
-          }) ||
-          undefined,
-      };
+      return this.fiberToTreeNodeComponent(componentFiber);
     }
     return null;
+  }
+
+  /**
+   * Traverse the _debugOwner chain to collect all owner components.
+   * This finds wrapper components (like Sidebar) that don't render their own DOM elements
+   * but wrap other components (like GlassPanel) that do.
+   *
+   * Returns array from outermost owner (Sidebar) to innermost (GlassPanel).
+   */
+  getOwnerComponents(): TreeNodeComponent[] {
+    const fiber = findFiberByHtmlElement(this.element, false);
+    if (!fiber) return [];
+
+    // Get the parent DOM element's owner to know when to stop
+    const parentElement = this.element.parentElement;
+    let parentOwnerFiber: Fiber | null = null;
+    if (parentElement) {
+      const parentFiber = findFiberByHtmlElement(parentElement, false);
+      parentOwnerFiber = parentFiber?._debugOwner || null;
+    }
+
+    const components: TreeNodeComponent[] = [];
+    let currentFiber = fiber._debugOwner;
+
+    // Traverse up the _debugOwner chain until we hit the parent's owner or run out
+    while (currentFiber) {
+      // Stop if we've reached the parent DOM element's owner component
+      if (parentOwnerFiber && currentFiber === parentOwnerFiber) {
+        break;
+      }
+
+      components.push(this.fiberToTreeNodeComponent(currentFiber));
+      currentFiber = currentFiber._debugOwner || null;
+    }
+
+    // Reverse so outermost (Sidebar) comes first, innermost (GlassPanel) last
+    return components.reverse();
   }
 }
 

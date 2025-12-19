@@ -48,15 +48,39 @@ function Runtime(props: RuntimeProps) {
   }
 
   function mouseOverListener(e: MouseEvent) {
-    const target = e.target;
-    if (target && target instanceof HTMLElement) {
-      if (isLocatorsOwnElement(target)) {
-        return;
-      }
+    // Also update modifier state
+    setHoldingModKey(e.altKey);
 
-      setCurrentElement(target);
-      // Also update modifier state
-      setHoldingModKey(e.altKey);
+    // Use elementsFromPoint to find elements including ones with pointer-events-none
+    const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
+
+    // Find the topmost element with locator data for highlighting
+    let element: HTMLElement | null = null;
+    for (const el of elementsAtPoint) {
+      if (isLocatorsOwnElement(el as HTMLElement)) {
+        continue;
+      }
+      if (el instanceof HTMLElement || el instanceof SVGElement) {
+        const withLocator = el.closest('[data-locatorjs-id], [data-locatorjs]');
+        if (withLocator) {
+          element = withLocator as HTMLElement;
+          break;
+        }
+      }
+    }
+
+    // Fallback to e.target
+    if (!element) {
+      const target = e.target;
+      if (target && (target instanceof HTMLElement || target instanceof SVGElement)) {
+        element = target instanceof SVGElement
+          ? (target.closest('svg') as HTMLElement | null) ?? (target as unknown as HTMLElement)
+          : target;
+      }
+    }
+
+    if (element && !isLocatorsOwnElement(element)) {
+      setCurrentElement(element);
     }
   }
 
@@ -76,33 +100,66 @@ function Runtime(props: RuntimeProps) {
       return;
     }
 
-    const target = e.target;
-    if (target && target instanceof HTMLElement) {
-      if (target.shadowRoot) {
-        return;
-      }
+    // Use elementsFromPoint to find all elements at click position,
+    // including ones with pointer-events-none (like canvas overlays)
+    const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
 
-      if (isLocatorsOwnElement(target)) {
-        return;
+    // Find the topmost element with locator data
+    let element: Element | null = null;
+    for (const el of elementsAtPoint) {
+      if (isLocatorsOwnElement(el as HTMLElement)) {
+        continue;
       }
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Copy ancestry to clipboard on alt+click
-      const treeNode = createTreeNode(target, props.adapterId);
-      if (treeNode) {
-        const ancestry = collectAncestry(treeNode);
-        const formatted = formatAncestryChain(ancestry);
-        navigator.clipboard.writeText(formatted).then(() => {
-          setToastMessage("Copied to clipboard");
-        });
+      if (el instanceof HTMLElement || el instanceof SVGElement) {
+        // Check if this element or its closest ancestor has locator data
+        const withLocator = el.closest('[data-locatorjs-id], [data-locatorjs]');
+        if (withLocator) {
+          element = withLocator;
+          break;
+        }
       }
+    }
 
-      // Deactivate toggle after click
-      if (locatorActive()) {
-        setLocatorActive(false);
+    // Fallback to e.target if elementsFromPoint didn't find anything
+    if (!element) {
+      const target = e.target;
+      if (target && (target instanceof HTMLElement || target instanceof SVGElement)) {
+        element = target instanceof SVGElement
+          ? (target.closest('[data-locatorjs-id], [data-locatorjs]') as Element | null) ??
+            (target.closest('svg') as Element | null) ??
+            target
+          : target;
       }
+    }
+
+    if (!element) {
+      return;
+    }
+
+    if (element instanceof HTMLElement && element.shadowRoot) {
+      return;
+    }
+
+    if (isLocatorsOwnElement(element as HTMLElement)) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Copy ancestry to clipboard on alt+click
+    const treeNode = createTreeNode(element as HTMLElement, props.adapterId);
+    if (treeNode) {
+      const ancestry = collectAncestry(treeNode);
+      const formatted = formatAncestryChain(ancestry);
+      navigator.clipboard.writeText(formatted).then(() => {
+        setToastMessage("Copied to clipboard");
+      });
+    }
+
+    // Deactivate toggle after click
+    if (locatorActive()) {
+      setLocatorActive(false);
     }
   }
 

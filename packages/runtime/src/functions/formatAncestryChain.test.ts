@@ -91,4 +91,50 @@ describe("formatAncestryChain", () => {
     const result = formatAncestryChain([]);
     expect(result).toBe("");
   });
+
+  it("shows all owner components when ownerComponents is provided", () => {
+    const items: AncestryItem[] = [
+      {
+        elementName: "div",
+        id: "sidebar-panel",
+        componentName: "Sidebar",
+        filePath: "src/components/game/Sidebar.jsx",
+        line: 78,
+        ownerComponents: [
+          {
+            name: "Sidebar",
+            filePath: "src/components/game/Sidebar.jsx",
+            line: 78,
+          },
+          {
+            name: "GlassPanel",
+            filePath: "src/components/common/GlassPanel.jsx",
+            line: 39,
+          },
+        ],
+      },
+      { elementName: "div", componentName: "App", filePath: "src/App.jsx", line: 104 },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe(
+      `div in App at src/App.jsx:104
+    └─ div#sidebar-panel in Sidebar > GlassPanel at src/components/game/Sidebar.jsx:78`
+    );
+  });
+
+  it("shows single owner component without arrow when only one in chain", () => {
+    const items: AncestryItem[] = [
+      {
+        elementName: "button",
+        componentName: "Button",
+        ownerComponents: [{ name: "Button", filePath: "src/Button.tsx", line: 10 }],
+        filePath: "src/Button.tsx",
+        line: 10,
+      },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe("button in Button at src/Button.tsx:10");
+  });
 });

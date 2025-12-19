@@ -25,9 +25,9 @@ export class HtmlElementTreeNode implements TreeNode {
     const children = Array.from(this.element.children);
     return children
       .map((child) => {
-        if (child instanceof HTMLElement) {
+        if (child instanceof HTMLElement || child instanceof SVGElement) {
           // @ts-ignore
-          return new this.constructor(child);
+          return new this.constructor(child as HTMLElement);
         } else {
           return null;
         }
@@ -47,5 +47,8 @@ export class HtmlElementTreeNode implements TreeNode {
   }
   getComponent(): TreeNodeComponent | null {
     throw new Error("Method not implemented.");
+  }
+  getOwnerComponents(): TreeNodeComponent[] {
+    return [];
   }
 }

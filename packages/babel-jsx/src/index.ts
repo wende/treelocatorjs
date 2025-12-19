@@ -117,9 +117,14 @@ export default function transformLocatorJsComponents(babel: Babel): {
             };
           }
 
+          // Helper to check if a name looks like a component (starts with uppercase)
+          function isComponentName(name: string): boolean {
+            return /^[A-Z]/.test(name);
+          }
+
           // NEED TO RUN MANUAL TRAVERSE, SO IT MAKE EDITS BEFORE ALL OTHER PLUGINS
           path.traverse({
-            // TODO add also for arrow function and class components
+            // Handle function declarations: function App() { ... }
             FunctionDeclaration: {
               enter(path, state) {
                 if (!fileStorage) {
@@ -154,6 +159,77 @@ export default function transformLocatorJsComponents(babel: Babel): {
                   wrappingComponent.name === name &&
                   wrappingComponent.locString ===
                     path.node.loc.start.line + ":" + path.node.loc.start.column
+                ) {
+                  wrappingComponent = null;
+                }
+              },
+            },
+            // Handle arrow function components: const App = () => { ... }
+            VariableDeclarator: {
+              enter(path, state) {
+                if (!fileStorage) {
+                  return;
+                }
+                const node = path.node;
+                if (!node || !node.id || node.id.type !== "Identifier") {
+                  return;
+                }
+                const name = node.id.name;
+
+                // Only treat as component if name starts with uppercase
+                if (!isComponentName(name)) {
+                  return;
+                }
+
+                // Check if init is an arrow function or function expression
+                const init = node.init;
+                if (
+                  !init ||
+                  (init.type !== "ArrowFunctionExpression" &&
+                    init.type !== "FunctionExpression")
+                ) {
+                  return;
+                }
+
+                if (!init.loc) {
+                  return;
+                }
+
+                wrappingComponent = {
+                  name,
+                  locString:
+                    init.loc.start.line + ":" + init.loc.start.column,
+                  loc: init.loc,
+                };
+                currentWrappingComponentId =
+                  addComponentToStorage(wrappingComponent);
+              },
+              exit(path, state) {
+                if (!fileStorage) {
+                  return;
+                }
+                const node = path.node;
+                if (!node || !node.id || node.id.type !== "Identifier") {
+                  return;
+                }
+                const name = node.id.name;
+
+                const init = node.init;
+                if (
+                  !init ||
+                  (init.type !== "ArrowFunctionExpression" &&
+                    init.type !== "FunctionExpression") ||
+                  !init.loc
+                ) {
+                  return;
+                }
+
+                // Reset wrapping component
+                if (
+                  wrappingComponent &&
+                  wrappingComponent.name === name &&
+                  wrappingComponent.locString ===
+                    init.loc.start.line + ":" + init.loc.start.column
                 ) {
                   wrappingComponent = null;
                 }

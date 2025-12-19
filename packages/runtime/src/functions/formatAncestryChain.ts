@@ -1,4 +1,10 @@
-import { TreeNode, TreeNodeElement } from "../types/TreeNode";
+import { TreeNode, TreeNodeComponent, TreeNodeElement } from "../types/TreeNode";
+
+export interface OwnerComponentInfo {
+  name: string;
+  filePath?: string;
+  line?: number;
+}
 
 export interface AncestryItem {
   elementName: string;
@@ -7,6 +13,8 @@ export interface AncestryItem {
   line?: number;
   id?: string;
   nthChild?: number; // 1-indexed, only set when there are ambiguous siblings
+  /** All owner components from outermost (Sidebar) to innermost (GlassPanel) */
+  ownerComponents?: OwnerComponentInfo[];
 }
 
 // Elements to exclude from ancestry (not useful for debugging)
@@ -36,6 +44,16 @@ function getNthChildIfAmbiguous(element: Element): number | undefined {
   return index + 1; // 1-indexed for CSS nth-child compatibility
 }
 
+function treeNodeComponentToOwnerInfo(
+  comp: TreeNodeComponent
+): OwnerComponentInfo {
+  return {
+    name: comp.label,
+    filePath: comp.callLink?.fileName,
+    line: comp.callLink?.lineNumber,
+  };
+}
+
 export function collectAncestry(node: TreeNode): AncestryItem[] {
   const items: AncestryItem[] = [];
   let current: TreeNode | null = node;
@@ -47,7 +65,6 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
       continue;
     }
 
-    const component = current.getComponent();
     const source = current.getSource();
 
     const item: AncestryItem = {
@@ -68,11 +85,26 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
       }
     }
 
-    if (component) {
-      item.componentName = component.label;
-      if (component.callLink) {
-        item.filePath = component.callLink.fileName;
-        item.line = component.callLink.lineNumber;
+    // Get all owner components (from outermost like Sidebar to innermost like GlassPanel)
+    const ownerComponents = current.getOwnerComponents();
+    const outermost = ownerComponents[0];
+    if (outermost) {
+      item.ownerComponents = ownerComponents.map(treeNodeComponentToOwnerInfo);
+      // Use outermost component as the primary component name
+      item.componentName = outermost.label;
+      if (outermost.callLink) {
+        item.filePath = outermost.callLink.fileName;
+        item.line = outermost.callLink.lineNumber;
+      }
+    } else {
+      // Fallback to single component if getOwnerComponents not available
+      const component = current.getComponent();
+      if (component) {
+        item.componentName = component.label;
+        if (component.callLink) {
+          item.filePath = component.callLink.fileName;
+          item.line = component.callLink.lineNumber;
+        }
       }
     }
 
@@ -116,7 +148,12 @@ export function formatAncestryChain(items: AncestryItem[]): string {
     }
 
     let description = selector;
-    if (item.componentName) {
+
+    // Show all owner components if available (Sidebar > GlassPanel)
+    if (item.ownerComponents && item.ownerComponents.length > 0) {
+      const componentChain = item.ownerComponents.map((c) => c.name).join(" > ");
+      description = `${selector} in ${componentChain}`;
+    } else if (item.componentName) {
       description = `${selector} in ${item.componentName}`;
     }
 
