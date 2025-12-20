@@ -10,7 +10,7 @@ export type ElementInfo = {
 
 export type FullElementInfo = {
   thisElement: ElementInfo;
-  htmlElement: HTMLElement;
+  htmlElement: HTMLElement | SVGElement;
   parentElements: ElementInfo[];
   componentBox: SimpleDOMRect;
   componentsLabels: LabelData[];

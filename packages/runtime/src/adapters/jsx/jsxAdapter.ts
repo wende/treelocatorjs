@@ -20,17 +20,17 @@ import { getJSXComponentBoundingBox } from "./getJSXComponentBoundingBox";
 export function getElementInfo(target: HTMLElement): FullElementInfo | null {
   const found = target.closest("[data-locatorjs-id], [data-locatorjs]");
 
+  // Support both HTMLElement and SVGElement
+  // SVG elements don't have dataset, so use getAttribute instead
+  const dataId = found?.getAttribute("data-locatorjs-id");
+  const dataPath = found?.getAttribute("data-locatorjs");
+  const styledDataId = found?.getAttribute("data-locatorjs-styled");
+
   if (
     found &&
-    found instanceof HTMLElement &&
-    found.dataset &&
-    (found.dataset.locatorjsId ||
-      found.dataset.locatorjs ||
-      found.dataset.locatorjsStyled)
+    (found instanceof HTMLElement || found instanceof SVGElement) &&
+    (dataId || dataPath || styledDataId)
   ) {
-    const dataId = found.dataset.locatorjsId;
-    const dataPath = found.dataset.locatorjs;
-    const styledDataId = found.dataset.locatorjsStyled;
 
     if (!dataId && !dataPath) {
       return null;
@@ -135,8 +135,9 @@ export function getElementInfo(target: HTMLElement): FullElementInfo | null {
 
 export class JSXTreeNodeElement extends HtmlElementTreeNode {
   getSource(): Source | null {
-    const dataId = this.element.dataset.locatorjsId;
-    const dataPath = this.element.dataset.locatorjs;
+    // Use getAttribute instead of dataset to support both HTML and SVG elements
+    const dataId = this.element.getAttribute("data-locatorjs-id");
+    const dataPath = this.element.getAttribute("data-locatorjs");
 
     if (!dataId && !dataPath) {
       return null;
@@ -184,8 +185,9 @@ export class JSXTreeNodeElement extends HtmlElementTreeNode {
     return null;
   }
   getComponent(): TreeNodeComponent | null {
-    const dataId = this.element.dataset.locatorjsId;
-    const dataPath = this.element.dataset.locatorjs;
+    // Use getAttribute instead of dataset to support both HTML and SVG elements
+    const dataId = this.element.getAttribute("data-locatorjs-id");
+    const dataPath = this.element.getAttribute("data-locatorjs");
 
     if (!dataId && !dataPath) {
       return null;

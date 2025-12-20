@@ -2,12 +2,16 @@ import type { ExpressionInfo, FileStorage } from "@locator/shared";
 import { parseDataId, parseDataPath } from "../../functions/parseDataId";
 
 export function getExpressionData(
-  target: HTMLElement,
+  target: Element,
   fileData: FileStorage | null
 ): ExpressionInfo | null {
+  // Use getAttribute instead of dataset to support both HTML and SVG elements
+  const dataLocatorjs = target.getAttribute("data-locatorjs");
+  const dataLocatorjsId = target.getAttribute("data-locatorjs-id");
+
   // First check for data-locatorjs (path-based, for server components)
-  if (target.dataset.locatorjs) {
-    const parsed = parseDataPath(target.dataset.locatorjs);
+  if (dataLocatorjs) {
+    const parsed = parseDataPath(dataLocatorjs);
     if (parsed) {
       const [, line, column] = parsed;
 
@@ -35,8 +39,8 @@ export function getExpressionData(
   }
 
   // Fall back to data-locatorjs-id (ID-based, traditional approach)
-  if (target.dataset.locatorjsId && fileData) {
-    const [, id] = parseDataId(target.dataset.locatorjsId);
+  if (dataLocatorjsId && fileData) {
+    const [, id] = parseDataId(dataLocatorjsId);
     const expData = fileData.expressions[Number(id)];
     if (expData) {
       return expData;

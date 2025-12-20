@@ -74,7 +74,9 @@ function Runtime(props: RuntimeProps) {
       const target = e.target;
       if (target && (target instanceof HTMLElement || target instanceof SVGElement)) {
         element = target instanceof SVGElement
-          ? (target.closest('svg') as HTMLElement | null) ?? (target as unknown as HTMLElement)
+          ? (target.closest('[data-locatorjs-id], [data-locatorjs]') as HTMLElement | null) ??
+            (target.closest('svg') as HTMLElement | null) ??
+            (target as unknown as HTMLElement)
           : target;
       }
     }

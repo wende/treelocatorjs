@@ -5,32 +5,37 @@ import type { SimpleDOMRect } from "../../types/types";
 import { getExpressionData } from "./getExpressionData";
 
 export function getJSXComponentBoundingBox(
-  found: HTMLElement,
+  found: Element,
   locatorData: { [filename: string]: FileStorage },
   componentFolder: string,
   componentId: number
 ): SimpleDOMRect {
   let composedBox: SimpleDOMRect = found.getBoundingClientRect();
   // Currently it works well only for components with one root element, but for components with multiple root elements we would need to track instance ids.
-  function goParent(current: HTMLElement) {
+  function goParent(current: Element) {
     const parent = current.parentNode;
     if (!parent) {
       return;
     }
-    if (parent instanceof HTMLElement) {
+    // Support both HTMLElement and SVGElement
+    if (parent instanceof HTMLElement || parent instanceof SVGElement) {
+      // Use getAttribute instead of dataset to support both HTML and SVG elements
+      const dataLocatorjs = parent.getAttribute("data-locatorjs");
+      const dataLocatorjsId = parent.getAttribute("data-locatorjs-id");
+
       // Check for either data-locatorjs (path-based) or data-locatorjs-id (ID-based)
-      if (parent.dataset.locatorjs || parent.dataset.locatorjsId) {
+      if (dataLocatorjs || dataLocatorjsId) {
         let fileFullPath: string;
 
-        if (parent.dataset.locatorjs) {
-          const parsed = parseDataPath(parent.dataset.locatorjs);
+        if (dataLocatorjs) {
+          const parsed = parseDataPath(dataLocatorjs);
           if (!parsed) {
             goParent(parent);
             return;
           }
           [fileFullPath] = parsed;
-        } else if (parent.dataset.locatorjsId) {
-          [fileFullPath] = parseDataId(parent.dataset.locatorjsId);
+        } else if (dataLocatorjsId) {
+          [fileFullPath] = parseDataId(dataLocatorjsId);
         } else {
           goParent(parent);
           return;
