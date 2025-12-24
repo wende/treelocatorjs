@@ -48,7 +48,16 @@ npm install @treelocator/runtime
 Or use the automated setup wizard (recommended):
 
 ```bash
+# Interactive mode (default)
 npx @treelocator/init
+
+# Non-interactive mode (CI/CD, automation)
+npx @treelocator/init --yes
+# or
+TREELOCATOR_AUTO_CONFIRM=1 npx @treelocator/init
+
+# Check existing configuration
+npx @treelocator/init --check
 ```
 
 The wizard will:

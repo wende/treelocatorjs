@@ -228,8 +228,8 @@ const LocatorHook = {
 
 ### Priority Order
 
-1. **Next.js RSC** - Low effort, huge user base, already partially works
-2. **Phoenix LiveView** - Low-medium effort, built-in debug annotations, no server-side work needed
+1. ✅ **Next.js RSC** - COMPLETE (Dec 24, 2025) - Low effort, huge user base
+2. ✅ **Phoenix LiveView** - COMPLETE (Dec 23, 2025) - Built-in debug annotations, no server-side work needed
 3. **HTMX** - Medium effort, framework-agnostic, rapidly growing community
 4. **Hotwire/Rails** - Medium-high effort, established community, requires Ruby gem
 
@@ -307,10 +307,12 @@ Requires: Tidewave subscription ($10/mo) + AI provider (Claude Pro, API key, or 
 | React (client) | ✅ | ✅ |
 | Vue | ❌ | ✅ |
 | Svelte | ❌ | ✅ |
-| Phoenix LiveView | ✅ | Planned |
+| Preact | ❌ | ✅ |
+| Solid | ❌ | ✅ |
+| Phoenix LiveView | ✅ | ✅ **v0.2.0** |
+| Next.js RSC | ✅ | ✅ **v0.2.0** |
 | Rails/Hotwire | ✅ | Planned |
 | Django/Flask | ✅ | Planned |
-| Next.js RSC | ✅ | Planned |
 
 ### Key Differences
 
@@ -587,11 +589,234 @@ interface AncestryItem {
 
 ---
 
+### Next.js Server Components Integration - ✅ COMPLETE
+
+Implementation: Dec 24, 2025
+
+#### Completed ✅
+
+**1. Core Parser Implementation**
+- ✅ `packages/runtime/src/adapters/nextjs/parseNextjsDataAttributes.ts` - Parser for `data-locatorjs` attributes
+- ✅ `packages/runtime/src/functions/normalizeFilePath.ts` - Utility to convert absolute paths to relative
+- ✅ Modified `formatAncestryChain.ts` to integrate Next.js server components
+- ✅ **All 45 Playwright tests passing** (Chrome, Firefox, Safari)
+
+**2. Monorepo Cleanup**
+- ✅ Removed duplicate packages (babel-jsx, webpack-loader, shared, react-devtools-hook)
+- ✅ Updated all demo apps to use `@locator/*` packages from npm
+- ✅ Reduced workspace projects from 21 to 17
+- ✅ TreeLocatorJS now only publishes: `@treelocator/runtime` and `@treelocator/init`
+
+**3. Documentation**
+- ✅ Created `docs/NEXTJS-SETUP.md` - Complete setup guide for Next.js users
+- ✅ Documented Turbopack and Webpack configurations
+- ✅ Browser API usage examples
+
+**4. Testing**
+- ✅ E2E tests: `apps/playwright/tests/ancestry/nextjs.spec.ts`
+  - 45 tests covering: relative paths, server component detection, hierarchy, formatting
+  - Tests pass across Chrome, Firefox, Safari
+- ✅ Demo app: `apps/next-16/` (Next.js 16.0.0 with React 19)
+
+**5. Published Release**
+- ✅ Published `@treelocator/runtime@0.2.0` and `@treelocator/init@0.2.0` to npm
+
+#### Technical Implementation
+
+**Next.js Server Component Tracking:**
+
+Next.js Server Components are tracked using `data-locatorjs` attributes injected by `@locator/webpack-loader`:
+
+```html
+<!-- Before -->
+<div className="page">
+  <main>
+    <Counter />
+  </main>
+</div>
+
+<!-- After (in development) -->
+<div className="page" data-locatorjs="app/page.tsx:6:4">
+  <main data-locatorjs="app/page.tsx:7:6">
+    <div data-locatorjs="app/components/Counter.tsx:9:4">
+      <!-- Counter component content -->
+    </div>
+  </main>
+</div>
+```
+
+**Parser Implementation:**
+
+```typescript
+// packages/runtime/src/adapters/nextjs/parseNextjsDataAttributes.ts
+export function collectNextjsServerComponents(element: Element): ServerComponentInfo[] {
+  const value = element.getAttribute("data-locatorjs");
+  if (!value) return [];
+
+  const info = parseDataLocatorjsValue(value);
+  return info ? [info] : [];
+}
+
+function parseDataLocatorjsValue(value: string): ServerComponentInfo | null {
+  // Parse "app/page.tsx:6:4" format
+  const match = value.match(/^(.+):(\d+):(\d+)$/);
+  if (!match) return null;
+
+  const [, filePath, line, column] = match;
+  return {
+    name: "Next.js: " + getComponentNameFromPath(filePath),
+    filePath: normalizeFilePath(filePath),
+    line: parseInt(line),
+    type: "component"
+  };
+}
+```
+
+**Path Normalization:**
+
+```typescript
+// packages/runtime/src/functions/normalizeFilePath.ts
+export function normalizeFilePath(filePath: string): string {
+  if (!filePath.startsWith("/")) return filePath;
+
+  const indicators = ["/app/", "/src/", "/pages/", "/components/", "/lib/"];
+  for (const indicator of indicators) {
+    const index = filePath.indexOf(indicator);
+    if (index !== -1) {
+      return filePath.substring(index + 1);
+    }
+  }
+
+  // Fallback: return last 4 path segments
+  const parts = filePath.split("/");
+  if (parts.length > 3) return parts.slice(-4).join("/");
+  return filePath;
+}
+```
+
+#### User Setup
+
+Users enable Next.js Server Component tracking in 3 steps (see `docs/NEXTJS-SETUP.md`):
+
+**1. Install packages:**
+```bash
+npm install @treelocator/runtime @locator/webpack-loader
+```
+
+**2. Configure `next.config.ts`:**
+```typescript
+const nextConfig: NextConfig = {
+  turbopack: {
+    rules: {
+      "**/*.{tsx,jsx}": {
+        loaders: [
+          {
+            loader: "@locator/webpack-loader",
+            options: { env: "development" }
+          }
+        ]
+      }
+    }
+  }
+};
+```
+
+**3. Import runtime in `app/layout.tsx`:**
+```typescript
+import "@treelocator/runtime";
+```
+
+#### Example Output
+
+For a button inside a client component inside a server component:
+
+```
+div:nth-child(2) [Next.js: Page] at app/page.tsx:6
+    └─ main [Next.js: Page] at app/page.tsx:7
+        └─ Counter:nth-child(1) [Next.js: Counter] at app/components/Counter.tsx:9
+            └─ button [Next.js: Counter] at app/components/Counter.tsx:12
+```
+
+**Browser API:**
+```javascript
+const path = window.__treelocator__.getPath('button');
+// Returns formatted ancestry path with Next.js server components
+
+const ancestry = window.__treelocator__.getAncestry(document.querySelector('button'));
+// Returns raw ancestry data including serverComponents field
+```
+
+#### Files Created/Modified
+
+**New Files:**
+- `packages/runtime/src/adapters/nextjs/parseNextjsDataAttributes.ts`
+- `packages/runtime/src/functions/normalizeFilePath.ts`
+- `apps/playwright/tests/ancestry/nextjs.spec.ts` (45 tests)
+- `docs/NEXTJS-SETUP.md`
+
+**Modified Files:**
+- `packages/runtime/src/functions/formatAncestryChain.ts` - Added Next.js integration
+- All demo apps (`apps/*/package.json`) - Switched to `@locator/*` from npm
+
+**Removed Files:**
+- `packages/babel-jsx/` - Use `@locator/babel-jsx` from npm
+- `packages/webpack-loader/` - Use `@locator/webpack-loader` from npm
+- `packages/shared/` - Use `@locator/shared` from npm
+- `packages/react-devtools-hook/` - No longer needed
+
+#### Key Learnings
+
+1. **Element-level tracking:** Each element shows only its own server component, not accumulated ancestors. The tree structure itself shows hierarchy.
+
+2. **Relative paths:** Display `app/page.tsx:6` instead of `/Users/wende/projects/locatorjs/apps/next-16/app/page.tsx:6` for better readability.
+
+3. **Reuse original LocatorJS packages:** TreeLocatorJS focuses on the runtime - we reuse the proven build-time tooling from the original LocatorJS project.
+
+4. **Turbopack vs Webpack:** Next.js 13+ uses Turbopack by default in development. The loader configuration differs between the two (see `docs/NEXTJS-SETUP.md`).
+
+5. **Monorepo cleanup:** Keeping only the packages we modify/publish (`@treelocator/runtime`, `@treelocator/init`) reduces maintenance burden.
+
+#### Testing Coverage
+
+**E2E Tests (45 passing):**
+- ✅ Relative file paths (no absolute paths)
+- ✅ Server component detection (Page, Counter, Layout, Button, Header)
+- ✅ Component hierarchy (nested server components)
+- ✅ Server + Client component mixing
+- ✅ Formatted output structure
+- ✅ Browser API (`window.__treelocator__`)
+- ✅ Cross-browser (Chrome, Firefox, Safari)
+
+**Test App:**
+- `apps/next-16/` - Next.js 16.0.0 with React 19, Server + Client components
+
+#### Production Status
+
+**Status: PRODUCTION READY ✅**
+
+The Next.js Server Components integration is complete and working:
+- ✅ Published to npm as `@treelocator/runtime@0.2.0`
+- ✅ Full documentation in `docs/NEXTJS-SETUP.md`
+- ✅ 45 E2E tests passing across 3 browsers
+- ✅ Works with Next.js 13+ (Turbopack and Webpack modes)
+- ✅ Browser automation API ready
+
+**Ready For:**
+- Production use in Next.js applications
+- Integration with testing frameworks (Playwright, Puppeteer, Selenium, Cypress)
+- Further enhancements (e.g., metadata tracking, performance optimizations)
+
+---
+
 ## Summary
 
 **Status: PRODUCTION READY ✅**
 
-The Phoenix LiveView integration is complete and working. The unified server→client component tree successfully displays:
+Two server-side rendering frameworks are now fully integrated and production-ready:
+
+### 1. Phoenix LiveView (Dec 23, 2025)
+
+Unified server→client component tree successfully displays:
 
 ```
 Phoenix Server Components → React Client Components
@@ -605,17 +830,58 @@ div#root [Phoenix: AppWeb.Components.react_root] at lib/app_web/live/demo_live.e
             └─ button in App at /src/App.jsx:20
 ```
 
-**Key Learnings:**
-1. Phoenix LiveView's built-in `debug_heex_annotations` provides all needed metadata
-2. No server-side code changes required (pure client-side parsing)
-3. When overriding Vite React plugin's babel config, must include `@babel/plugin-transform-react-jsx-source`
-4. Package naming: `@treelocator/babel-jsx` (not `@locator/babel-jsx`)
+**Key Features:**
+- ✅ Uses Phoenix's built-in `debug_heex_annotations` (no server-side changes needed)
+- ✅ Parses HTML comments to extract component metadata
+- ✅ Full integration with React Fiber for client components
 
-**Ready For:**
-- Testing with real Phoenix LiveView applications
-- Integration with other server frameworks (Rails, Next.js RSC)
-- Production deployment
+### 2. Next.js Server Components (Dec 24, 2025)
+
+Server + Client component tracking with relative file paths:
+
+```
+Next.js Server Components → React Client Components
+```
+
+**Example Output:**
+```
+div:nth-child(2) [Next.js: Page] at app/page.tsx:6
+    └─ main [Next.js: Page] at app/page.tsx:7
+        └─ Counter:nth-child(1) [Next.js: Counter] at app/components/Counter.tsx:9
+            └─ button [Next.js: Counter] at app/components/Counter.tsx:12
+```
+
+**Key Features:**
+- ✅ Uses `@locator/webpack-loader` for `data-locatorjs` attribute injection
+- ✅ Relative file paths for better readability
+- ✅ Works with Turbopack (default) and Webpack modes
+- ✅ 45 E2E tests passing across 3 browsers
+- ✅ Published as `@treelocator/runtime@0.2.0`
+
+### Comparison Table
+
+| Framework | Status | Setup Complexity | Documentation |
+|-----------|--------|------------------|---------------|
+| Phoenix LiveView | ✅ Complete | Low (config only) | SERVERSIDE.md |
+| Next.js RSC | ✅ Complete | Low (3 steps) | NEXTJS-SETUP.md |
+| Rails/Hotwire | Planned | Medium | - |
+| HTMX | Planned | Medium | - |
+
+### Key Learnings Across Both
+
+1. **Server component tracking at element level:** Each element displays only its own server component, with the tree structure showing hierarchy
+2. **Relative paths preferred:** Display `app/page.tsx:6` instead of absolute paths for readability
+3. **Reuse proven tooling:** TreeLocatorJS focuses on runtime; reuses `@locator/*` packages from original LocatorJS for build-time instrumentation
+4. **Pure client-side parsing:** Both implementations work without server-side runtime changes (only build-time configuration needed)
+
+### Ready For
+
+**Both integrations are production-ready for:**
+- Real-world application usage
+- Browser automation (Playwright, Puppeteer, Selenium, Cypress)
+- Team adoption and testing
+- Further framework integrations (Rails, HTMX, etc.)
 
 ---
 
-**Last Updated:** December 23, 2025
+**Last Updated:** December 24, 2025

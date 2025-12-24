@@ -443,7 +443,7 @@ async function runCheck(info) {
   const isOk = printCheckResults(results);
   process.exit(isOk ? 0 : 1);
 }
-async function runSetup(info) {
+async function runSetup(info, skipConfirm = false) {
   console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
   console.log(pc.dim("Detected:"));
   console.log(pc.dim(`  Package manager: ${info.packageManager}`));
@@ -460,15 +460,19 @@ async function runSetup(info) {
     console.log(pc.red("Could not detect framework."));
     process.exit(1);
   }
-  const { confirm } = await prompts({
-    type: "confirm",
-    name: "confirm",
-    message: "Install and configure TreeLocatorJS?",
-    initial: true
-  });
-  if (!confirm) {
-    console.log(pc.dim("Cancelled."));
-    process.exit(0);
+  if (!skipConfirm) {
+    const { confirm } = await prompts({
+      type: "confirm",
+      name: "confirm",
+      message: "Install and configure TreeLocatorJS?",
+      initial: true
+    });
+    if (!confirm) {
+      console.log(pc.dim("Cancelled."));
+      process.exit(0);
+    }
+  } else {
+    console.log(pc.green("Running in non-interactive mode, proceeding with installation..."));
   }
   const packages = ["@treelocator/runtime"];
   if (info.buildTool === "vite") {
@@ -515,6 +519,7 @@ async function main() {
   const args = process.argv.slice(2);
   const isCheck = args.includes("--check") || args.includes("-c") || args.includes("check");
   const isHelp = args.includes("--help") || args.includes("-h") || args.includes("help");
+  const isYes = args.includes("--yes") || args.includes("-y") || process.env.TREELOCATOR_AUTO_CONFIRM === "1";
   if (isHelp) {
     console.log(`
 ${pc.bold(pc.cyan("TreeLocatorJS Setup"))}
@@ -526,7 +531,11 @@ ${pc.bold("Usage:")}
 
 ${pc.bold("Options:")}
   --check, -c, check    Verify existing configuration without making changes
+  --yes, -y             Skip confirmation prompt (non-interactive mode)
   --help, -h, help      Show this help message
+
+${pc.bold("Environment Variables:")}
+  TREELOCATOR_AUTO_CONFIRM=1    Skip confirmation prompt (same as --yes)
 
 ${pc.bold("What it checks:")}
   \u2022 @treelocator/runtime package is installed
@@ -540,7 +549,7 @@ ${pc.bold("What it checks:")}
   if (isCheck) {
     await runCheck(info);
   } else {
-    await runSetup(info);
+    await runSetup(info, isYes);
   }
 }
 main().catch(console.error);

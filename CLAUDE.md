@@ -42,7 +42,16 @@ npm install @treelocator/runtime
 
 **Or use the CLI wizard:**
 ```bash
+# Interactive mode (default)
 npx @treelocator/init
+
+# Non-interactive mode (CI/CD, automation)
+npx @treelocator/init --yes
+# or
+TREELOCATOR_AUTO_CONFIRM=1 npx @treelocator/init
+
+# Check existing configuration
+npx @treelocator/init --check
 ```
 
 The `@treelocator/init` package provides an automated setup wizard:
@@ -52,6 +61,12 @@ The `@treelocator/init` package provides an automated setup wizard:
 2. Installs required packages (varies by framework - see below)
 3. Configures build tools (for JSX frameworks only)
 4. Injects runtime import into entry file (`src/main.tsx`, `src/index.tsx`, etc.)
+
+**CLI Options:**
+- `--yes` / `-y` - Skip confirmation prompt (non-interactive mode, useful for CI/CD)
+- `TREELOCATOR_AUTO_CONFIRM=1` - Environment variable to skip confirmation
+- `--check` / `-c` - Verify configuration without making changes (exits with code 0 if OK, 1 if errors)
+- `--help` / `-h` - Show help message
 
 **Supported:**
 - Package managers: npm, yarn, pnpm, bun
