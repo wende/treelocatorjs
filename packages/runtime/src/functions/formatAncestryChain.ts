@@ -1,4 +1,8 @@
 import { TreeNode, TreeNodeComponent, TreeNodeElement } from "../types/TreeNode";
+import { ServerComponentInfo } from "../types/ServerComponentInfo";
+import { parsePhoenixServerComponents } from "../adapters/phoenix/parsePhoenixComments";
+import { parseNextjsServerComponents } from "../adapters/nextjs/parseNextjsDataAttributes";
+import { normalizeFilePath } from "./normalizeFilePath";
 
 export interface OwnerComponentInfo {
   name: string;
@@ -15,6 +19,8 @@ export interface AncestryItem {
   nthChild?: number; // 1-indexed, only set when there are ambiguous siblings
   /** All owner components from outermost (Sidebar) to innermost (GlassPanel) */
   ownerComponents?: OwnerComponentInfo[];
+  /** Server-side components (Phoenix LiveView, Rails, Next.js RSC, etc.) */
+  serverComponents?: ServerComponentInfo[];
 }
 
 // Elements to exclude from ancestry (not useful for debugging)
@@ -49,7 +55,7 @@ function treeNodeComponentToOwnerInfo(
 ): OwnerComponentInfo {
   return {
     name: comp.label,
-    filePath: comp.callLink?.fileName,
+    filePath: comp.callLink?.fileName ? normalizeFilePath(comp.callLink.fileName) : undefined,
     line: comp.callLink?.lineNumber,
   };
 }
@@ -82,6 +88,23 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
         if (nthChild !== undefined) {
           item.nthChild = nthChild;
         }
+
+        // Parse server components from various sources
+        // 1. Phoenix LiveView (HTML comments)
+        const phoenixComponents = parsePhoenixServerComponents(element);
+
+        // 2. Next.js Server Components (data-locatorjs attributes)
+        const nextjsComponents = parseNextjsServerComponents(element);
+
+        // Combine all server components
+        const allServerComponents = [
+          ...(phoenixComponents || []),
+          ...(nextjsComponents || []),
+        ];
+
+        if (allServerComponents.length > 0) {
+          item.serverComponents = allServerComponents;
+        }
       }
     }
 
@@ -93,7 +116,7 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
       // Use outermost component as the primary component name
       item.componentName = outermost.label;
       if (outermost.callLink) {
-        item.filePath = outermost.callLink.fileName;
+        item.filePath = normalizeFilePath(outermost.callLink.fileName);
         item.line = outermost.callLink.lineNumber;
       }
     } else {
@@ -102,19 +125,19 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
       if (component) {
         item.componentName = component.label;
         if (component.callLink) {
-          item.filePath = component.callLink.fileName;
+          item.filePath = normalizeFilePath(component.callLink.fileName);
           item.line = component.callLink.lineNumber;
         }
       }
     }
 
     if (!item.filePath && source) {
-      item.filePath = source.fileName;
+      item.filePath = normalizeFilePath(source.fileName);
       item.line = source.lineNumber;
     }
 
-    // Only include items that have useful info (component name or file path)
-    if (item.componentName || item.filePath) {
+    // Only include items that have useful info (component name, file path, or server components)
+    if (item.componentName || item.filePath || item.serverComponents) {
       items.push(item);
     }
 
@@ -138,8 +161,36 @@ export function formatAncestryChain(items: AncestryItem[]): string {
     const indent = "    ".repeat(index);
     const prefix = index === 0 ? "" : "└─ ";
 
-    // Build element selector: elementName:nth-child(n)#id
-    let selector = item.elementName;
+    // Get the previous item's component to detect component boundaries
+    const prevItem = index > 0 ? reversed[index - 1] : null;
+    const prevComponentName = prevItem?.componentName || prevItem?.ownerComponents?.[prevItem.ownerComponents.length - 1]?.name;
+
+    // Get current item's innermost component
+    const currentComponentName = item.ownerComponents?.[item.ownerComponents.length - 1]?.name || item.componentName;
+
+    // Determine the display name for the element
+    // Use component name ONLY when crossing a component boundary (root element of a component)
+    // This prevents "App -> App:nth-child(5)" when both are just elements inside App
+    let displayName = item.elementName;
+    let outerComponents: string[] = [];
+    const isComponentBoundary = currentComponentName && currentComponentName !== prevComponentName;
+
+    if (isComponentBoundary) {
+      if (item.ownerComponents && item.ownerComponents.length > 0) {
+        // Use innermost component as display name, show outer ones in "in X > Y"
+        const innermost = item.ownerComponents[item.ownerComponents.length - 1];
+        if (innermost) {
+          displayName = innermost.name;
+          // Outer components (excluding innermost)
+          outerComponents = item.ownerComponents.slice(0, -1).map((c) => c.name);
+        }
+      } else if (item.componentName) {
+        displayName = item.componentName;
+      }
+    }
+
+    // Build element selector: displayName:nth-child(n)#id
+    let selector = displayName;
     if (item.nthChild !== undefined) {
       selector += `:nth-child(${item.nthChild})`;
     }
@@ -149,15 +200,70 @@ export function formatAncestryChain(items: AncestryItem[]): string {
 
     let description = selector;
 
-    // Show all owner components if available (Sidebar > GlassPanel)
-    if (item.ownerComponents && item.ownerComponents.length > 0) {
-      const componentChain = item.ownerComponents.map((c) => c.name).join(" > ");
-      description = `${selector} in ${componentChain}`;
-    } else if (item.componentName) {
-      description = `${selector} in ${item.componentName}`;
+    // Build component description parts
+    const parts: string[] = [];
+
+    // Server components (Phoenix/Next.js/Rails/etc.)
+    if (item.serverComponents && item.serverComponents.length > 0) {
+      // Group server components by framework (detected by file extension)
+      const phoenixComponents = item.serverComponents.filter((sc) =>
+        sc.filePath.match(/\.(ex|exs|heex)$/)
+      );
+      const nextjsComponents = item.serverComponents.filter((sc) =>
+        sc.filePath.match(/\.(tsx?|jsx?)$/)
+      );
+
+      // Format Phoenix components
+      if (phoenixComponents.length > 0) {
+        const names = phoenixComponents
+          .filter((sc) => sc.type === "component")
+          .map((sc) => sc.name);
+        if (names.length > 0) {
+          parts.push(`[Phoenix: ${names.join(" > ")}]`);
+        }
+      }
+
+      // Format Next.js components
+      if (nextjsComponents.length > 0) {
+        const names = nextjsComponents
+          .filter((sc) => sc.type === "component")
+          .map((sc) => sc.name);
+        if (names.length > 0) {
+          parts.push(`[Next.js: ${names.join(" > ")}]`);
+        }
+      }
     }
 
-    const location = item.filePath ? ` at ${item.filePath}:${item.line}` : "";
+    // Client components - show outer components for context (if any)
+    if (outerComponents.length > 0) {
+      parts.push(`in ${outerComponents.join(" > ")}`);
+    }
+
+    if (parts.length > 0) {
+      description = `${selector} ${parts.join(" ")}`;
+    }
+
+    // Build location string
+    const locationParts: string[] = [];
+
+    // Server component locations
+    if (item.serverComponents && item.serverComponents.length > 0) {
+      item.serverComponents.forEach((sc) => {
+        const prefix = sc.type === "caller" ? " (called from)" : "";
+        locationParts.push(`${sc.filePath}:${sc.line}${prefix}`);
+      });
+    }
+
+    // Client component location (only add if different from server components)
+    if (item.filePath) {
+      const clientLocation = `${item.filePath}:${item.line}`;
+      // Only add if this location isn't already in the list
+      if (!locationParts.includes(clientLocation)) {
+        locationParts.push(clientLocation);
+      }
+    }
+
+    const location = locationParts.length > 0 ? ` at ${locationParts.join(", ")}` : "";
 
     lines.push(`${indent}${prefix}${description}${location}`);
   });

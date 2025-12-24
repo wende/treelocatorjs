@@ -5,7 +5,7 @@ const nextConfig = {
       // only tsx files, we don't need to track other files
       test: /\.tsx?$/,
       use: [
-        { loader: "@treelocator/webpack-loader", options: { env: "development" } },
+        { loader: "@locator/webpack-loader", options: { env: "development" } },
       ],
     })
     return config

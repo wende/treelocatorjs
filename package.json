@@ -13,6 +13,7 @@
     "test": "turbo run test",
     "ts": "turbo run ts",
     "e2e": "turbo run e2e",
+    "test:ancestry": "cd apps/playwright && ./scripts/run-ancestry-tests.sh",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "publishPackages": "lerna publish",
     "clean": "concurrently pnpm:clean:*",

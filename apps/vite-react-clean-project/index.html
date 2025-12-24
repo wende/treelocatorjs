@@ -6,8 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React</title>
   </head>
-  <body>
-    <div id="root"></div>
+  <body data-phx-main="true" data-phx-session="demo-session">
+    <!-- Phoenix LiveView debug annotations -->
+    <!-- @caller lib/app_web/live/demo_live.ex:10 -->
+    <!-- <AppWeb.Components.react_root> lib/app_web/components.ex:25 -->
+    <div id="root" data-phx-loc="25"></div>
+    <!-- </AppWeb.Components.react_root> -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phoenix LiveView + TreeLocatorJS Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    header {
+      background: #4F46E5;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #4F46E5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #4338CA;
+    }
+    .info {
+      background: #EEF2FF;
+      border-left: 4px solid #4F46E5;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    code {
+      background: #1F2937;
+      color: #10B981;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body data-phx-main="true" data-phx-session="session123">
+
+  <!-- @caller lib/app_web/live/home_live.ex:10 -->
+  <!-- <AppWeb.CoreComponents.info_box> lib/app_web/core_components.ex:25 -->
+  <div class="info" data-phx-loc="25">
+    <h3>🧪 Testing Phoenix LiveView Server Component Tracking</h3>
+    <p><strong>How to test:</strong></p>
+    <ol>
+      <li>Hold <code>Alt</code> and click on any element below</li>
+      <li>Check your clipboard - it should show the unified server → client component tree!</li>
+      <li>Look for Phoenix component names like <code>[Phoenix: AppWeb.CoreComponents.header]</code></li>
+    </ol>
+    <p><strong>What's special:</strong> The ancestry chain now shows both Phoenix server components AND any client-side framework components (React, Vue, etc.) in one unified tree!</p>
+  </div>
+  <!-- </AppWeb.CoreComponents.info_box> -->
+
+  <!-- Phoenix LiveView debug annotations (what Phoenix adds when debug_heex_annotations: true) -->
+
+  <!-- @caller lib/app_web/live/home_live.ex:15 -->
+  <!-- <AppWeb.CoreComponents.header> lib/app_web/core_components.ex:45 -->
+  <header data-phx-loc="45">
+    <h1>Welcome to Phoenix LiveView</h1>
+    <p>This demo shows TreeLocatorJS tracking server-side components!</p>
+  </header>
+  <!-- </AppWeb.CoreComponents.header> -->
+
+  <!-- @caller lib/app_web/live/home_live.ex:20 -->
+  <!-- <AppWeb.CoreComponents.card> lib/app_web/core_components.ex:78 -->
+  <div class="card" data-phx-loc="78">
+    <h2>User Profile</h2>
+
+    <!-- @caller lib/app_web/live/home_live.ex:25 -->
+    <!-- <AppWeb.CoreComponents.avatar> lib/app_web/core_components.ex:112 -->
+    <div class="avatar" data-phx-loc="112" style="width: 64px; height: 64px; background: #4F46E5; border-radius: 50%; margin-bottom: 10px;"></div>
+    <!-- </AppWeb.CoreComponents.avatar> -->
+
+    <p><strong>Name:</strong> John Doe</p>
+    <p><strong>Email:</strong> john@example.com</p>
+
+    <!-- @caller lib/app_web/live/home_live.ex:30 -->
+    <!-- <AppWeb.CoreComponents.button> lib/app_web/core_components.ex:156 -->
+    <button data-phx-loc="156" onclick="alert('Button clicked!')">Edit Profile</button>
+    <!-- </AppWeb.CoreComponents.button> -->
+  </div>
+  <!-- </AppWeb.CoreComponents.card> -->
+
+  <!-- @caller lib/app_web/live/home_live.ex:35 -->
+  <!-- <AppWeb.CoreComponents.card> lib/app_web/core_components.ex:78 -->
+  <div class="card" data-phx-loc="78">
+    <h2>Actions</h2>
+
+    <!-- @caller lib/app_web/live/home_live.ex:40 -->
+    <!-- <AppWeb.CoreComponents.button> lib/app_web/core_components.ex:156 -->
+    <button data-phx-loc="156" style="background: #10B981; margin-right: 10px;" onclick="alert('Save clicked!')">Save</button>
+    <!-- </AppWeb.CoreComponents.button> -->
+
+    <!-- @caller lib/app_web/live/home_live.ex:41 -->
+    <!-- <AppWeb.CoreComponents.button> lib/app_web/core_components.ex:156 -->
+    <button data-phx-loc="156" style="background: #EF4444;" onclick="alert('Delete clicked!')">Delete</button>
+    <!-- </AppWeb.CoreComponents.button> -->
+  </div>
+  <!-- </AppWeb.CoreComponents.card> -->
+
+
+  <!-- Nested component example -->
+  <!-- @caller lib/app_web/live/home_live.ex:50 -->
+  <!-- <AppWeb.CoreComponents.card> lib/app_web/core_components.ex:78 -->
+  <div class="card" data-phx-loc="78">
+    <h2>Nested Components</h2>
+
+    <!-- @caller lib/app_web/live/home_live.ex:55 -->
+    <!-- <AppWeb.CoreComponents.list> lib/app_web/core_components.ex:201 -->
+    <ul data-phx-loc="201" style="list-style: none; padding: 0;">
+      <!-- @caller lib/app_web/live/home_live.ex:60 -->
+      <!-- <AppWeb.CoreComponents.list_item> lib/app_web/core_components.ex:234 -->
+      <li data-phx-loc="234" style="padding: 8px; border-bottom: 1px solid #E5E7EB;">
+        Item 1
+        <!-- @caller lib/app_web/live/home_live.ex:65 -->
+        <!-- <AppWeb.CoreComponents.badge> lib/app_web/core_components.ex:289 -->
+        <span data-phx-loc="289" style="background: #10B981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">New</span>
+        <!-- </AppWeb.CoreComponents.badge> -->
+      </li>
+      <!-- </AppWeb.CoreComponents.list_item> -->
+
+      <!-- @caller lib/app_web/live/home_live.ex:70 -->
+      <!-- <AppWeb.CoreComponents.list_item> lib/app_web/core_components.ex:234 -->
+      <li data-phx-loc="234" style="padding: 8px; border-bottom: 1px solid #E5E7EB;">Item 2</li>
+      <!-- </AppWeb.CoreComponents.list_item> -->
+
+      <!-- @caller lib/app_web/live/home_live.ex:75 -->
+      <!-- <AppWeb.CoreComponents.list_item> lib/app_web/core_components.ex:234 -->
+      <li data-phx-loc="234" style="padding: 8px;">Item 3</li>
+      <!-- </AppWeb.CoreComponents.list_item> -->
+    </ul>
+    <!-- </AppWeb.CoreComponents.list> -->
+  </div>
+  <!-- </AppWeb.CoreComponents.card> -->
+
+  <!-- Load TreeLocatorJS Runtime -->
+  <script type="module">
+    // Import the TreeLocatorJS runtime
+    import setupLocatorUI from '@treelocator/runtime';
+
+    // Initialize TreeLocatorJS
+    setupLocatorUI();
+
+    console.log('✅ TreeLocatorJS initialized!');
+    console.log('📋 Try Alt+clicking any element to see the unified server→client component tree');
+    console.log('🔍 Phoenix LiveView detected:', window.liveSocket !== undefined || document.querySelector('[data-phx-main]') !== null);
+  </script>
+
+</body>
+</html>

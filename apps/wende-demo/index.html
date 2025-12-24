@@ -129,8 +129,12 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-off-white text-black antialiased">
-    <div id="root"></div>
+  <body class="bg-off-white text-black antialiased" data-phx-main="true" data-phx-session="demo-session-123">
+    <!-- Phoenix LiveView debug annotations -->
+    <!-- @caller lib/app_web/live/demo_live.ex:15 -->
+    <!-- <AppWeb.Components.react_container> lib/app_web/components.ex:42 -->
+    <div id="root" data-phx-loc="42"></div>
+    <!-- </AppWeb.Components.react_container> -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

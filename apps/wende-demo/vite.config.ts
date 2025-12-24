@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const isDev = mode === 'development';
     return {
+      root: '.',
       server: {
         port: 0,
         host: '0.0.0.0',
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => {
             ],
             plugins: isDev ? [
               '@babel/plugin-transform-react-jsx-source',
-              ['@treelocator/babel-jsx/dist', { env: 'development' }],
+              ['@locator/babel-jsx/dist', { env: 'development' }],
             ] : [],
           },
         }),

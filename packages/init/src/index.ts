@@ -15,6 +15,13 @@ interface ProjectInfo {
   entryFile: string | null;
 }
 
+interface CheckResult {
+  name: string;
+  status: "ok" | "warning" | "error";
+  message: string;
+  fix?: string;
+}
+
 function detectPackageManager(): ProjectInfo["packageManager"] {
   // Check current dir and parent dirs (for monorepos)
   let dir = process.cwd();
@@ -138,6 +145,192 @@ function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[]
   }
 }
 
+function checkConfiguration(info: ProjectInfo): CheckResult[] {
+  const results: CheckResult[] = [];
+  const pkgPath = path.join(process.cwd(), "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+  // Check 1: Runtime package installed
+  if (deps["@treelocator/runtime"]) {
+    results.push({
+      name: "@treelocator/runtime",
+      status: "ok",
+      message: `Installed (${deps["@treelocator/runtime"]})`,
+    });
+  } else {
+    results.push({
+      name: "@treelocator/runtime",
+      status: "error",
+      message: "Not installed",
+      fix: getInstallCommand(info.packageManager, ["@treelocator/runtime"]),
+    });
+  }
+
+  // Check 2: Babel plugin or webpack loader installed
+  // Vue and Svelte use built-in source tracking, so they don't need babel-jsx
+  const needsBabelJsx = info.buildTool === "vite" && info.framework !== "vue" && info.framework !== "svelte";
+  if (needsBabelJsx) {
+    if (deps["@locator/babel-jsx"]) {
+      results.push({
+        name: "@locator/babel-jsx",
+        status: "ok",
+        message: `Installed (${deps["@locator/babel-jsx"]})`,
+      });
+    } else {
+      results.push({
+        name: "@locator/babel-jsx",
+        status: "error",
+        message: "Not installed (required for JSX frameworks with Vite)",
+        fix: getInstallCommand(info.packageManager, ["@locator/babel-jsx"]),
+      });
+    }
+  } else if (info.buildTool === "next") {
+    if (deps["@locator/webpack-loader"]) {
+      results.push({
+        name: "@locator/webpack-loader",
+        status: "ok",
+        message: `Installed (${deps["@locator/webpack-loader"]})`,
+      });
+    } else {
+      results.push({
+        name: "@locator/webpack-loader",
+        status: "error",
+        message: "Not installed (required for Next.js)",
+        fix: getInstallCommand(info.packageManager, ["@locator/webpack-loader"]),
+      });
+    }
+  }
+
+  // Check 3: Build config has babel plugin / webpack loader
+  if (info.configFile && fs.existsSync(info.configFile)) {
+    const configContent = fs.readFileSync(info.configFile, "utf-8");
+
+    // Only check for babel config if framework needs it (not Vue/Svelte)
+    if (needsBabelJsx) {
+      // Check for babel-jsx plugin in vite config
+      if (configContent.includes("@locator/babel-jsx") || configContent.includes("locator/babel-jsx")) {
+        results.push({
+          name: `${info.configFile} babel plugin`,
+          status: "ok",
+          message: "Babel plugin configured",
+        });
+      } else {
+        // Check if the framework plugin has any babel config at all
+        const hasBabelConfig = configContent.includes("babel:");
+        if (hasBabelConfig) {
+          results.push({
+            name: `${info.configFile} babel plugin`,
+            status: "warning",
+            message: "Babel config exists but @locator/babel-jsx not found",
+            fix: `Add ["@locator/babel-jsx/dist", { env: "development" }] to babel.plugins`,
+          });
+        } else {
+          results.push({
+            name: `${info.configFile} babel plugin`,
+            status: "error",
+            message: "Babel plugin not configured",
+            fix: `Add babel: { plugins: [["@locator/babel-jsx/dist", { env: "development" }]] } to your framework plugin options`,
+          });
+        }
+      }
+    } else if (info.buildTool === "next") {
+      if (configContent.includes("@locator/webpack-loader") || configContent.includes("locator/webpack-loader")) {
+        results.push({
+          name: `${info.configFile} webpack loader`,
+          status: "ok",
+          message: "Webpack loader configured",
+        });
+      } else {
+        results.push({
+          name: `${info.configFile} webpack loader`,
+          status: "error",
+          message: "Webpack loader not configured",
+          fix: `Add webpack config with @locator/webpack-loader to ${info.configFile}`,
+        });
+      }
+    }
+  } else if (info.configFile) {
+    results.push({
+      name: `${info.configFile}`,
+      status: "error",
+      message: "Config file not found",
+      fix: `Create ${info.configFile}`,
+    });
+  }
+
+  // Check 4: Runtime import in entry file
+  if (info.entryFile && fs.existsSync(info.entryFile)) {
+    const entryContent = fs.readFileSync(info.entryFile, "utf-8");
+    if (entryContent.includes("@treelocator/runtime")) {
+      results.push({
+        name: `${info.entryFile} runtime import`,
+        status: "ok",
+        message: "Runtime imported",
+      });
+    } else {
+      results.push({
+        name: `${info.entryFile} runtime import`,
+        status: "warning",
+        message: "Runtime not imported (optional but recommended)",
+        fix: `Add: import "@treelocator/runtime"`,
+      });
+    }
+  }
+
+  return results;
+}
+
+function printCheckResults(results: CheckResult[]): boolean {
+  let hasErrors = false;
+  let hasWarnings = false;
+
+  console.log(pc.bold("\nConfiguration Check Results:\n"));
+
+  for (const result of results) {
+    let icon: string;
+    let color: (s: string) => string;
+
+    switch (result.status) {
+      case "ok":
+        icon = "✓";
+        color = pc.green;
+        break;
+      case "warning":
+        icon = "⚠";
+        color = pc.yellow;
+        hasWarnings = true;
+        break;
+      case "error":
+        icon = "✗";
+        color = pc.red;
+        hasErrors = true;
+        break;
+    }
+
+    console.log(`  ${color(icon)} ${pc.bold(result.name)}`);
+    console.log(`    ${color(result.message)}`);
+    if (result.fix) {
+      console.log(`    ${pc.dim("Fix:")} ${pc.cyan(result.fix)}`);
+    }
+    console.log();
+  }
+
+  if (hasErrors) {
+    console.log(pc.red(pc.bold("Some required configurations are missing.")));
+    console.log(pc.dim("Run without --check to set up TreeLocatorJS.\n"));
+    return false;
+  } else if (hasWarnings) {
+    console.log(pc.yellow(pc.bold("Configuration looks good with minor warnings.")));
+    console.log(pc.green("TreeLocatorJS should work correctly.\n"));
+    return true;
+  } else {
+    console.log(pc.green(pc.bold("All configurations are correct!")));
+    console.log(pc.green("TreeLocatorJS is properly set up.\n"));
+    return true;
+  }
+}
+
 function updateViteConfig(configFile: string, framework: string): void {
   let content = fs.readFileSync(configFile, "utf-8");
 
@@ -178,22 +371,29 @@ function updateViteConfig(configFile: string, framework: string): void {
 
   // For SolidJS with Vite, add babel plugin
   if (framework === "solid") {
-    const solidPluginRegex = /solidPlugin\(\s*\)/;
-    const solidPluginWithOptionsRegex = /solidPlugin\(\s*\{/;
+    // Try both solidPlugin() and solid() patterns
+    const solidPluginRegex = /solid(?:Plugin)?\(\s*\)/;
+    const solidPluginWithOptionsRegex = /solid(?:Plugin)?\(\s*\{/;
 
     if (solidPluginRegex.test(content)) {
       content = content.replace(
         solidPluginRegex,
-        `solidPlugin({
+        (match) => {
+          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
+          return `${funcName}({
       ${babelConfig},
-    })`
+    })`;
+        }
       );
     } else if (solidPluginWithOptionsRegex.test(content)) {
       // Already has options, need to add babel config
       content = content.replace(
-        /solidPlugin\(\s*\{/,
-        `solidPlugin({
-      ${babelConfig},`
+        /solid(?:Plugin)?\(\s*\{/,
+        (match) => {
+          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
+          return `${funcName}({
+      ${babelConfig},`;
+        }
       );
     }
   }
@@ -321,10 +521,30 @@ export function LocatorProvider({ children }: { children: React.ReactNode }) {
   console.log(pc.green(`Updated ${entryFile}`));
 }
 
-async function main() {
-  console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
+async function runCheck(info: ProjectInfo): Promise<void> {
+  console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Configuration Check\n")));
 
-  const info = detectProject();
+  console.log(pc.dim("Detected:"));
+  console.log(pc.dim(`  Package manager: ${info.packageManager}`));
+  console.log(pc.dim(`  Build tool: ${info.buildTool}`));
+  console.log(pc.dim(`  Framework: ${info.framework}`));
+  console.log(pc.dim(`  Config file: ${info.configFile || "not found"}`));
+  console.log(pc.dim(`  Entry file: ${info.entryFile || "not found"}`));
+
+  if (info.buildTool === "unknown") {
+    console.log(pc.red("\nCould not detect build tool (Vite or Next.js)."));
+    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
+    process.exit(1);
+  }
+
+  const results = checkConfiguration(info);
+  const isOk = printCheckResults(results);
+
+  process.exit(isOk ? 0 : 1);
+}
+
+async function runSetup(info: ProjectInfo): Promise<void> {
+  console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
 
   console.log(pc.dim("Detected:"));
   console.log(pc.dim(`  Package manager: ${info.packageManager}`));
@@ -359,7 +579,10 @@ async function main() {
   // Determine packages to install
   const packages = ["@treelocator/runtime"];
   if (info.buildTool === "vite") {
-    packages.push("@locator/babel-jsx");
+    // Vue and Svelte don't need babel-jsx - they use built-in source tracking
+    if (info.framework !== "vue" && info.framework !== "svelte") {
+      packages.push("@locator/babel-jsx");
+    }
   } else if (info.buildTool === "next") {
     packages.push("@locator/webpack-loader");
   }
@@ -374,13 +597,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Update config
+  // Update config (only for frameworks that need babel plugin)
   if (info.configFile) {
-    console.log(pc.dim(`\nUpdating ${info.configFile}...`));
-    if (info.buildTool === "vite") {
-      updateViteConfig(info.configFile, info.framework);
-    } else if (info.buildTool === "next") {
-      updateNextConfig(info.configFile);
+    const needsConfigUpdate =
+      info.buildTool === "next" ||
+      (info.buildTool === "vite" && info.framework !== "vue" && info.framework !== "svelte");
+
+    if (needsConfigUpdate) {
+      console.log(pc.dim(`\nUpdating ${info.configFile}...`));
+      if (info.buildTool === "vite") {
+        updateViteConfig(info.configFile, info.framework);
+      } else if (info.buildTool === "next") {
+        updateNextConfig(info.configFile);
+      }
+    } else {
+      console.log(pc.dim(`\nNo config update needed for ${info.framework} (uses built-in source tracking)`));
     }
   }
 
@@ -393,6 +624,42 @@ async function main() {
 
   console.log(pc.bold(pc.green("\nTreeLocatorJS installed successfully!")));
   console.log(pc.dim("\nUsage: Hold Alt and click any component to copy its ancestry.\n"));
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const isCheck = args.includes("--check") || args.includes("-c") || args.includes("check");
+  const isHelp = args.includes("--help") || args.includes("-h") || args.includes("help");
+
+  if (isHelp) {
+    console.log(`
+${pc.bold(pc.cyan("TreeLocatorJS Setup"))}
+
+${pc.bold("Usage:")}
+  npx @treelocator/init          Install and configure TreeLocatorJS
+  npx @treelocator/init check    Check if configuration is correct
+  npx @treelocator/init --help   Show this help message
+
+${pc.bold("Options:")}
+  --check, -c, check    Verify existing configuration without making changes
+  --help, -h, help      Show this help message
+
+${pc.bold("What it checks:")}
+  • @treelocator/runtime package is installed
+  • @locator/babel-jsx (Vite) or @locator/webpack-loader (Next.js) is installed
+  • Build config has the babel plugin / webpack loader configured
+  • Entry file imports the runtime (optional)
+`);
+    process.exit(0);
+  }
+
+  const info = detectProject();
+
+  if (isCheck) {
+    await runCheck(info);
+  } else {
+    await runSetup(info);
+  }
 }
 
 main().catch(console.error);

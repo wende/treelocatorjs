@@ -19,7 +19,7 @@
     "typescript": "^5.6.3"
   },
   "devDependencies": {
-    "@treelocator/babel-jsx": "workspace:^",
+    "@locator/babel-jsx": "^0.5.1",
     "@types/node": "^22",
     "@types/react": "^18.2.79",
     "@types/react-dom": "^18.2.25",

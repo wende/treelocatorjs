@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@treelocator/babel-jsx": "workspace:*",
+    "@locator/babel-jsx": "^0.5.1",
     "@treelocator/runtime": "workspace:*",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.555.0",

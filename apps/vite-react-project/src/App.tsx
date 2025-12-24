@@ -2,12 +2,14 @@ import { useState } from "react";
 import "./App.css";
 import ShadowDomTest from "./ShadowDomTest";
 import { NestingTest } from "./NestingTest";
+import { AncestryTest } from "./AncestryTest";
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
     <div className="App">
+      <AncestryTest />
       <NestingTest />
       <ShadowDomTest />
       <div

@@ -3,9 +3,11 @@
   import OuterShadowDom from "./OuterShadowDom.svelte";
   import svelteLogo from "./assets/svelte.svg";
   import Counter from "./lib/Counter.svelte";
+  import AncestryTest from "./lib/AncestryTest.svelte";
 </script>
 
 <main>
+  <AncestryTest />
   <div>
     <a href="https://vitejs.dev" target="_blank">
       <img src="/vite.svg" class="logo" alt="Vite Logo" />

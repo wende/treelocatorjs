@@ -1,0 +1,56 @@
+<div class="min-h-screen bg-gray-100 py-8 px-4">
+  <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+    <h1 class="text-4xl font-bold mb-4 text-gray-800">Ruby on Rails Demo</h1>
+
+    <div class="mb-8">
+      <p class="text-xl mb-4 text-gray-700">Hello from Ruby on Rails!</p>
+      <p class="text-2xl mb-4 text-gray-700">
+        Count: <span class="font-bold text-blue-600" id="counter">0</span>
+      </p>
+
+      <div class="space-x-4">
+        <button
+          onclick="changeCount(1)"
+          class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Increment
+        </button>
+        <button
+          onclick="changeCount(-1)"
+          class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Decrement
+        </button>
+        <button
+          onclick="resetCount()"
+          class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+      <p class="font-bold">Simple Counter Demo</p>
+      <p>This demonstrates Ruby on Rails with JavaScript for interactivity!</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let count = 0;
+
+  function changeCount(delta) {
+    count += delta;
+    updateDisplay();
+  }
+
+  function resetCount() {
+    count = 0;
+    updateDisplay();
+  }
+
+  function updateDisplay() {
+    document.getElementById('counter').textContent = count;
+  }
+</script>

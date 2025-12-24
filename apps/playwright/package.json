@@ -6,10 +6,12 @@
     "e2e": "playwright test ./tests/libs",
     "e2e-headed": "playwright test --headed --project=chromium ./tests/libs",
     "e2e-extension": "playwright test --headed --project=chromium ./tests/extensions",
-    "install-browsers": "playwright install"
+    "install-browsers": "playwright install",
+    "test:ancestry": "./scripts/run-ancestry-tests.sh",
+    "test:ancestry:only": "playwright test tests/ancestry/ --reporter=list"
   },
   "devDependencies": {
-    "@playwright/test": "^1.24.2"
+    "@playwright/test": "^1.40.0"
   },
   "files": []
 }

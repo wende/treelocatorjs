@@ -49,10 +49,8 @@ The `@treelocator/init` package provides an automated setup wizard:
 
 **What it does:**
 1. Auto-detects project configuration (package manager, build tool, framework)
-2. Installs required packages (`@treelocator/runtime`, `@locator/babel-jsx`, `@locator/webpack-loader`)
-3. Configures build tools:
-   - **Vite**: Adds `@locator/babel-jsx` plugin to `vite.config.js/ts`
-   - **Next.js**: Adds `@locator/webpack-loader` to `next.config.js/ts`
+2. Installs required packages (varies by framework - see below)
+3. Configures build tools (for JSX frameworks only)
 4. Injects runtime import into entry file (`src/main.tsx`, `src/index.tsx`, etc.)
 
 **Supported:**
@@ -149,8 +147,32 @@ pnpm lerna publish from-package --yes
 
 ## Supported Frameworks
 
-- React (via React DevTools hook)
-- Vue
-- Svelte
-- Preact
-- Any JSX framework (with babel plugin)
+Each framework uses different mechanisms for source location tracking:
+
+| Framework | Source Tracking | Packages Needed | Config Update |
+|-----------|-----------------|-----------------|---------------|
+| **Vue** | Built-in (`__vueParentComponent`) | `@treelocator/runtime` only | None |
+| **Svelte** | Built-in (`__svelte_meta` in dev) | `@treelocator/runtime` only | None |
+| **React** | Babel plugin (`data-locatorjs-id`) | `@treelocator/runtime` + `@locator/babel-jsx` | vite.config babel |
+| **Solid** | Babel plugin (`data-locatorjs-id`) | `@treelocator/runtime` + `@locator/babel-jsx` | vite.config babel |
+| **Preact** | Babel plugin (`data-locatorjs-id`) | `@treelocator/runtime` + `@locator/babel-jsx` | vite.config babel |
+| **Next.js** | Webpack loader | `@treelocator/runtime` + `@locator/webpack-loader` | next.config webpack |
+
+### How Source Tracking Works
+
+- **Vue/Svelte**: These frameworks include source location metadata in development mode automatically. No build tool configuration needed.
+  - Vue 3: Elements have `__vueParentComponent` with component info
+  - Svelte: Elements have `__svelte_meta` with file/line/column in dev mode
+
+- **JSX Frameworks (React/Solid/Preact)**: Require `@locator/babel-jsx` to inject `data-locatorjs-id` attributes into JSX elements during compilation. The init script adds babel config to the framework's Vite plugin.
+
+- **Next.js**: Uses `@locator/webpack-loader` instead of babel plugin to inject source locations.
+
+### Framework Auto-Detection
+
+The runtime auto-detects frameworks in this order (see `packages/runtime/src/adapters/createTreeNode.ts`):
+1. Svelte (`detectSvelte()`)
+2. Vue (`detectVue()`)
+3. React (`detectReact()`)
+4. JSX/babel plugin (`detectJSX()` or `data-locatorjs-id` present)
+5. Phoenix LiveView (`detectPhoenix()`)

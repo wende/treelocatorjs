@@ -6,46 +6,49 @@ import {
 } from "./formatAncestryChain";
 
 describe("formatAncestryChain", () => {
-  it("formats basic ancestry without ID or nth-child", () => {
+  it("uses component name only at component boundaries", () => {
     const items: AncestryItem[] = [
       { elementName: "button", componentName: "Button" },
       { elementName: "div", componentName: "App" },
     ];
 
     const result = formatAncestryChain(items);
+    // App is root (component boundary), Button is different component (boundary)
     expect(result).toBe(
-      `div in App
-    └─ button in Button`
+      `App
+    └─ Button`
     );
   });
 
-  it("includes ID when present", () => {
+  it("shows element name when same component as parent", () => {
     const items: AncestryItem[] = [
-      { elementName: "button", componentName: "Button", id: "submit-btn" },
+      { elementName: "button", componentName: "App", id: "submit-btn" },
       { elementName: "div", componentName: "App" },
     ];
 
     const result = formatAncestryChain(items);
+    // Both are in App, so second item shows element name not component name
     expect(result).toBe(
-      `div in App
-    └─ button#submit-btn in Button`
+      `App
+    └─ button#submit-btn`
     );
   });
 
-  it("includes nth-child when present", () => {
+  it("includes nth-child with component name at boundary", () => {
     const items: AncestryItem[] = [
       { elementName: "li", componentName: "ListItem", nthChild: 3 },
       { elementName: "ul", componentName: "List" },
     ];
 
     const result = formatAncestryChain(items);
+    // Different components = boundaries
     expect(result).toBe(
-      `ul in List
-    └─ li:nth-child(3) in ListItem`
+      `List
+    └─ ListItem:nth-child(3)`
     );
   });
 
-  it("includes both nth-child and ID when present", () => {
+  it("includes both nth-child and ID at component boundary", () => {
     const items: AncestryItem[] = [
       {
         elementName: "li",
@@ -58,12 +61,12 @@ describe("formatAncestryChain", () => {
 
     const result = formatAncestryChain(items);
     expect(result).toBe(
-      `ul in List
-    └─ li:nth-child(2)#special-item in ListItem`
+      `List
+    └─ ListItem:nth-child(2)#special-item`
     );
   });
 
-  it("includes file location when present", () => {
+  it("includes file location at component boundary", () => {
     const items: AncestryItem[] = [
       {
         elementName: "button",
@@ -75,7 +78,8 @@ describe("formatAncestryChain", () => {
     ];
 
     const result = formatAncestryChain(items);
-    expect(result).toBe("button#save in Button at src/Button.tsx:42");
+    // First item is always a boundary (no previous item)
+    expect(result).toBe("Button#save at src/Button.tsx:42");
   });
 
   it("formats element without component name", () => {
@@ -92,7 +96,7 @@ describe("formatAncestryChain", () => {
     expect(result).toBe("");
   });
 
-  it("shows all owner components when ownerComponents is provided", () => {
+  it("uses innermost component as display name with outer components in chain", () => {
     const items: AncestryItem[] = [
       {
         elementName: "div",
@@ -117,13 +121,14 @@ describe("formatAncestryChain", () => {
     ];
 
     const result = formatAncestryChain(items);
+    // GlassPanel (innermost) is the display name, Sidebar (outer) shown in "in"
     expect(result).toBe(
-      `div in App at src/App.jsx:104
-    └─ div#sidebar-panel in Sidebar > GlassPanel at src/components/game/Sidebar.jsx:78`
+      `App at src/App.jsx:104
+    └─ GlassPanel#sidebar-panel in Sidebar at src/components/game/Sidebar.jsx:78`
     );
   });
 
-  it("shows single owner component without arrow when only one in chain", () => {
+  it("uses component name as display name when only one in chain", () => {
     const items: AncestryItem[] = [
       {
         elementName: "button",
@@ -135,6 +140,7 @@ describe("formatAncestryChain", () => {
     ];
 
     const result = formatAncestryChain(items);
-    expect(result).toBe("button in Button at src/Button.tsx:10");
+    // Single component becomes the display name, no "in X" needed
+    expect(result).toBe("Button at src/Button.tsx:10");
   });
 });
