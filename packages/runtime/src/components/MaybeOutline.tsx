@@ -108,7 +108,7 @@ export function MaybeOutline(props: {
           >
             {props.currentElement.tagName.toLowerCase()}
             {props.currentElement.id ? `#${props.currentElement.id}` : ""}
-            {props.currentElement.className ? `.${props.currentElement.className.split(" ")[0]}` : ""}
+            {props.currentElement.getAttribute('class') ? `.${props.currentElement.getAttribute('class')!.split(" ")[0]}` : ""}
           </div>
         </div>
       )}
