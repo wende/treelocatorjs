@@ -1,5 +1,6 @@
-import { findDebugSource } from "./findDebugSource";
+import { findDebugSource, findDebugSourceAsync, isReact19Fiber } from "./findDebugSource";
 import { findFiberByHtmlElement } from "./findFiberByHtmlElement";
+import { resolveSourceFromDebugStack } from "./resolveSourceMap";
 import { getFiberLabel } from "./getFiberLabel";
 import { getAllWrappingParents } from "./getAllWrappingParents";
 import { deduplicateLabels } from "../../functions/deduplicateLabels";

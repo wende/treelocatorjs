@@ -5,6 +5,7 @@ import {
   formatAncestryChain,
   AncestryItem,
 } from "./functions/formatAncestryChain";
+import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
 
 export interface LocatorJSAPI {
   /**
@@ -33,7 +34,7 @@ export interface LocatorJSAPI {
    * });
    * console.log(path);
    */
-  getPath(elementOrSelector: HTMLElement | string): string | null;
+  getPath(elementOrSelector: HTMLElement | string): Promise<string | null>;
 
   /**
    * Get raw ancestry data for an element.
@@ -61,7 +62,7 @@ export interface LocatorJSAPI {
    *   return ancestry?.map(item => item.componentName).filter(Boolean);
    * });
    */
-  getAncestry(elementOrSelector: HTMLElement | string): AncestryItem[] | null;
+  getAncestry(elementOrSelector: HTMLElement | string): Promise<AncestryItem[] | null>;
 
   /**
    * Get both formatted path and raw ancestry data in a single call.
@@ -88,7 +89,7 @@ export interface LocatorJSAPI {
    */
   getPathData(
     elementOrSelector: HTMLElement | string
-  ): { path: string; ancestry: AncestryItem[] } | null;
+  ): Promise<{ path: string; ancestry: AncestryItem[] } | null>;
 
   /**
    * Display help information about the LocatorJS API.
@@ -126,6 +127,14 @@ function getAncestryForElement(element: HTMLElement): AncestryItem[] | null {
     return null;
   }
   return collectAncestry(treeNode);
+}
+
+async function getEnrichedAncestryForElement(
+  element: HTMLElement
+): Promise<AncestryItem[] | null> {
+  const ancestry = getAncestryForElement(element);
+  if (!ancestry) return null;
+  return enrichAncestryWithSourceMaps(ancestry, element);
 }
 
 const HELP_TEXT = `
@@ -233,46 +242,39 @@ export function createBrowserAPI(
   adapterId = adapterIdParam;
 
   return {
-    getPath(elementOrSelector: HTMLElement | string): string | null {
+    getPath(elementOrSelector: HTMLElement | string): Promise<string | null> {
       const element = resolveElement(elementOrSelector);
       if (!element) {
-        return null;
+        return Promise.resolve(null);
       }
 
-      const ancestry = getAncestryForElement(element);
-      if (!ancestry) {
-        return null;
-      }
-
-      return formatAncestryChain(ancestry);
+      return getEnrichedAncestryForElement(element).then((ancestry) =>
+        ancestry ? formatAncestryChain(ancestry) : null
+      );
     },
 
-    getAncestry(elementOrSelector: HTMLElement | string): AncestryItem[] | null {
+    getAncestry(
+      elementOrSelector: HTMLElement | string
+    ): Promise<AncestryItem[] | null> {
       const element = resolveElement(elementOrSelector);
       if (!element) {
-        return null;
+        return Promise.resolve(null);
       }
 
-      return getAncestryForElement(element);
+      return getEnrichedAncestryForElement(element);
     },
 
     getPathData(
       elementOrSelector: HTMLElement | string
-    ): { path: string; ancestry: AncestryItem[] } | null {
+    ): Promise<{ path: string; ancestry: AncestryItem[] } | null> {
       const element = resolveElement(elementOrSelector);
       if (!element) {
-        return null;
+        return Promise.resolve(null);
       }
 
-      const ancestry = getAncestryForElement(element);
-      if (!ancestry) {
-        return null;
-      }
-
-      return {
-        path: formatAncestryChain(ancestry),
-        ancestry,
-      };
+      return getEnrichedAncestryForElement(element).then((ancestry) =>
+        ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
+      );
     },
 
     help(): string {

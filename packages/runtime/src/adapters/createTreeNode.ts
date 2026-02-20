@@ -11,6 +11,15 @@ import {
 } from "@locator/shared";
 import { detectPhoenix } from "./phoenix/detectPhoenix";
 
+/**
+ * Fallback React detection: check if any DOM element has __reactFiber$ keys.
+ * Works without React DevTools extension (where detectReact() fails because
+ * the renderers Map is empty).
+ */
+function hasReactFiberKeys(element: HTMLElement): boolean {
+  return Object.keys(element).some((k) => k.startsWith("__reactFiber$"));
+}
+
 export function createTreeNode(
   element: HTMLElement,
   adapterId?: string
@@ -38,7 +47,7 @@ export function createTreeNode(
     return new VueTreeNodeElement(element);
   }
 
-  if (detectReact()) {
+  if (detectReact() || hasReactFiberKeys(element)) {
     return new ReactTreeNodeElement(element);
   }
 

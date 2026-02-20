@@ -8,6 +8,7 @@ import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
 import { collectAncestry, formatAncestryChain } from "../functions/formatAncestryChain";
+import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
 import { createTreeNode } from "../adapters/createTreeNode";
 import treeIconUrl from "../_generated_tree_icon";
 
@@ -153,10 +154,24 @@ function Runtime(props: RuntimeProps) {
     const treeNode = createTreeNode(element as HTMLElement, props.adapterId);
     if (treeNode) {
       const ancestry = collectAncestry(treeNode);
+
+      // Write immediately with component names (preserves user gesture for clipboard API)
       const formatted = formatAncestryChain(ancestry);
       navigator.clipboard.writeText(formatted).then(() => {
         setToastMessage("Copied to clipboard");
       });
+
+      // For React 19+: try to enrich with source map file paths and re-copy
+      enrichAncestryWithSourceMaps(ancestry, element as HTMLElement).then(
+        (enriched) => {
+          const enrichedFormatted = formatAncestryChain(enriched);
+          if (enrichedFormatted !== formatted) {
+            navigator.clipboard.writeText(enrichedFormatted).then(() => {
+              setToastMessage("Copied to clipboard");
+            });
+          }
+        }
+      );
     }
 
     // Deactivate toggle after click
