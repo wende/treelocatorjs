@@ -10,13 +10,12 @@ export function getAllParentsElementsAndRootComponent(fiber: Fiber): {
   component: Fiber;
   componentBox: SimpleDOMRect;
   parentElements: ElementInfo[];
-} {
+} | null {
   const parentElements: ElementInfo[] = [];
   const deepestElement = fiber.stateNode;
-  if (!deepestElement || !(deepestElement instanceof HTMLElement)) {
-    throw new Error(
-      "This functions works only for Fibres with HTMLElement stateNode"
-    );
+  if (!deepestElement || !(deepestElement instanceof Element)) {
+    console.warn("[TreeLocator] Skipping fiber with non-Element stateNode:", fiber.type, fiber.stateNode);
+    return null;
   }
   let componentBox: SimpleDOMRect = deepestElement.getBoundingClientRect();
 
@@ -26,7 +25,7 @@ export function getAllParentsElementsAndRootComponent(fiber: Fiber): {
   while (currentFiber._debugOwner || currentFiber.return) {
     currentFiber = currentFiber._debugOwner || currentFiber.return!;
     const currentElement = currentFiber.stateNode;
-    if (!currentElement || !(currentElement instanceof HTMLElement)) {
+    if (!currentElement || !(currentElement instanceof Element)) {
       return {
         component: currentFiber,
         parentElements,
@@ -48,5 +47,6 @@ export function getAllParentsElementsAndRootComponent(fiber: Fiber): {
       link: null,
     });
   }
-  throw new Error("Could not find root component");
+  console.warn("[TreeLocator] Could not find root component for fiber:", fiber.type);
+  return null;
 }

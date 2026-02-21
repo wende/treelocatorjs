@@ -25,8 +25,11 @@ export function getElementInfo(found: HTMLElement): FullElementInfo | null {
 
   const fiber = findFiberByHtmlElement(found, false);
   if (fiber) {
-    const { component, componentBox, parentElements } =
-      getAllParentsElementsAndRootComponent(fiber);
+    const result = getAllParentsElementsAndRootComponent(fiber);
+    if (!result) {
+      return null;
+    }
+    const { component, componentBox, parentElements } = result;
 
     const allPotentialComponentFibers = getAllWrappingParents(component);
 

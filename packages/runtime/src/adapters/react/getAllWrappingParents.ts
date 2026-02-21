@@ -9,7 +9,7 @@ export function getAllWrappingParents(fiber: Fiber): Fiber[] {
     currentFiber = currentFiber.return;
     if (
       currentFiber.stateNode &&
-      currentFiber.stateNode instanceof HTMLElement
+      currentFiber.stateNode instanceof Element
     ) {
       return parents;
     }
