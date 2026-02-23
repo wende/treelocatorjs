@@ -143,4 +143,127 @@ describe("formatAncestryChain", () => {
     // Single component becomes the display name, no "in X" needed
     expect(result).toBe("Button at src/Button.tsx:10");
   });
+
+  describe("Anonymous component filtering", () => {
+    it("filters Anonymous from outer components in 'in X > Y' display", () => {
+      const items: AncestryItem[] = [
+        {
+          elementName: "div",
+          nthChild: 2,
+          componentName: "Anonymous",
+          filePath: "app/page.tsx",
+          line: 82,
+          ownerComponents: [
+            { name: "Anonymous" },
+            { name: "Home", filePath: "app/page.tsx", line: 82 },
+          ],
+        },
+        { elementName: "div", componentName: "App", filePath: "src/App.tsx", line: 1 },
+      ];
+
+      const result = formatAncestryChain(items);
+      // "Anonymous" should be filtered out — just "Home" as display name, no "in Anonymous"
+      expect(result).toBe(
+        `App at src/App.tsx:1
+    └─ Home:nth-child(2) at app/page.tsx:82`
+      );
+    });
+
+    it("filters Anonymous from component boundary detection", () => {
+      // When prev item's innermost component is Anonymous, it shouldn't count
+      // as a different component from the current item
+      const items: AncestryItem[] = [
+        {
+          elementName: "p",
+          componentName: "Home",
+          filePath: "app/page.tsx",
+          line: 100,
+        },
+        {
+          elementName: "div",
+          componentName: "Anonymous",
+          filePath: "app/page.tsx",
+          line: 82,
+          ownerComponents: [
+            { name: "Anonymous" },
+            { name: "Home", filePath: "app/page.tsx", line: 82 },
+          ],
+        },
+      ];
+
+      const result = formatAncestryChain(items);
+      // Both items resolve to "Home" — no boundary crossing, so element name for child
+      expect(result).toBe(
+        `Home at app/page.tsx:82
+    └─ p at app/page.tsx:100`
+      );
+    });
+
+    it("handles all-Anonymous owner chain gracefully", () => {
+      const items: AncestryItem[] = [
+        {
+          elementName: "div",
+          componentName: "Anonymous",
+          filePath: "app/layout.tsx",
+          line: 10,
+          ownerComponents: [
+            { name: "Anonymous" },
+            { name: "Anonymous" },
+          ],
+        },
+      ];
+
+      const result = formatAncestryChain(items);
+      // All components are Anonymous — falls back to element name
+      expect(result).toBe("div at app/layout.tsx:10");
+    });
+
+    it("skips Anonymous-only componentName without ownerComponents", () => {
+      const items: AncestryItem[] = [
+        {
+          elementName: "main",
+          componentName: "Anonymous",
+          filePath: "app/page.tsx",
+          line: 50,
+        },
+        {
+          elementName: "div",
+          componentName: "App",
+          filePath: "src/App.tsx",
+          line: 1,
+        },
+      ];
+
+      const result = formatAncestryChain(items);
+      // "Anonymous" componentName should not be used as display name
+      expect(result).toBe(
+        `App at src/App.tsx:1
+    └─ main at app/page.tsx:50`
+      );
+    });
+
+    it("preserves named components when mixed with Anonymous", () => {
+      const items: AncestryItem[] = [
+        {
+          elementName: "div",
+          componentName: "Sidebar",
+          filePath: "src/Sidebar.tsx",
+          line: 20,
+          ownerComponents: [
+            { name: "Sidebar", filePath: "src/Sidebar.tsx", line: 20 },
+            { name: "Anonymous" },
+            { name: "GlassPanel", filePath: "src/GlassPanel.tsx", line: 5 },
+          ],
+        },
+        { elementName: "div", componentName: "App", filePath: "src/App.tsx", line: 1 },
+      ];
+
+      const result = formatAncestryChain(items);
+      // Anonymous in the middle is filtered, Sidebar (outer) and GlassPanel (inner) remain
+      expect(result).toBe(
+        `App at src/App.tsx:1
+    └─ GlassPanel in Sidebar at src/Sidebar.tsx:20`
+      );
+    });
+  });
 });

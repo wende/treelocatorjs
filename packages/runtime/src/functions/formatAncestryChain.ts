@@ -147,6 +147,23 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
   return items;
 }
 
+function getInnermostNamedComponent(item: AncestryItem | null | undefined): string | undefined {
+  if (!item) return undefined;
+  if (item.ownerComponents && item.ownerComponents.length > 0) {
+    // Find the innermost non-Anonymous component
+    for (let i = item.ownerComponents.length - 1; i >= 0; i--) {
+      if (item.ownerComponents[i]!.name !== "Anonymous") {
+        return item.ownerComponents[i]!.name;
+      }
+    }
+  }
+  // Fall back to componentName if it's not Anonymous
+  if (item.componentName && item.componentName !== "Anonymous") {
+    return item.componentName;
+  }
+  return undefined;
+}
+
 export function formatAncestryChain(items: AncestryItem[]): string {
   if (items.length === 0) {
     return "";
@@ -162,11 +179,12 @@ export function formatAncestryChain(items: AncestryItem[]): string {
     const prefix = index === 0 ? "" : "└─ ";
 
     // Get the previous item's component to detect component boundaries
+    // Ignore "Anonymous" when resolving component names — these are framework internals
     const prevItem = index > 0 ? reversed[index - 1] : null;
-    const prevComponentName = prevItem?.componentName || prevItem?.ownerComponents?.[prevItem.ownerComponents.length - 1]?.name;
+    const prevComponentName = getInnermostNamedComponent(prevItem);
 
-    // Get current item's innermost component
-    const currentComponentName = item.ownerComponents?.[item.ownerComponents.length - 1]?.name || item.componentName;
+    // Get current item's innermost named component
+    const currentComponentName = getInnermostNamedComponent(item);
 
     // Determine the display name for the element
     // Use component name ONLY when crossing a component boundary (root element of a component)
@@ -177,14 +195,17 @@ export function formatAncestryChain(items: AncestryItem[]): string {
 
     if (isComponentBoundary) {
       if (item.ownerComponents && item.ownerComponents.length > 0) {
-        // Use innermost component as display name, show outer ones in "in X > Y"
-        const innermost = item.ownerComponents[item.ownerComponents.length - 1];
+        // Use innermost named component as display name, show outer ones in "in X > Y"
+        // Filter out "Anonymous" components — these are framework-internal wrappers
+        // (e.g. Next.js App Router) that add noise without useful context
+        const named = item.ownerComponents.filter((c) => c.name !== "Anonymous");
+        const innermost = named[named.length - 1];
         if (innermost) {
           displayName = innermost.name;
           // Outer components (excluding innermost)
-          outerComponents = item.ownerComponents.slice(0, -1).map((c) => c.name);
+          outerComponents = named.slice(0, -1).map((c) => c.name);
         }
-      } else if (item.componentName) {
+      } else if (item.componentName && item.componentName !== "Anonymous") {
         displayName = item.componentName;
       }
     }

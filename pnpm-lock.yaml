@@ -397,6 +397,25 @@ importers:
         specifier: ^6.2.0
         version: 6.4.1(@types/node@22.18.12)
 
+  packages/browser-extension:
+    dependencies:
+      '@treelocator/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      '@types/chrome':
+        specifier: ^0.0.268
+        version: 0.0.268
+      typescript:
+        specifier: ^5.6.3
+        version: 5.8.3
+      vite:
+        specifier: ^5.4.10
+        version: 5.4.21(@types/node@22.18.12)
+      vite-plugin-static-copy:
+        specifier: ^1.0.6
+        version: 1.0.6(vite@5.4.21)
+
   packages/dev-config:
     dependencies:
       '@typescript-eslint/eslint-plugin':
@@ -459,7 +478,7 @@ importers:
         specifier: ^0.5.11
         version: 0.5.11(tailwindcss@3.4.18)
       '@treelocator/dev-config':
-        specifier: ^0.1.0
+        specifier: ^0.2.0
         version: link:../dev-config
       '@types/jsdom':
         specifier: ^21.1.7
@@ -7900,6 +7919,13 @@ packages:
       '@babel/types': 7.28.5
     dev: true
 
+  /@types/chrome@0.0.268:
+    resolution: {integrity: sha512-7N1QH9buudSJ7sI8Pe4mBHJr5oZ48s0hcanI9w3wgijAlv1OZNUZve9JR4x42dn5lJ5Sm87V1JNfnoh10EnQlA==}
+    dependencies:
+      '@types/filesystem': 0.0.36
+      '@types/har-format': 1.2.16
+    dev: true
+
   /@types/doctrine@0.0.5:
     resolution: {integrity: sha512-JJwEeFy8Sl9ctiugU4h4DGN9hCB47oyhUkM2H8g8xZr4tHTEXtmV4U6krKrU8Ng0S7RlG/J7fkta1rGu3pq+YQ==}
     dev: true
@@ -7930,6 +7956,16 @@ packages:
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
     dev: true
 
+  /@types/filesystem@0.0.36:
+    resolution: {integrity: sha512-vPDXOZuannb9FZdxgHnqSwAG/jvdGM8Wq+6N4D/d80z+D4HWH+bItqsZaVRQykAn6WEVeEkLm2oQigyHtgb0RA==}
+    dependencies:
+      '@types/filewriter': 0.0.33
+    dev: true
+
+  /@types/filewriter@0.0.33:
+    resolution: {integrity: sha512-xFU8ZXTw4gd358lb2jw25nxY9QAgqn2+bKKjKOYfNCzN4DKCFetK7sPtrlpg66Ywe3vWY9FNxprZawAh9wfJ3g==}
+    dev: true
+
   /@types/glob@7.2.0:
     resolution: {integrity: sha512-ZUxbzKl0IfJILTS6t7ip5fQQM/J3TJYubDm3nMbgubNNYS62eXeUpoLUC8/7fJNiFYHTrGPQn7hspDUzIHX3UA==}
     dependencies:
@@ -7948,6 +7984,10 @@ packages:
     resolution: {integrity: sha512-Sig0SNORX9fdW+bQuTEovKj3uHcUL6LQKbCrrqb1X7J6/ReAbhCXRAhc+SMejhLELFj2QcyuxmUooZ4bt5ReSw==}
     dependencies:
       '@types/node': 22.18.12
+    dev: true
+
+  /@types/har-format@1.2.16:
+    resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
     dev: true
 
   /@types/hast@2.3.5:
@@ -21025,6 +21065,19 @@ packages:
       vite: 3.0.7
     transitivePeerDependencies:
       - supports-color
+    dev: true
+
+  /vite-plugin-static-copy@1.0.6(vite@5.4.21):
+    resolution: {integrity: sha512-3uSvsMwDVFZRitqoWHj0t4137Kz7UynnJeq1EZlRW7e25h2068fyIZX4ORCCOAkfp1FklGxJNVJBkBOD+PZIew==}
+    engines: {node: ^18.0.0 || >=20.0.0}
+    peerDependencies:
+      vite: ^5.0.0
+    dependencies:
+      chokidar: 3.6.0
+      fast-glob: 3.3.3
+      fs-extra: 11.3.2
+      picocolors: 1.1.1
+      vite: 5.4.21(@types/node@22.18.12)
     dev: true
 
   /vite@3.0.7:
