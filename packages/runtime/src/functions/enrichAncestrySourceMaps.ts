@@ -4,6 +4,8 @@ import { normalizeFilePath } from "./normalizeFilePath";
 
 /**
  * Check if any DOM element has React 19 fibers (with _debugStack instead of _debugSource).
+ * Must walk the _debugOwner chain because DOM element fibers (HostComponent) never have
+ * _debugStack — only function component fibers do.
  */
 function isReact19Environment(): boolean {
   const el = document.querySelector("[class]") || document.body;
@@ -12,8 +14,13 @@ function isReact19Environment(): boolean {
   const fiberKey = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
   if (!fiberKey) return false;
 
-  const fiber = (el as any)[fiberKey];
-  return !fiber?._debugSource && !!(fiber as any)?._debugStack;
+  let fiber = (el as any)[fiberKey];
+  while (fiber) {
+    if (fiber._debugSource) return false; // React 18
+    if ((fiber as any)._debugStack) return true; // React 19
+    fiber = fiber._debugOwner || null;
+  }
+  return false;
 }
 
 /**
