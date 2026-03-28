@@ -3,12 +3,14 @@ import "./App.css";
 import ShadowDomTest from "./ShadowDomTest";
 import { NestingTest } from "./NestingTest";
 import { AncestryTest } from "./AncestryTest";
+import SlidingPanel from "./SlidingPanel";
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
     <div className="App">
+      <SlidingPanel />
       <AncestryTest />
       <NestingTest />
       <ShadowDomTest />

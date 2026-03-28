@@ -6,6 +6,8 @@ import {
   AncestryItem,
 } from "./functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
+import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
+import type { InteractionEvent } from "./components/RecordingResults";
 
 export interface LocatorJSAPI {
   /**
@@ -107,6 +109,53 @@ export interface LocatorJSAPI {
    * console.log(help);
    */
   help(): string;
+
+  /**
+   * Replay the last recorded interaction sequence.
+   * Dispatches the recorded clicks at the original positions and timing.
+   * Must have a completed recording with interactions to replay.
+   *
+   * @example
+   * // In browser console
+   * window.__treelocator__.replay();
+   *
+   * @example
+   * // In Playwright
+   * await page.evaluate(() => window.__treelocator__.replay());
+   */
+  replay(): void;
+
+  /**
+   * Replay the last recorded interaction sequence while recording an element's property changes.
+   * Combines replay and dejitter recording: plays back stored clicks at original timing while
+   * tracking visual changes (opacity, transform, position, size) on the target element.
+   * Returns the dejitter analysis results when replay completes.
+   *
+   * @param elementOrSelector - HTMLElement or CSS selector for the element to record during replay
+   * @returns Promise resolving to recording results with findings, summary, and interaction log
+   *
+   * @example
+   * // Record the sliding panel while replaying user clicks
+   * const results = await window.__treelocator__.replayWithRecord('[data-locatorjs-id="SlidingPanel"]');
+   * console.log(results.findings); // anomaly analysis
+   * console.log(results.path);     // component ancestry
+   *
+   * @example
+   * // In Playwright - automated regression test
+   * const results = await page.evaluate(async () => {
+   *   return await window.__treelocator__.replayWithRecord('.my-panel');
+   * });
+   * expect(results.findings.filter(f => f.severity === 'high')).toHaveLength(0);
+   */
+  replayWithRecord(
+    elementOrSelector: HTMLElement | string
+  ): Promise<{
+    path: string;
+    findings: DejitterFinding[];
+    summary: DejitterSummary | null;
+    data: any;
+    interactions: InteractionEvent[];
+  } | null>;
 }
 
 let adapterId: AdapterId | undefined;
@@ -179,7 +228,22 @@ METHODS:
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
-4. help()
+4. replay()
+   Replays the last recorded interaction sequence as a macro.
+
+   Usage:
+     window.__treelocator__.replay()
+
+5. replayWithRecord(elementOrSelector)
+   Replays stored interactions while recording element changes.
+   Returns dejitter analysis when replay completes.
+
+   Usage:
+     const results = await window.__treelocator__.replayWithRecord('[data-locatorjs-id="SlidingPanel"]')
+     console.log(results.findings)  // anomaly analysis
+     console.log(results.path)      // component ancestry
+
+6. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -279,6 +343,15 @@ export function createBrowserAPI(
 
     help(): string {
       return HELP_TEXT;
+    },
+
+    replay() {
+      // Replaced by Runtime component once mounted
+    },
+
+    replayWithRecord() {
+      // Replaced by Runtime component once mounted
+      return Promise.resolve(null);
     },
   };
 }
