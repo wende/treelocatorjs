@@ -21,6 +21,8 @@ type RecordingResultsProps = {
   onToast?: (msg: string) => void;
   hasPrevious?: boolean;
   onLoadPrevious?: () => void;
+  hasNext?: boolean;
+  onLoadNext?: () => void;
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -168,6 +170,11 @@ export function RecordingResults(props: RecordingResultsProps) {
           {props.hasPrevious && props.onLoadPrevious && (
             <div style={buttonStyle()} onClick={props.onLoadPrevious}>
               Prev
+            </div>
+          )}
+          {props.hasNext && props.onLoadNext && (
+            <div style={buttonStyle()} onClick={props.onLoadNext}>
+              Next
             </div>
           )}
           <div

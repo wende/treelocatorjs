@@ -73,6 +73,7 @@ function Runtime(props: RuntimeProps) {
   const [recordingElementPath, setRecordingElementPath] = createSignal<string>(restoredLast?.elementPath ?? "");
   const [replayBox, setReplayBox] = createSignal<{ x: number; y: number; w: number; h: number } | null>(null);
   const [replaying, setReplaying] = createSignal(false);
+  const [viewingPrevious, setViewingPrevious] = createSignal(false);
   let dejitterInstance: DejitterAPI | null = null;
   let interactionClickHandler: ((e: MouseEvent) => void) | null = null;
   let recordingStartTime = 0;
@@ -379,6 +380,7 @@ function Runtime(props: RuntimeProps) {
     setRecordingElementPath("");
     setInteractionLog([]);
     setRecordedElement(null);
+    setViewingPrevious(false);
     setRecordingState('idle');
   }
 
@@ -395,6 +397,20 @@ function Runtime(props: RuntimeProps) {
     setRecordingData(prev.data);
     setRecordingElementPath(prev.elementPath);
     setInteractionLog(prev.interactions);
+    setViewingPrevious(true);
+    setRecordingState('results');
+  }
+
+  function loadLatestRecording() {
+    const stored = loadFromStorage();
+    if (!stored.last) return;
+    const last = stored.last;
+    setRecordingFindings(last.findings);
+    setRecordingSummary(last.summary);
+    setRecordingData(last.data);
+    setRecordingElementPath(last.elementPath);
+    setInteractionLog(last.interactions);
+    setViewingPrevious(false);
     setRecordingState('results');
   }
 
@@ -613,8 +629,10 @@ function Runtime(props: RuntimeProps) {
           onReplay={replayRecording}
           replaying={replaying()}
           onToast={setToastMessage}
-          hasPrevious={hasPreviousRecording()}
+          hasPrevious={!viewingPrevious() && hasPreviousRecording()}
           onLoadPrevious={loadPreviousRecording}
+          hasNext={viewingPrevious()}
+          onLoadNext={loadLatestRecording}
         />
       ) : null}
       {toastMessage() && (
@@ -636,20 +654,40 @@ function Runtime(props: RuntimeProps) {
             50% { opacity: 0.3; }
           }
         `}</style>
-        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
-          {/* Tree icon button */}
+        {/* Combined pill button: tree (left) | record (right) */}
+        <div
+          style={{
+            display: "flex",
+            "align-items": "stretch",
+            "border-radius": "27px",
+            overflow: "hidden",
+            "box-shadow":
+              locatorActive()
+                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
+                : recordingState() === 'selecting'
+                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
+                : recordingState() === 'recording'
+                ? "0 0 0 3px #ef4444, 0 4px 14px rgba(0, 0, 0, 0.25)"
+                : "0 4px 14px rgba(0, 0, 0, 0.25)",
+            transition: "box-shadow 0.2s ease-in-out",
+          }}
+        >
+          {/* Left half: Tree icon */}
           <div
-            class="rounded-full bg-white shadow-lg flex items-center justify-center cursor-pointer overflow-hidden"
             style={{
               width: "54px",
               height: "54px",
-              "box-shadow": locatorActive()
-                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : "0 4px 14px rgba(0, 0, 0, 0.25)",
-              transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+              background: "#ffffff",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              cursor: "pointer",
+              overflow: "hidden",
+              "border-right": "1px solid rgba(0, 0, 0, 0.1)",
+              transition: "background 0.15s ease-in-out",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.25)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+            onMouseEnter={(e) => e.currentTarget.style.background = "#f0f0f0"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
             onClick={() => setLocatorActive(!locatorActive())}
             aria-label="TreeLocatorJS: Get component paths using window.__treelocator__.getPath(selector)"
             role="button"
@@ -657,26 +695,28 @@ function Runtime(props: RuntimeProps) {
             <img
               src={treeIconUrl}
               alt="TreeLocatorJS"
-              width={51}
-              height={51}
+              width={44}
+              height={44}
             />
           </div>
-          {/* Record button */}
+          {/* Right half: Record button */}
           <div
-            class="rounded-full shadow-lg flex items-center justify-center cursor-pointer"
             style={{
               width: "54px",
               height: "54px",
               background: recordingState() === 'recording' ? "#ef4444" : "#ffffff",
-              "box-shadow": recordingState() === 'selecting'
-                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : recordingState() === 'recording'
-                ? "0 0 0 3px #ef4444, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : "0 4px 14px rgba(0, 0, 0, 0.25)",
-              transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background 0.2s ease-in-out",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              cursor: "pointer",
+              transition: "background 0.15s ease-in-out",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.25)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+            onMouseEnter={(e) => {
+              if (recordingState() !== 'recording') e.currentTarget.style.background = "#f0f0f0";
+            }}
+            onMouseLeave={(e) => {
+              if (recordingState() !== 'recording') e.currentTarget.style.background = "#ffffff";
+            }}
             onClick={handleRecordClick}
             aria-label={
               recordingState() === 'idle' ? "Record element changes. API: window.__treelocator__.replayWithRecord(selector)" :
@@ -687,14 +727,12 @@ function Runtime(props: RuntimeProps) {
             role="button"
           >
             {recordingState() === 'recording' ? (
-              /* Stop icon: white square */
-              <div style={{ width: "20px", height: "20px", background: "#fff", "border-radius": "3px" }} />
+              <div style={{ width: "18px", height: "18px", background: "#fff", "border-radius": "3px" }} />
             ) : (
-              /* Record icon: red circle */
               <div
                 style={{
-                  width: "20px",
-                  height: "20px",
+                  width: "18px",
+                  height: "18px",
                   background: "#ef4444",
                   "border-radius": "50%",
                   animation: recordingState() === 'selecting' ? "treelocator-rec-pulse 1s ease-in-out infinite" : "none",
