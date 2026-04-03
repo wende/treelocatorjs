@@ -158,8 +158,6 @@ export interface LocatorJSAPI {
   } | null>;
 }
 
-let adapterId: AdapterId | undefined;
-
 function resolveElement(
   elementOrSelector: HTMLElement | string
 ): HTMLElement | null {
@@ -170,7 +168,7 @@ function resolveElement(
   return elementOrSelector;
 }
 
-function getAncestryForElement(element: HTMLElement): AncestryItem[] | null {
+function getAncestryForElement(element: HTMLElement, adapterId?: AdapterId): AncestryItem[] | null {
   const treeNode = createTreeNode(element, adapterId);
   if (!treeNode) {
     return null;
@@ -179,9 +177,10 @@ function getAncestryForElement(element: HTMLElement): AncestryItem[] | null {
 }
 
 async function getEnrichedAncestryForElement(
-  element: HTMLElement
+  element: HTMLElement,
+  adapterId?: AdapterId
 ): Promise<AncestryItem[] | null> {
-  const ancestry = getAncestryForElement(element);
+  const ancestry = getAncestryForElement(element, adapterId);
   if (!ancestry) return null;
   return enrichAncestryWithSourceMaps(ancestry, element);
 }
@@ -286,7 +285,7 @@ CYPRESS EXAMPLES:
 ----------------
 
 cy.window().then((win) => {
-  const path = win.__locatorjs__.getPath('button.submit');
+  const path = win.__treelocator__.getPath('button.submit');
   cy.log(path);
 });
 
@@ -301,10 +300,8 @@ Documentation: https://github.com/wende/treelocatorjs
 `;
 
 export function createBrowserAPI(
-  adapterIdParam?: AdapterId
+  adapterId?: AdapterId
 ): LocatorJSAPI {
-  adapterId = adapterIdParam;
-
   return {
     getPath(elementOrSelector: HTMLElement | string): Promise<string | null> {
       const element = resolveElement(elementOrSelector);
@@ -312,7 +309,7 @@ export function createBrowserAPI(
         return Promise.resolve(null);
       }
 
-      return getEnrichedAncestryForElement(element).then((ancestry) =>
+      return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
         ancestry ? formatAncestryChain(ancestry) : null
       );
     },
@@ -325,7 +322,7 @@ export function createBrowserAPI(
         return Promise.resolve(null);
       }
 
-      return getEnrichedAncestryForElement(element);
+      return getEnrichedAncestryForElement(element, adapterId);
     },
 
     getPathData(
@@ -336,7 +333,7 @@ export function createBrowserAPI(
         return Promise.resolve(null);
       }
 
-      return getEnrichedAncestryForElement(element).then((ancestry) =>
+      return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
         ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
       );
     },

@@ -164,6 +164,17 @@ function getInnermostNamedComponent(item: AncestryItem | null | undefined): stri
   return undefined;
 }
 
+/**
+ * Truncate ancestry from the bottom (clicked element) up to and including
+ * the first item that has a filePath. Everything above that is discarded.
+ * The ancestry array is bottom-up: index 0 = clicked element, last = root.
+ */
+export function truncateAtFirstFile(items: AncestryItem[]): AncestryItem[] {
+  const firstWithFile = items.findIndex((item) => item.filePath);
+  if (firstWithFile === -1) return items;
+  return items.slice(0, firstWithFile + 1);
+}
+
 export function formatAncestryChain(items: AncestryItem[]): string {
   if (items.length === 0) {
     return "";

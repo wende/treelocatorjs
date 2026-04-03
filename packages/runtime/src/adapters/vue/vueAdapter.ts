@@ -76,20 +76,6 @@ export class VueTreeNodeElement extends HtmlElementTreeNode {
   getComponent(): TreeNodeComponent | null {
     return null;
   }
-  // getComponent(): TreeNodeComponent | null {
-  //   const element = this.element as VueElement;
-  //   const parentComponent = element.__vueParentComponent;
-  //   if (parentComponent && parentComponent.type) {
-  //     const { __name } = parentComponent.type;
-  //     if (__name) {
-  //       return {
-  //         label: __name,
-  //         definitionLink: this.getSource() || undefined,
-  //       };
-  //     }
-  //   }
-  //   return null;
-  // }
 }
 
 function getTree(element: HTMLElement): TreeState | null {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Dejitter — Animation frame recorder & jank detector (vendored)
  *
@@ -218,13 +217,13 @@ export function createDejitterRecorder(): DejitterAPI {
   function downsample(): any[] {
     if (rawFrames.length === 0) return [];
 
-    const duration = rawFrames[rawFrames.length - 1].t;
+    const duration = rawFrames[rawFrames.length - 1]!.t;
     const targetFrames = Math.max(1, Math.round((duration / 1000) * config.sampleRate));
 
     const changeIndex = new Map<string, Array<{ frameIdx: number; t: number; value: any }>>();
 
     for (let fi = 0; fi < rawFrames.length; fi++) {
-      const frame = rawFrames[fi];
+      const frame = rawFrames[fi]!;
       for (const change of frame.changes) {
         const { id, ...props } = change;
         for (const [prop, value] of Object.entries(props)) {
@@ -251,7 +250,7 @@ export function createDejitterRecorder(): DejitterAPI {
       } else {
         for (let i = 0; i < targetFrames; i++) {
           const srcIdx = Math.round((i / (targetFrames - 1)) * (changes.length - 1));
-          const c = changes[srcIdx];
+          const c = changes[srcIdx]!;
           outputEvents.push({ t: c.t, id, prop, value: c.value });
         }
       }
@@ -296,7 +295,7 @@ export function createDejitterRecorder(): DejitterAPI {
 
   function buildPropStats(): { targetFrames: number; props: any[] } {
     const stats: Record<string, any> = {};
-    const duration = rawFrames.length ? rawFrames[rawFrames.length - 1].t : 0;
+    const duration = rawFrames.length ? rawFrames[rawFrames.length - 1]!.t : 0;
     const targetFrames = Math.max(1, Math.round((duration / 1000) * config.sampleRate));
 
     for (const f of rawFrames) {
@@ -344,7 +343,7 @@ export function createDejitterRecorder(): DejitterAPI {
     if (value === 'none' || value === '' || value === 'auto') return 0;
     const matrixMatch = String(value).match(/^matrix\(([^)]+)\)$/);
     if (matrixMatch) {
-      const parts = matrixMatch[1].split(',').map(Number);
+      const parts = matrixMatch[1]!.split(',').map(Number);
       const tx = parts[4] || 0;
       const ty = parts[5] || 0;
       return Math.abs(tx) > Math.abs(ty) ? tx : ty;
@@ -356,8 +355,8 @@ export function createDejitterRecorder(): DejitterAPI {
   function detectBounce(timeline: Array<{ t: number; value: any }>): any | null {
     if (timeline.length < 3) return null;
 
-    const first = timeline[0].value;
-    const last = timeline[timeline.length - 1].value;
+    const first = timeline[0]!.value;
+    const last = timeline[timeline.length - 1]!.value;
     if (first !== last) return null;
 
     const firstNum = extractNumeric(first);
@@ -384,9 +383,9 @@ export function createDejitterRecorder(): DejitterAPI {
       peak: peakValue,
       peakDeviation: Math.round(peakDeviation * 10) / 10,
       peakT,
-      startT: timeline[0].t,
-      endT: timeline[timeline.length - 1].t,
-      duration: timeline[timeline.length - 1].t - timeline[0].t,
+      startT: timeline[0]!.t,
+      endT: timeline[timeline.length - 1]!.t,
+      duration: timeline[timeline.length - 1]!.t - timeline[0]!.t,
     };
   }
 
@@ -394,7 +393,7 @@ export function createDejitterRecorder(): DejitterAPI {
     const byElem: Record<string, any[]> = {};
     for (const p of propStats.props) {
       if (!byElem[p.elem]) byElem[p.elem] = [];
-      byElem[p.elem].push(p);
+      byElem[p.elem]!.push(p);
     }
 
     const outliers: any[] = [];
@@ -427,8 +426,8 @@ export function createDejitterRecorder(): DejitterAPI {
   function countReversals(numeric: Array<{ t: number; val: number }>): number {
     let reversals = 0;
     for (let i = 2; i < numeric.length; i++) {
-      const d1 = numeric[i - 1].val - numeric[i - 2].val;
-      const d2 = numeric[i].val - numeric[i - 1].val;
+      const d1 = numeric[i - 1]!.val - numeric[i - 2]!.val;
+      const d2 = numeric[i]!.val - numeric[i - 1]!.val;
       if (Math.abs(d1) > config.thresholds.shiver.minDelta && Math.abs(d2) > config.thresholds.shiver.minDelta && d1 * d2 < 0) {
         reversals++;
       }
@@ -485,12 +484,11 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectShiverFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
+  function detectShiverFindings(propStats: any, elements: any): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
 
     for (const p of propStats.props) {
       if (p.raw < 10) continue;
-      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 10) continue;
@@ -512,7 +510,7 @@ export function createDejitterRecorder(): DejitterAPI {
 
         const vals = numeric.map((n) => n.val);
         const amplitude = Math.round((Math.max(...vals) - Math.min(...vals)) * 10) / 10;
-        const hz = Math.round((reversals / ((numeric[numeric.length - 1].t - numeric[0].t) / 1000)) * 10) / 10;
+        const hz = Math.round((reversals / ((numeric[numeric.length - 1]!.t - numeric[0]!.t) / 1000)) * 10) / 10;
 
         findings.push(makeFinding(
           'shiver',
@@ -532,7 +530,7 @@ export function createDejitterRecorder(): DejitterAPI {
               range: [Math.min(...vals), Math.max(...vals)],
               uniqueValues: uniqueVals.length,
               isTwoValueFight,
-              durationMs: Math.round(numeric[numeric.length - 1].t - numeric[0].t),
+              durationMs: Math.round(numeric[numeric.length - 1]!.t - numeric[0]!.t),
             },
           }
         ));
@@ -542,33 +540,32 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectJumpFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
+  function detectJumpFindings(propStats: any, elements: any): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
 
     for (const p of propStats.props) {
       if (p.raw < 3) continue;
-      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 3) continue;
 
       const deltas: Array<{ t: number; delta: number; from: any; to: any }> = [];
       for (let i = 1; i < timeline.length; i++) {
-        const prev = extractNumeric(timeline[i - 1].value);
-        const curr = extractNumeric(timeline[i].value);
+        const prev = extractNumeric(timeline[i - 1]!.value);
+        const curr = extractNumeric(timeline[i]!.value);
         if (prev === null || curr === null) continue;
         deltas.push({
-          t: timeline[i].t,
+          t: timeline[i]!.t,
           delta: Math.abs(curr - prev),
-          from: timeline[i - 1].value,
-          to: timeline[i].value,
+          from: timeline[i - 1]!.value,
+          to: timeline[i]!.value,
         });
       }
 
       if (deltas.length < 3) continue;
 
       const sortedDeltas = deltas.map((d) => d.delta).sort((a, b) => a - b);
-      const medianDelta = sortedDeltas[Math.floor(sortedDeltas.length / 2)];
+      const medianDelta = sortedDeltas[Math.floor(sortedDeltas.length / 2)]!;
       if (medianDelta === 0) continue;
 
       const jmpT = config.thresholds.jump;
@@ -598,13 +595,12 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectStutterFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
+  function detectStutterFindings(propStats: any, elements: any): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
     const st = config.thresholds.stutter;
 
     for (const p of propStats.props) {
       if (p.raw < 6) continue;
-      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 6) continue;
@@ -618,7 +614,7 @@ export function createDejitterRecorder(): DejitterAPI {
 
       const deltas: number[] = [];
       for (let i = 1; i < numeric.length; i++) {
-        deltas.push(numeric[i].val - numeric[i - 1].val);
+        deltas.push(numeric[i]!.val - numeric[i - 1]!.val);
       }
 
       const windowSize = 5;
@@ -628,31 +624,31 @@ export function createDejitterRecorder(): DejitterAPI {
         if (i - winStart < 2) { i++; continue; }
 
         let sum = 0;
-        for (let w = winStart; w < i; w++) sum += deltas[w];
+        for (let w = winStart; w < i; w++) sum += deltas[w]!;
         const dominantDir = Math.sign(sum);
         if (dominantDir === 0) { i++; continue; }
 
-        if (deltas[i] !== 0 && Math.sign(deltas[i]) !== dominantDir) {
+        if (deltas[i]! !== 0 && Math.sign(deltas[i]!) !== dominantDir) {
           const reversalStart = i;
           let reversalEnd = i;
           while (
             reversalEnd + 1 < deltas.length &&
             reversalEnd - reversalStart + 1 < st.maxFrames &&
-            deltas[reversalEnd + 1] !== 0 &&
-            Math.sign(deltas[reversalEnd + 1]) !== dominantDir
+            deltas[reversalEnd + 1]! !== 0 &&
+            Math.sign(deltas[reversalEnd + 1]!) !== dominantDir
           ) {
             reversalEnd++;
           }
 
           const afterIdx = reversalEnd + 1;
-          if (afterIdx >= deltas.length || Math.sign(deltas[afterIdx]) !== dominantDir) {
+          if (afterIdx >= deltas.length || Math.sign(deltas[afterIdx]!) !== dominantDir) {
             i = reversalEnd + 1;
             continue;
           }
 
           let reversalMag = 0;
           for (let r = reversalStart; r <= reversalEnd; r++) {
-            reversalMag += Math.abs(deltas[r]);
+            reversalMag += Math.abs(deltas[r]!);
           }
 
           const localStart = Math.max(0, reversalStart - windowSize);
@@ -661,7 +657,7 @@ export function createDejitterRecorder(): DejitterAPI {
           let localCount = 0;
           for (let l = localStart; l <= localEnd; l++) {
             if (l >= reversalStart && l <= reversalEnd) continue;
-            localSum += Math.abs(deltas[l]);
+            localSum += Math.abs(deltas[l]!);
             localCount++;
           }
           const localVelocity = localCount > 0 ? localSum / localCount : 0;
@@ -671,7 +667,7 @@ export function createDejitterRecorder(): DejitterAPI {
             if (ratio >= st.velocityRatio) {
               const reversalFrameCount = reversalEnd - reversalStart + 1;
               const severity = ratio >= 1.0 ? 'high' : ratio >= 0.5 ? 'medium' : 'low';
-              const t = numeric[reversalStart + 1].t;
+              const t = numeric[reversalStart + 1]!.t;
               findings.push(makeFinding(
                 'stutter', severity,
                 p.elem, elements[p.elem], p.prop,
@@ -701,13 +697,12 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectStuckFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
+  function detectStuckFindings(propStats: any, elements: any): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
     const sk = config.thresholds.stuck;
 
     for (const p of propStats.props) {
       if (p.raw < 6) continue;
-      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 6) continue;
@@ -721,15 +716,15 @@ export function createDejitterRecorder(): DejitterAPI {
 
       const deltas: number[] = [];
       for (let i = 1; i < numeric.length; i++) {
-        deltas.push(Math.abs(numeric[i].val - numeric[i - 1].val));
+        deltas.push(Math.abs(numeric[i]!.val - numeric[i - 1]!.val));
       }
 
       let i = 0;
       while (i < deltas.length) {
-        if (deltas[i] > sk.maxDelta) { i++; continue; }
+        if (deltas[i]! > sk.maxDelta) { i++; continue; }
 
         const runStart = i;
-        while (i < deltas.length && deltas[i] <= sk.maxDelta) i++;
+        while (i < deltas.length && deltas[i]! <= sk.maxDelta) i++;
         const runEnd = i - 1;
         const stillCount = runEnd - runStart + 1;
 
@@ -741,13 +736,13 @@ export function createDejitterRecorder(): DejitterAPI {
 
         const beforeStart = Math.max(0, runStart - windowSize);
         for (let b = beforeStart; b < runStart; b++) {
-          surroundingSum += deltas[b];
+          surroundingSum += deltas[b]!;
           surroundingCount++;
         }
 
         const afterEnd = Math.min(deltas.length - 1, runEnd + windowSize);
         for (let a = runEnd + 1; a <= afterEnd; a++) {
-          surroundingSum += deltas[a];
+          surroundingSum += deltas[a]!;
           surroundingCount++;
         }
 
@@ -756,8 +751,8 @@ export function createDejitterRecorder(): DejitterAPI {
 
         if (meanSurroundingVelocity < sk.minSurroundingVelocity) continue;
 
-        const tStart = numeric[runStart].t;
-        const tEnd = numeric[runEnd + 1].t;
+        const tStart = numeric[runStart]!.t;
+        const tEnd = numeric[runEnd + 1]!.t;
         const duration = Math.round(tEnd - tStart);
 
         const severity = duration >= sk.highDuration ? 'high' : duration >= sk.medDuration ? 'medium' : 'low';
@@ -773,7 +768,7 @@ export function createDejitterRecorder(): DejitterAPI {
               duration,
               stillFrames: stillCount,
               meanSurroundingVelocity: Math.round(meanSurroundingVelocity * 10) / 10,
-              stuckValue: numeric[runStart].val,
+              stuckValue: numeric[runStart]!.val,
             },
           }
         ));
@@ -797,10 +792,10 @@ export function createDejitterRecorder(): DejitterAPI {
     const deduped: DejitterFinding[] = [];
     for (const group of shiverGroups.values()) {
       if (group.length === 1) {
-        deduped.push(group[0]);
+        deduped.push(group[0]!);
       } else {
         group.sort((a, b) => b.shiver.amplitude - a.shiver.amplitude);
-        const rep = { ...group[0] };
+        const rep = { ...group[0]! };
         (rep as any).affectedElements = group.length;
         rep.description += ` (affects ${group.length} elements)`;
         deduped.push(rep);
@@ -815,14 +810,14 @@ export function createDejitterRecorder(): DejitterAPI {
     const elements = buildElementMap();
 
     let findings = detectOutlierFindings(propStats, elements);
-    findings = findings.concat(detectShiverFindings(propStats, elements, findings));
-    findings = findings.concat(detectJumpFindings(propStats, elements, findings));
-    findings = findings.concat(detectStutterFindings(propStats, elements, findings));
-    findings = findings.concat(detectStuckFindings(propStats, elements, findings));
+    findings = findings.concat(detectShiverFindings(propStats, elements));
+    findings = findings.concat(detectJumpFindings(propStats, elements));
+    findings = findings.concat(detectStutterFindings(propStats, elements));
+    findings = findings.concat(detectStuckFindings(propStats, elements));
     findings = deduplicateShivers(findings);
 
     const sevOrder: Record<string, number> = { high: 0, medium: 1, low: 2, info: 3 };
-    findings.sort((a, b) => sevOrder[a.severity] - sevOrder[b.severity]);
+    findings.sort((a, b) => sevOrder[a.severity]! - sevOrder[b.severity]!);
 
     return findings;
   }
@@ -891,7 +886,7 @@ export function createDejitterRecorder(): DejitterAPI {
 
       return {
         config: { ...config },
-        duration: rawFrames.length ? rawFrames[rawFrames.length - 1].t : 0,
+        duration: rawFrames.length ? rawFrames[rawFrames.length - 1]!.t : 0,
         rawFrameCount: rawFrames.length,
         outputFrameCount: samples.length,
         mutationEvents: mutations.length,
@@ -910,7 +905,7 @@ export function createDejitterRecorder(): DejitterAPI {
         byMode[p.mode] = (byMode[p.mode] || 0) + 1;
       }
       const data: DejitterSummary = {
-        duration: rawFrames.length ? rawFrames[rawFrames.length - 1].t : 0,
+        duration: rawFrames.length ? rawFrames[rawFrames.length - 1]!.t : 0,
         rawFrameCount: rawFrames.length,
         targetOutputFrames: propStats.targetFrames,
         mutationEvents: mutations.length,

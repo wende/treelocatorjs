@@ -54,7 +54,6 @@ export function getJSXComponentBoundingBox(
             );
             goParent(parent);
           }
-          expData.wrappingComponentId;
         }
       } else {
         // If there is no locatorjs-id or locatorjs, we should go to the parent, because it can be some library element

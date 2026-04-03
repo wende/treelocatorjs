@@ -7,13 +7,22 @@ import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
-import { collectAncestry, formatAncestryChain } from "../functions/formatAncestryChain";
+import { collectAncestry, formatAncestryChain, truncateAtFirstFile } from "../functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
 import { createTreeNode } from "../adapters/createTreeNode";
 import treeIconUrl from "../_generated_tree_icon";
 import { createDejitterRecorder, DejitterAPI, DejitterFinding, DejitterSummary } from "../dejitter/recorder";
 import { RecordingOutline } from "./RecordingOutline";
 import { RecordingResults, InteractionEvent } from "./RecordingResults";
+
+const DEJITTER_CONFIG: Partial<import("../dejitter/recorder").DejitterConfig> = {
+  selector: '[data-treelocator-recording]',
+  props: ['opacity', 'transform', 'boundingRect', 'width', 'height'],
+  sampleRate: 15,
+  maxDuration: 30000,
+  idleTimeout: 0,
+  mutations: true,
+};
 
 type RuntimeProps = {
   adapterId?: AdapterId;
@@ -159,14 +168,7 @@ function Runtime(props: RuntimeProps) {
     setRecordedElement(element);
 
     dejitterInstance = createDejitterRecorder();
-    dejitterInstance.configure({
-      selector: '[data-treelocator-recording]',
-      props: ['opacity', 'transform', 'boundingRect', 'width', 'height'],
-      sampleRate: 15,
-      maxDuration: 30000,
-      idleTimeout: 0,
-      mutations: true,
-    });
+    dejitterInstance.configure(DEJITTER_CONFIG);
     dejitterInstance.start();
     startInteractionTracker();
     setRecordingState('recording');
@@ -292,14 +294,7 @@ function Runtime(props: RuntimeProps) {
       setRecordedElement(element);
 
       dejitterInstance = createDejitterRecorder();
-      dejitterInstance.configure({
-        selector: '[data-treelocator-recording]',
-        props: ['opacity', 'transform', 'boundingRect', 'width', 'height'],
-        sampleRate: 15,
-        maxDuration: 30000,
-        idleTimeout: 0,
-        mutations: true,
-      });
+      dejitterInstance.configure(DEJITTER_CONFIG);
       dejitterInstance.start();
       setRecordingState('recording');
       setReplaying(true);
@@ -508,12 +503,9 @@ function Runtime(props: RuntimeProps) {
     if (treeNode) {
       let ancestry = collectAncestry(treeNode);
 
-      // Alt+Shift: truncate at first ancestor with a source file location
+      // Alt+Shift: keep from bottom up to the first element with a file, discard above
       if (e.shiftKey) {
-        const firstWithFile = ancestry.findIndex((item) => item.filePath);
-        if (firstWithFile !== -1) {
-          ancestry = ancestry.slice(0, firstWithFile + 1);
-        }
+        ancestry = truncateAtFirstFile(ancestry);
       }
 
       // Write immediately with component names (preserves user gesture for clipboard API)
@@ -577,6 +569,8 @@ function Runtime(props: RuntimeProps) {
   }
 
   onCleanup(() => {
+    stopReplay();
+    stopInteractionTracker();
     for (const root of roots) {
       root.removeEventListener("keyup", keyUpListener as EventListener);
       root.removeEventListener("keydown", keyDownListener as EventListener);

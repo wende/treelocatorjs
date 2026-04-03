@@ -128,8 +128,6 @@ export function getElementInfo(target: HTMLElement): FullElementInfo | null {
     };
   }
 
-  // return deduplicateLabels(labels);
-
   return null;
 }
 

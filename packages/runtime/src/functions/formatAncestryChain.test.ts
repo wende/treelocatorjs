@@ -3,6 +3,7 @@ import {
   AncestryItem,
   formatAncestryChain,
   collectAncestry,
+  truncateAtFirstFile,
 } from "./formatAncestryChain";
 
 describe("formatAncestryChain", () => {
@@ -264,6 +265,52 @@ describe("formatAncestryChain", () => {
         `App at src/App.tsx:1
     └─ GlassPanel in Sidebar at src/Sidebar.tsx:20`
       );
+    });
+  });
+
+  describe("truncateAtFirstFile", () => {
+    it("keeps from clicked element up to first ancestor with filePath", () => {
+      // Bottom-up: clicked element first, root last
+      const items: AncestryItem[] = [
+        { elementName: "span", componentName: "Button" },
+        { elementName: "div", componentName: "Card" },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
+        { elementName: "div", componentName: "App", filePath: "src/App.tsx", line: 1 },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual([
+        { elementName: "span", componentName: "Button" },
+        { elementName: "div", componentName: "Card" },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
+      ]);
+    });
+
+    it("returns just the clicked element when it already has a filePath", () => {
+      const items: AncestryItem[] = [
+        { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
+        { elementName: "div", componentName: "App", filePath: "src/App.tsx", line: 1 },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual([
+        { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
+      ]);
+    });
+
+    it("returns all items when none have a filePath", () => {
+      const items: AncestryItem[] = [
+        { elementName: "span", componentName: "A" },
+        { elementName: "div", componentName: "B" },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual(items);
+    });
+
+    it("returns empty array for empty input", () => {
+      expect(truncateAtFirstFile([])).toEqual([]);
     });
   });
 });
