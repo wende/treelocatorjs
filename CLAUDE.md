@@ -144,21 +144,31 @@ cd packages/runtime && pnpm test:dev  # Watch mode
 ## Publishing
 
 TreeLocatorJS publishes 2 packages to npm:
-- `@treelocator/runtime@0.1.0` - Core runtime
-- `@treelocator/init@0.1.0` - CLI setup wizard
+- `@treelocator/runtime` - Core runtime
+- `@treelocator/init` - CLI setup wizard
 
 Reuses from original LocatorJS:
 - `@locator/shared@^0.5.0`
 - `@locator/babel-jsx@^0.5.1`
 - `@locator/webpack-loader@^0.5.1`
 
-To publish a new version:
+### How to publish a new version
+
+1. Update version in `lerna.json`, `packages/runtime/package.json`, and `packages/init/package.json`
+2. Build: `pnpm build` (ignore demo app failures — only `@treelocator/runtime` and `@treelocator/init` need to build)
+3. Commit the version bump and tag: `git tag vX.Y.Z`
+4. Publish each package individually (lerna publish doesn't work with our 2FA setup):
 ```bash
-# 1. Update version in lerna.json and package.json files
-# 2. Build and publish:
-pnpm build
-pnpm lerna publish from-package --yes
+cd packages/runtime && npm publish --access public
+cd packages/init && npm publish --access public
 ```
+
+### npm auth
+
+- The npm account has 2FA enabled. Do NOT use `--otp` with npm tokens — it only accepts 6-digit TOTP codes.
+- Use a **Classic Automation token** (created at npmjs.com > Access Tokens > Generate New Token > Classic > Automation). This token type bypasses 2FA for publish.
+- Set the token in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
+- If `npm config set` fails with ENOWORKSPACES, write directly to `~/.npmrc`.
 
 ## Supported Frameworks
 
