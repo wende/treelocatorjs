@@ -9,6 +9,7 @@ export function MaybeOutline(props: {
   currentElement: HTMLElement;
   adapterId?: AdapterId;
   targets: Targets;
+  dashed?: boolean;
 }) {
   const elInfo = createMemo(() =>
     getElementInfo(props.currentElement, props.adapterId)
@@ -41,12 +42,13 @@ export function MaybeOutline(props: {
         <Outline
           element={elInfo()!}
           targets={props.targets}
+          dashed={props.dashed}
         />
       ) : phoenixInfo() ? (
         <div>
           {/* Element outline box */}
           <div
-            class="fixed rounded border border-solid border-amber-500"
+            class={`fixed rounded border ${props.dashed ? "border-dashed" : "border-solid"} border-amber-500`}
             style={{
               "z-index": 2,
               left: box().x + "px",
@@ -81,7 +83,7 @@ export function MaybeOutline(props: {
         <div>
           {/* Element outline box */}
           <div
-            class="fixed rounded border border-solid border-gray-500"
+            class={`fixed rounded border ${props.dashed ? "border-dashed" : "border-solid"} border-gray-500`}
             style={{
               "z-index": 2,
               left: box().x + "px",

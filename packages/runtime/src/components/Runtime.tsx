@@ -22,6 +22,7 @@ type RuntimeProps = {
 
 function Runtime(props: RuntimeProps) {
   const [holdingModKey, setHoldingModKey] = createSignal<boolean>(false);
+  const [holdingShift, setHoldingShift] = createSignal<boolean>(false);
   const [currentElement, setCurrentElement] = createSignal<HTMLElement | null>(
     null
   );
@@ -98,15 +99,18 @@ function Runtime(props: RuntimeProps) {
 
   function keyUpListener(e: KeyboardEvent) {
     setHoldingModKey(isCombinationModifiersPressed(e));
+    setHoldingShift(e.shiftKey);
   }
 
   function keyDownListener(e: KeyboardEvent) {
     setHoldingModKey(isCombinationModifiersPressed(e, true));
+    setHoldingShift(e.shiftKey);
   }
 
   function mouseMoveListener(e: MouseEvent) {
     // Update modifier state from mouse events - more reliable than keydown/keyup
     setHoldingModKey(e.altKey);
+    setHoldingShift(e.shiftKey);
   }
 
   function findElementAtPoint(e: MouseEvent): HTMLElement | null {
@@ -443,6 +447,7 @@ function Runtime(props: RuntimeProps) {
 
   function mouseOverListener(e: MouseEvent) {
     setHoldingModKey(e.altKey);
+    setHoldingShift(e.shiftKey);
 
     // Don't update hovered element while recording -- highlight is sticky
     if (recordingState() === 'recording') return;
@@ -501,7 +506,15 @@ function Runtime(props: RuntimeProps) {
     // Copy ancestry to clipboard on alt+click
     const treeNode = createTreeNode(element as HTMLElement, props.adapterId);
     if (treeNode) {
-      const ancestry = collectAncestry(treeNode);
+      let ancestry = collectAncestry(treeNode);
+
+      // Alt+Shift: truncate at first ancestor with a source file location
+      if (e.shiftKey) {
+        const firstWithFile = ancestry.findIndex((item) => item.filePath);
+        if (firstWithFile !== -1) {
+          ancestry = ancestry.slice(0, firstWithFile + 1);
+        }
+      }
 
       // Write immediately with component names (preserves user gesture for clipboard API)
       const formatted = formatAncestryChain(ancestry);
@@ -596,6 +609,7 @@ function Runtime(props: RuntimeProps) {
           currentElement={currentElement()!}
           adapterId={props.adapterId}
           targets={props.targets}
+          dashed={holdingShift()}
         />
       ) : null}
       {recordingState() === 'recording' && recordedElement() ? (

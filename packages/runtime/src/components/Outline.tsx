@@ -25,6 +25,7 @@ export type AllBoxes = {
 export function Outline(props: {
   element: FullElementInfo;
   targets: Targets;
+  dashed?: boolean;
 }) {
   const box = () => props.element.thisElement.box;
 
@@ -130,7 +131,7 @@ export function Outline(props: {
         {domElementInfo() && <RenderBoxes allBoxes={domElementInfo()!} />}
         {/* Element outline box */}
         <div
-          class="fixed rounded border border-solid border-sky-500"
+          class={`fixed rounded border ${props.dashed ? "border-dashed" : "border-solid"} border-sky-500`}
           style={{
             "z-index": 2,
             left: box().x + "px",
