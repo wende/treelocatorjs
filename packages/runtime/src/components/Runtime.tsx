@@ -381,6 +381,7 @@ function Runtime(props: RuntimeProps) {
     setRecordedElement(null);
     setViewingPrevious(false);
     setRecordingState('idle');
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }
 
   function hasPreviousRecording(): boolean {

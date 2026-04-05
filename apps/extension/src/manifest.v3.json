@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "TreeLocatorJS",
+  "version": "0.1.0",
+  "description": "Alt+click local dev UI elements to copy component ancestry with TreeLocatorJS.",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "TreeLocatorJS",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://[::1]/*",
+        "http://0.0.0.0/*",
+        "https://localhost/*",
+        "https://127.0.0.1/*",
+        "https://[::1]/*",
+        "https://0.0.0.0/*"
+      ],
+      "js": [
+        "contentScript.bundle.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "hook.bundle.js",
+        "client.bundle.js",
+        "icons/16.png",
+        "icons/32.png",
+        "icons/48.png",
+        "icons/128.png"
+      ],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://[::1]/*",
+        "http://0.0.0.0/*",
+        "https://localhost/*",
+        "https://127.0.0.1/*",
+        "https://[::1]/*",
+        "https://0.0.0.0/*"
+      ]
+    }
+  ]
+}
