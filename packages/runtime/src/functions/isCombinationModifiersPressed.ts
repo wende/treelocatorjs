@@ -16,17 +16,20 @@ export function isCombinationModifiersPressed(
 ) {
   const modifiers = getMouseModifiers();
 
+  // Only require shift if it's part of the configured modifiers.
+  // Shift is used independently for truncation, so pressing it shouldn't
+  // disqualify the activation modifier combo.
   if (rightClick) {
     return (
       e.altKey == !!modifiers.alt &&
       e.metaKey == !!modifiers.meta &&
-      e.shiftKey == !!modifiers.shift
+      (!modifiers.shift || e.shiftKey)
     );
   }
   return (
     e.altKey == !!modifiers.alt &&
     e.ctrlKey == !!modifiers.ctrl &&
     e.metaKey == !!modifiers.meta &&
-    e.shiftKey == !!modifiers.shift
+    (!modifiers.shift || e.shiftKey)
   );
 }

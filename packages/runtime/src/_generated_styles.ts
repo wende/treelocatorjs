@@ -879,10 +879,6 @@ input:where([type='file']):focus {
   left: 0.25rem;
 }
 
-.left-1\\/2 {
-  left: 50%;
-}
-
 .left-3 {
   left: 0.75rem;
 }
@@ -893,10 +889,6 @@ input:where([type='file']):focus {
 
 .top-1 {
   top: 0.25rem;
-}
-
-.top-1\\/2 {
-  top: 50%;
 }
 
 .z-10 {
@@ -1078,11 +1070,6 @@ input:where([type='file']):focus {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
-.-translate-x-1\\/2 {
-  --tw-translate-x: -50%;
-  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-}
-
 .-translate-x-full {
   --tw-translate-x: -100%;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
@@ -1090,11 +1077,6 @@ input:where([type='file']):focus {
 
 .-translate-y-1 {
   --tw-translate-y: -0.25rem;
-  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-}
-
-.-translate-y-1\\/2 {
-  --tw-translate-y: -50%;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
@@ -1475,11 +1457,6 @@ input:where([type='file']):focus {
   padding-bottom: 0px;
 }
 
-.py-0\\.5 {
-  padding-top: 0.125rem;
-  padding-bottom: 0.125rem;
-}
-
 .py-1 {
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
@@ -1813,22 +1790,5 @@ input:where([type='file']):focus {
 
 .ease-out {
   transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
-}
-
-.hover\\:bg-white\\/30:hover {
-  background-color: rgb(255 255 255 / 0.3);
-}
-
-.hover\\:text-gray-100:hover {
-  --tw-text-opacity: 1;
-  color: rgb(243 244 246 / var(--tw-text-opacity, 1));
-}
-
-.group\\/tooltip:hover .group-hover\\/tooltip\\:visible {
-  visibility: visible;
-}
-
-.group\\/tooltip:hover .group-hover\\/tooltip\\:opacity-100 {
-  opacity: 1;
 }`;
 export default styles;

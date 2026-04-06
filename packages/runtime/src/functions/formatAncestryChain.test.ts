@@ -286,7 +286,7 @@ describe("formatAncestryChain", () => {
       ]);
     });
 
-    it("returns just the clicked element when it already has a filePath", () => {
+    it("when clicked element has filePath, keeps up to first different file", () => {
       const items: AncestryItem[] = [
         { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
         { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
@@ -296,7 +296,34 @@ describe("formatAncestryChain", () => {
       const result = truncateAtFirstFile(items);
       expect(result).toEqual([
         { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
       ]);
+    });
+
+    it("keeps all items in the same file plus first different-file ancestor", () => {
+      const items: AncestryItem[] = [
+        { elementName: "span", componentName: "Label", filePath: "src/Button.tsx", line: 20 },
+        { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
+        { elementName: "div", componentName: "App", filePath: "src/App.tsx", line: 1 },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual([
+        { elementName: "span", componentName: "Label", filePath: "src/Button.tsx", line: 20 },
+        { elementName: "button", componentName: "Button", filePath: "src/Button.tsx", line: 5 },
+        { elementName: "div", componentName: "Layout", filePath: "src/Layout.tsx", line: 10 },
+      ]);
+    });
+
+    it("returns all items when all share the same file", () => {
+      const items: AncestryItem[] = [
+        { elementName: "span", filePath: "src/App.tsx", line: 10 },
+        { elementName: "div", filePath: "src/App.tsx", line: 5 },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual(items);
     });
 
     it("returns all items when none have a filePath", () => {
