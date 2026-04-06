@@ -165,26 +165,42 @@ function getInnermostNamedComponent(item: AncestryItem | null | undefined): stri
 }
 
 /**
+ * Get the effective file path from an AncestryItem, checking both
+ * client filePath and serverComponents (Next.js RSC, Phoenix, etc.).
+ */
+function getItemFilePath(item: AncestryItem): string | undefined {
+  if (item.filePath) return item.filePath;
+  if (item.serverComponents && item.serverComponents.length > 0) {
+    const comp = item.serverComponents.find((sc) => sc.type === "component");
+    if (comp) return comp.filePath;
+    return item.serverComponents[0]!.filePath;
+  }
+  return undefined;
+}
+
+/**
  * Truncate ancestry to keep only the local context.
- * - If the clicked element has no filePath: keep up to the first ancestor with a file.
- * - If the clicked element has a filePath: keep up to the first ancestor with a DIFFERENT file.
+ * - If the clicked element has no file: keep up to the first ancestor with a file.
+ * - If the clicked element has a file: keep up to the first ancestor with a DIFFERENT file.
+ * Checks both client filePath and serverComponents for file info.
  * The ancestry array is bottom-up: index 0 = clicked element, last = root.
  */
 export function truncateAtFirstFile(items: AncestryItem[]): AncestryItem[] {
   if (items.length === 0) return items;
 
-  const clickedFile = items[0]?.filePath;
+  const clickedFile = getItemFilePath(items[0]!);
 
   if (!clickedFile) {
     // Clicked element has no file: find first ancestor with any file
-    const firstWithFile = items.findIndex((item) => item.filePath);
+    const firstWithFile = items.findIndex((item) => getItemFilePath(item));
     if (firstWithFile === -1) return items;
     return items.slice(0, firstWithFile + 1);
   }
 
   // Clicked element has a file: find first ancestor with a different file
   for (let i = 1; i < items.length; i++) {
-    if (items[i]!.filePath && items[i]!.filePath !== clickedFile) {
+    const ancestorFile = getItemFilePath(items[i]!);
+    if (ancestorFile && ancestorFile !== clickedFile) {
       return items.slice(0, i + 1);
     }
   }

@@ -336,6 +336,34 @@ describe("formatAncestryChain", () => {
       expect(result).toEqual(items);
     });
 
+    it("uses serverComponents file path when filePath is missing", () => {
+      const items: AncestryItem[] = [
+        { elementName: "div", componentName: "TurnActivityBox", serverComponents: [{ name: "TurnActivityBox", filePath: "components/MessageRow.tsx", line: 921, type: "component" }] },
+        { elementName: "div", componentName: "MessageRow", serverComponents: [{ name: "MessageRow", filePath: "components/chat/ChatViewport.tsx", line: 917, type: "component" }] },
+        { elementName: "main", componentName: "Home", serverComponents: [{ name: "Home", filePath: "app/page.tsx", line: 817, type: "component" }] },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual([
+        items[0],
+        items[1],
+      ]);
+    });
+
+    it("uses serverComponents when clicked element has no filePath but has serverComponents", () => {
+      const items: AncestryItem[] = [
+        { elementName: "span", componentName: "Button" },
+        { elementName: "div", componentName: "Card", serverComponents: [{ name: "Card", filePath: "src/Card.tsx", line: 10, type: "component" }] },
+        { elementName: "div", componentName: "App", serverComponents: [{ name: "App", filePath: "src/App.tsx", line: 1, type: "component" }] },
+      ];
+
+      const result = truncateAtFirstFile(items);
+      expect(result).toEqual([
+        items[0],
+        items[1],
+      ]);
+    });
+
     it("returns empty array for empty input", () => {
       expect(truncateAtFirstFile([])).toEqual([]);
     });
