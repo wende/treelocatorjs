@@ -20,11 +20,12 @@ export interface DejitterConfig {
     stutter: { velocityRatio: number; maxFrames: number; minVelocity: number };
     stuck: { minStillFrames: number; maxDelta: number; minSurroundingVelocity: number; highDuration: number; medDuration: number };
     outlier: { ratioThreshold: number };
+    lag: { minDelay: number; highDelay: number; medDelay: number };
   };
 }
 
 export interface DejitterFinding {
-  type: 'jitter' | 'flicker' | 'shiver' | 'jump' | 'stutter' | 'stuck' | 'outlier';
+  type: 'jitter' | 'flicker' | 'shiver' | 'jump' | 'stutter' | 'stuck' | 'outlier' | 'lag';
   severity: 'high' | 'medium' | 'low' | 'info';
   elem: string;
   elemLabel: { tag: string; cls: string; text: string };
@@ -50,7 +51,7 @@ export interface DejitterAPI {
   getData(): any;
   summary(json?: boolean): string | DejitterSummary;
   findings(json?: boolean): string | DejitterFinding[];
-  getRaw(): { rawFrames: any[]; mutations: any[] };
+  getRaw(): { rawFrames: any[]; mutations: any[]; interactions: any[] };
   toJSON(): string;
 }
 
@@ -70,6 +71,7 @@ export function createDejitterRecorder(): DejitterAPI {
       stutter: { velocityRatio: 0.3, maxFrames: 3, minVelocity: 0.5 },
       stuck: { minStillFrames: 3, maxDelta: 0.5, minSurroundingVelocity: 1, highDuration: 500, medDuration: 200 },
       outlier: { ratioThreshold: 3 },
+      lag: { minDelay: 50, highDelay: 200, medDelay: 100 },
     },
   };
 
@@ -79,6 +81,7 @@ export function createDejitterRecorder(): DejitterAPI {
   let rafId: number | null = null;
   let stopTimer: ReturnType<typeof setTimeout> | null = null;
   let mutationObserver: MutationObserver | null = null;
+  let interactionAbort: AbortController | null = null;
   let onStopCallbacks: Array<() => void> = [];
 
   let lastSeen = new Map<string, Record<string, any>>();
@@ -86,6 +89,7 @@ export function createDejitterRecorder(): DejitterAPI {
   let lastChangeTime = 0;
   let hasSeenChange = false;
   let mutations: any[] = [];
+  let interactions: Array<{ t: number; type: string }> = [];
   let nextElemId = 0;
 
   function elemId(el: any): string {
@@ -210,6 +214,19 @@ export function createDejitterRecorder(): DejitterAPI {
     mutationObserver.observe(document.body, {
       childList: true, subtree: true, characterData: true,
     });
+  }
+
+  function startInteractionListeners(): void {
+    interactionAbort = new AbortController();
+    const opts: AddEventListenerOptions & { signal: AbortSignal } = { capture: true, signal: interactionAbort.signal };
+    const handler = (e: Event): void => {
+      if (!recording) return;
+      const t = Math.round(performance.now() - startTime);
+      interactions.push({ t, type: e.type });
+    };
+    for (const evt of ['click', 'pointerdown', 'keydown'] as const) {
+      document.addEventListener(evt, handler, opts);
+    }
   }
 
   // --- Downsampling ---
@@ -778,6 +795,49 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
+  function detectLagFindings(elements: Record<string, any>): DejitterFinding[] {
+    const findings: DejitterFinding[] = [];
+    if (interactions.length === 0 || rawFrames.length === 0) return findings;
+
+    const lt = config.thresholds.lag;
+
+    for (const interaction of interactions) {
+      let firstFrame: { t: number; changes: any[] } | null = null;
+      for (const frame of rawFrames) {
+        if (frame.t > interaction.t) {
+          firstFrame = frame;
+          break;
+        }
+      }
+
+      if (!firstFrame) continue;
+
+      const delay = firstFrame.t - interaction.t;
+      if (delay < lt.minDelay) continue;
+
+      const severity = delay >= lt.highDelay ? 'high' : delay >= lt.medDelay ? 'medium' : 'low';
+
+      const firstChange = firstFrame.changes[0];
+      const label = (firstChange && elements[firstChange.id]) || { tag: '?', cls: '', text: '' };
+
+      findings.push(makeFinding(
+        'lag', severity,
+        firstChange?.id || '?', label, interaction.type,
+        `${delay}ms between ${interaction.type} at t=${interaction.t}ms and first visual change at t=${firstFrame.t}ms`,
+        {
+          lag: {
+            interactionType: interaction.type,
+            interactionT: interaction.t,
+            firstChangeT: firstFrame.t,
+            delay,
+          },
+        }
+      ));
+    }
+
+    return findings;
+  }
+
   function deduplicateShivers(findings: DejitterFinding[]): DejitterFinding[] {
     const shiverFindings = findings.filter((f) => f.type === 'shiver');
     const otherFindings = findings.filter((f) => f.type !== 'shiver');
@@ -814,6 +874,7 @@ export function createDejitterRecorder(): DejitterAPI {
     findings = findings.concat(detectJumpFindings(propStats, elements));
     findings = findings.concat(detectStutterFindings(propStats, elements));
     findings = findings.concat(detectStuckFindings(propStats, elements));
+    findings = findings.concat(detectLagFindings(elements));
     findings = deduplicateShivers(findings);
 
     const sevOrder: Record<string, number> = { high: 0, medium: 1, low: 2, info: 3 };
@@ -842,6 +903,7 @@ export function createDejitterRecorder(): DejitterAPI {
     start() {
       rawFrames = [];
       mutations = [];
+      interactions = [];
       lastSeen = new Map();
       nextElemId = 0;
       recording = true;
@@ -851,6 +913,7 @@ export function createDejitterRecorder(): DejitterAPI {
       onStopCallbacks = [];
 
       startMutationObserver();
+      startInteractionListeners();
       rafId = requestAnimationFrame(loop);
 
       if (config.maxDuration > 0) {
@@ -865,6 +928,7 @@ export function createDejitterRecorder(): DejitterAPI {
       if (rafId) cancelAnimationFrame(rafId);
       if (stopTimer) clearTimeout(stopTimer);
       mutationObserver?.disconnect();
+      interactionAbort?.abort();
 
       const msg = `Stopped. ${rawFrames.length} raw frames, ${mutations.length} mutation events.`;
 
@@ -921,7 +985,7 @@ export function createDejitterRecorder(): DejitterAPI {
     },
 
     getRaw() {
-      return { rawFrames, mutations };
+      return { rawFrames, mutations, interactions };
     },
 
     toJSON() {
