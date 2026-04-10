@@ -14,7 +14,7 @@
     "ts": "turbo run ts",
     "e2e": "turbo run e2e",
     "test:ancestry": "cd apps/playwright && ./scripts/run-ancestry-tests.sh",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "publishPackages": "lerna publish",
     "clean": "concurrently pnpm:clean:*",
     "clean:node_modules": "rm -rf node_modules && rm -rf */*/node_modules",

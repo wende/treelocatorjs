@@ -1,6 +1,9 @@
+import { Fiber } from "@locator/shared";
 import { AncestryItem } from "./formatAncestryChain";
 import { resolveSourceLocation, parseDebugStack } from "../adapters/react/resolveSourceMap";
 import { normalizeFilePath } from "./normalizeFilePath";
+
+type React19Fiber = Fiber & { _debugStack?: { stack?: string } };
 
 /**
  * Check if any DOM element has React 19 fibers (with _debugStack instead of _debugSource).
@@ -14,10 +17,10 @@ function isReact19Environment(): boolean {
   const fiberKey = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
   if (!fiberKey) return false;
 
-  let fiber = (el as any)[fiberKey];
+  let fiber = (el as unknown as Record<string, React19Fiber>)[fiberKey] as React19Fiber | null;
   while (fiber) {
     if (fiber._debugSource) return false; // React 18
-    if ((fiber as any)._debugStack) return true; // React 19
+    if (fiber._debugStack) return true; // React 19
     fiber = fiber._debugOwner || null;
   }
   return false;
@@ -37,7 +40,7 @@ function collectFiberStacks(
   );
   if (!fiberKey) return stacks;
 
-  let fiber = (element as any)[fiberKey];
+  let fiber = (element as unknown as Record<string, React19Fiber>)[fiberKey] as React19Fiber | null;
 
   // Collect stacks from the fiber itself and its _debugOwner chain
   while (fiber) {

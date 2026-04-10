@@ -5,18 +5,18 @@ import { findDebugSource } from "./findDebugSource";
  * Find the React fiber key on a DOM element (e.g., "__reactFiber$abc123").
  * Works across all React versions that attach fibers to DOM nodes.
  */
-function findFiberFromDOMElement(element: HTMLElement): Fiber | null {
+function findFiberFromDOMElement(element: HTMLElement | SVGElement): Fiber | null {
   const fiberKey = Object.keys(element).find((k) =>
     k.startsWith("__reactFiber$")
   );
   if (fiberKey) {
-    return (element as any)[fiberKey] as Fiber;
+    return (element as unknown as Record<string, Fiber>)[fiberKey] ?? null;
   }
   return null;
 }
 
 export function findFiberByHtmlElement(
-  target: HTMLElement,
+  target: HTMLElement | SVGElement,
   shouldHaveDebugSource: boolean
 ): Fiber | null {
   // Try via DevTools renderers first (available when React DevTools extension is installed)
