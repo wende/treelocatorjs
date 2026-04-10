@@ -7,6 +7,11 @@ import {
   AncestryItem,
 } from "./functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
+import {
+  inspectCSSRules,
+  formatCSSInspection,
+  CSSInspectionResult,
+} from "./functions/cssRuleInspector";
 import { extractComputedStyles, ComputedStylesResult } from "./functions/extractComputedStyles";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
@@ -141,6 +146,71 @@ export interface LocatorJSAPI {
   help(): string;
 
   /**
+   * Inspect all CSS rules matching an element, grouped by property.
+   * Shows which rule wins for each property with specificity, source, and !important info.
+   * Returns structured data for programmatic use.
+   *
+   * @param elementOrSelector - HTMLElement or CSS selector string
+   * @returns Structured CSS inspection result, or null if element not found
+   *
+   * @example
+   * // Get structured CSS data
+   * const result = window.__treelocator__.getCSSRules('button.primary');
+   * result.properties.forEach(p => {
+   *   console.log(`${p.property}: ${p.value}`);
+   *   p.rules.forEach(r => console.log(`  ${r.winning ? '✓' : '✗'} ${r.selector}`));
+   * });
+   *
+   * @example
+   * // In Playwright - debug why a style isn't applying
+   * const css = await page.evaluate(() =>
+   *   window.__treelocator__.getCSSRules('.my-button')
+   * );
+   * const colorRules = css?.properties.find(p => p.property === 'color');
+   * console.log(colorRules);
+   */
+  getCSSRules(
+    elementOrSelector: HTMLElement | string
+  ): CSSInspectionResult | null;
+
+  /**
+   * Get a formatted human-readable report of all CSS rules matching an element.
+   * Shows winning/losing rules per property with specificity and source info.
+   * Ideal for pasting into AI chat or logging.
+   *
+   * @param elementOrSelector - HTMLElement or CSS selector string
+   * @param options - Optional filter: { properties?: string[] } to limit output to specific properties
+   * @returns Formatted string report, or null if element not found
+   *
+   * @example
+   * // Get full CSS report
+   * console.log(window.__treelocator__.getCSSReport('button.primary'));
+   * // Output:
+   * // CSS Rules for button.primary
+   * // ════════════════════════════
+   * //
+   * // color: #333
+   * //   ✓ .button.primary  (0,2,0) — components.css
+   * //   ✗ .button          (0,1,0) — base.css
+   * //   ✗ button           (0,0,1) — reset.css
+   *
+   * @example
+   * // Filter to specific properties
+   * console.log(window.__treelocator__.getCSSReport('.card', { properties: ['color', 'background'] }));
+   *
+   * @example
+   * // In Playwright
+   * const report = await page.evaluate(() =>
+   *   window.__treelocator__.getCSSReport('.error-message')
+   * );
+   * console.log(report);
+   */
+  getCSSReport(
+    elementOrSelector: HTMLElement | string,
+    options?: { properties?: string[] }
+  ): string | null;
+
+  /**
    * Replay the last recorded interaction sequence.
    * Dispatches the recorded clicks at the original positions and timing.
    * Must have a completed recording with interactions to replay.
@@ -192,7 +262,14 @@ function resolveElement(
   elementOrSelector: HTMLElement | string
 ): HTMLElement | null {
   if (typeof elementOrSelector === "string") {
-    const element = document.querySelector(elementOrSelector);
+    // querySelector throws DOMException for invalid selector strings
+    // (e.g. "!!!") — return null instead of crashing the API call.
+    let element: Element | null = null;
+    try {
+      element = document.querySelector(elementOrSelector);
+    } catch {
+      return null;
+    }
     return element instanceof HTMLElement ? element : null;
   }
   return elementOrSelector;
@@ -267,13 +344,40 @@ METHODS:
      console.log(result.formatted)  // formatted styles string
      console.log(result.snapshot)   // raw property values + bounding rect
 
-5. replay()
+5. getCSSRules(elementOrSelector)
+   Returns structured CSS rule data for the element.
+   Shows all matching rules grouped by property with specificity and source.
+
+   Usage:
+     const result = window.__treelocator__.getCSSRules('button.primary')
+     result.properties.forEach(p => {
+       console.log(p.property + ': ' + p.value)
+       p.rules.forEach(r => console.log('  ' + (r.winning ? 'WIN' : '   ') + ' ' + r.selector))
+     })
+
+6. getCSSReport(elementOrSelector, options?)
+   Returns a formatted string showing all CSS rules and which wins per property.
+   Pass { properties: ['color', 'font-size'] } to filter to specific properties.
+
+   Usage:
+     console.log(window.__treelocator__.getCSSReport('button.primary'))
+     console.log(window.__treelocator__.getCSSReport('.card', { properties: ['color'] }))
+
+   Returns:
+     "CSS Rules for button.primary
+      ════════════════════════════
+      color: #333
+        ✓ .button.primary  (0,2,0) — components.css
+        ✗ .button          (0,1,0) — base.css
+        ✗ button           (0,0,1) — reset.css"
+
+7. replay()
    Replays the last recorded interaction sequence as a macro.
 
    Usage:
      window.__treelocator__.replay()
 
-6. replayWithRecord(elementOrSelector)
+8. replayWithRecord(elementOrSelector)
    Replays stored interactions while recording element changes.
    Returns dejitter analysis when replay completes.
 
@@ -282,7 +386,7 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-7. help()
+9. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -306,6 +410,19 @@ async function getComponentPath(page, selector) {
     return window.__treelocator__.getPath(sel);
   }, selector);
 }
+
+// Debug CSS specificity conflicts
+const report = await page.evaluate(() => {
+  return window.__treelocator__.getCSSReport('.my-button', { properties: ['color', 'background'] });
+});
+console.log(report);
+
+// Get structured CSS data for assertions
+const css = await page.evaluate(() => {
+  return window.__treelocator__.getCSSRules('.my-button');
+});
+const colorRules = css?.properties.find(p => p.property === 'color');
+console.log('Winning rule:', colorRules?.rules.find(r => r.winning));
 
 PUPPETEER EXAMPLES:
 ------------------
@@ -386,6 +503,45 @@ export function createBrowserAPI(
       const label = ancestry ? getElementLabel(ancestry) : undefined;
 
       return extractComputedStyles(element, label || undefined);
+    },
+
+    getCSSRules(
+      elementOrSelector: HTMLElement | string
+    ): CSSInspectionResult | null {
+      let element: HTMLElement | null = null;
+      try {
+        element = resolveElement(elementOrSelector);
+      } catch {
+        return null;
+      }
+      if (!element) return null;
+      return inspectCSSRules(element);
+    },
+
+    getCSSReport(
+      elementOrSelector: HTMLElement | string,
+      options?: { properties?: string[] }
+    ): string | null {
+      let element: HTMLElement | null = null;
+      try {
+        element = resolveElement(elementOrSelector);
+      } catch {
+        return null;
+      }
+      if (!element) return null;
+      const result = inspectCSSRules(element);
+
+      // Filter to requested properties if specified
+      if (options?.properties && options.properties.length > 0) {
+        const filterSet = new Set(
+          options.properties.map((p) => p.toLowerCase())
+        );
+        result.properties = result.properties.filter((p) =>
+          filterSet.has(p.property.toLowerCase())
+        );
+      }
+
+      return formatCSSInspection(result);
     },
 
     help(): string {

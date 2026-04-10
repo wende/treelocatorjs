@@ -20,7 +20,7 @@ export const babelPluginMinimalConfig = `
 {
   "plugins": [
     [
-      "@treelocator/babel-jsx/dist",
+      "@locator/babel-jsx/dist",
       {
         "env": "development"
       }
@@ -48,7 +48,7 @@ export default function InstallReactDataId() {
             <Step title="Add Babel plugin" no={1}>
               You need a babel plugin to gather all the component{"'"}s
               locations in their files.
-              <InstallByAnything packageName="@treelocator/babel-jsx" />
+              <InstallByAnything packageName="@locator/babel-jsx" />
               <Tabs
                 queryId="stack"
                 items={[
@@ -128,7 +128,7 @@ export default nextConfig;`}
                           {`module.exports = {
   presets: ["next/babel"],
   plugins: [
-    ["@treelocator/babel-jsx/dist", {
+    ["@locator/babel-jsx/dist", {
       env: "development",
     }]
   ]
@@ -155,7 +155,7 @@ export default nextConfig;`}
                           {`module.exports = {
   babel: {
     plugins: [
-      ["@treelocator/babel-jsx/dist", {
+      ["@locator/babel-jsx/dist", {
         env: "development"
       }]
     ],
@@ -185,7 +185,7 @@ export default defineConfig({
         plugins: [
           // other Babel plugins
           [
-            "@treelocator/babel-jsx/dist",
+            "@locator/babel-jsx/dist",
             {
               env: "development",
             },

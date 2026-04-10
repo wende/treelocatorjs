@@ -13,7 +13,7 @@ async function run() {
     .replaceAll("\\]", "\\\\]")
     .replaceAll("\\.", "\\\\.")
     .replaceAll("\\/", "\\\\/");
-  const wrapped = `const styles: string = \`${escaped}\`;\nexport default styles;`;
+  const wrapped = `const styles = \`${escaped}\`;\nexport default styles;`;
 
   await fs.writeFile("./src/_generated_styles.ts", wrapped);
   console.log("CSS file generated");

@@ -25,7 +25,7 @@ export default function InstallSolidJs() {
             <Step title="Add Babel plugin" no={1}>
               You need a babel plugin to gather all the component{"'"}s
               locations in their files.
-              <InstallByAnything packageName="@treelocator/babel-jsx" />
+              <InstallByAnything packageName="@locator/babel-jsx" />
               <Tabs
                 queryId="stack"
                 items={[
@@ -47,7 +47,7 @@ export default defineConfig({
       babel: {
         plugins: [
           [
-            "@treelocator/babel-jsx/dist",
+            "@locator/babel-jsx/dist",
             {
               env: "development",
             },
@@ -72,7 +72,7 @@ export default defineConfig({
                           style={a11yDark}
                         >
                           {`[
-  "@treelocator/babel-jsx/dist",
+  "@locator/babel-jsx/dist",
   {
     env: "development",
   },

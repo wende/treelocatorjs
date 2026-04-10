@@ -10,7 +10,7 @@ async function run() {
   const content = await fs.readFile(imagePath);
   const base64 = content.toString("base64");
   const dataUrl = `data:image/png;base64,${base64}`;
-  const wrapped = `const treeIcon: string = "${dataUrl}";\nexport default treeIcon;`;
+  const wrapped = `const treeIcon = "${dataUrl}";\nexport default treeIcon;`;
 
   await fs.writeFile("./src/_generated_tree_icon.ts", wrapped);
   console.log("Tree icon file generated");

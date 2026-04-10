@@ -1,4 +1,4 @@
-const styles: string = `*, ::before, ::after {
+const styles = `*, ::before, ::after {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
   --tw-translate-x: 0;
@@ -889,6 +889,10 @@ input:where([type='file']):focus {
 
 .top-1 {
   top: 0.25rem;
+}
+
+.isolate {
+  isolation: isolate;
 }
 
 .z-10 {

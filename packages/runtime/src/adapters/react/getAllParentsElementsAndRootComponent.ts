@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Fiber } from "@locator/shared";
 import { getUsableName } from "../../functions/getUsableName";
 import { mergeRects } from "../../functions/mergeRects";
@@ -14,6 +15,7 @@ export function getAllParentsElementsAndRootComponent(fiber: Fiber): {
   const parentElements: ElementInfo[] = [];
   const deepestElement = fiber.stateNode;
   if (!deepestElement || !(deepestElement instanceof Element)) {
+    // eslint-disable-next-line no-console
     console.warn("[TreeLocator] Skipping fiber with non-Element stateNode:", fiber.type, fiber.stateNode);
     return null;
   }
@@ -47,6 +49,7 @@ export function getAllParentsElementsAndRootComponent(fiber: Fiber): {
       link: null,
     });
   }
+  // eslint-disable-next-line no-console
   console.warn("[TreeLocator] Could not find root component for fiber:", fiber.type);
   return null;
 }
