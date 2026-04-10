@@ -52,6 +52,15 @@ describe("calculateSpecificity", () => {
     expect(calculateSpecificity("p::first-line")).toEqual([0, 0, 2]);
   });
 
+  it("normalizes legacy single-colon pseudo-elements to element-level", () => {
+    // :before, :after, :first-line, :first-letter are legacy pseudo-elements
+    // that should be treated as element-level (0,0,1), not pseudo-class (0,1,0)
+    expect(calculateSpecificity(":before")).toEqual([0, 0, 1]);
+    expect(calculateSpecificity(":after")).toEqual([0, 0, 1]);
+    expect(calculateSpecificity("p:first-line")).toEqual([0, 0, 2]);
+    expect(calculateSpecificity("p:first-letter")).toEqual([0, 0, 2]);
+  });
+
   it("handles child and sibling combinators", () => {
     expect(calculateSpecificity("div > span")).toEqual([0, 0, 2]);
     expect(calculateSpecificity("div + span")).toEqual([0, 0, 2]);

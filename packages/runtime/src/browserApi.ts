@@ -10,7 +10,6 @@ import {
   inspectCSSRules,
   formatCSSInspection,
   CSSInspectionResult,
-  CSSPropertyResult,
 } from "./functions/cssRuleInspector";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
@@ -459,7 +458,12 @@ export function createBrowserAPI(
     getCSSRules(
       elementOrSelector: HTMLElement | string
     ): CSSInspectionResult | null {
-      const element = resolveElement(elementOrSelector);
+      let element: HTMLElement | null = null;
+      try {
+        element = resolveElement(elementOrSelector);
+      } catch {
+        return null;
+      }
       if (!element) return null;
       return inspectCSSRules(element);
     },
@@ -468,7 +472,12 @@ export function createBrowserAPI(
       elementOrSelector: HTMLElement | string,
       options?: { properties?: string[] }
     ): string | null {
-      const element = resolveElement(elementOrSelector);
+      let element: HTMLElement | null = null;
+      try {
+        element = resolveElement(elementOrSelector);
+      } catch {
+        return null;
+      }
       if (!element) return null;
       const result = inspectCSSRules(element);
 

@@ -74,6 +74,11 @@ export function calculateSpecificity(selector: string): SpecificityTuple {
 
   let s = selector.trim();
 
+  // Normalize legacy single-colon pseudo-elements to double-colon so they
+  // are correctly counted as element-level specificity (0,0,1) instead of
+  // being mis-classified as pseudo-classes (0,1,0).
+  s = s.replace(/:(before|after|first-line|first-letter)\b/gi, "::$1");
+
   // Extract :not(), :is(), :has(), :where() — depth-aware so nested pseudos work.
   // Process in reverse so removing each one doesn't shift earlier offsets.
   const pseudos = extractFunctionalPseudos(s);
@@ -337,6 +342,8 @@ function walkRules(
     typeof CSSMediaRule !== "undefined" ? CSSMediaRule : null;
   const StyleRuleCtor =
     typeof CSSStyleRule !== "undefined" ? CSSStyleRule : null;
+  const ImportRuleCtor =
+    typeof CSSImportRule !== "undefined" ? CSSImportRule : null;
 
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i]!;
@@ -381,6 +388,22 @@ function walkRules(
     } else if (SupportsRuleCtor && rule instanceof SupportsRuleCtor) {
       // The browser only lists @supports rules whose condition is met.
       walkRules(rule.cssRules, element, source, results, nextIndex);
+    } else if (ImportRuleCtor && rule instanceof ImportRuleCtor) {
+      // Recurse into @import stylesheets
+      try {
+        if (rule.styleSheet) {
+          const importSource = describeSource(rule.styleSheet);
+          walkRules(
+            rule.styleSheet.cssRules,
+            element,
+            importSource,
+            results,
+            nextIndex
+          );
+        }
+      } catch {
+        // Cross-origin stylesheet or failed to load — skip
+      }
     } else if ("cssRules" in rule && (rule as any).cssRules) {
       // Handle @layer and other grouping rules
       walkRules((rule as any).cssRules, element, source, results, nextIndex);
