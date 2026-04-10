@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   AncestryItem,
   formatAncestryChain,
-  collectAncestry,
   truncateAtFirstFile,
 } from "./formatAncestryChain";
 

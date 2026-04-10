@@ -1,8 +1,7 @@
 import { Fiber, Source } from "@locator/shared";
-import {
-  resolveSourceFromDebugStack,
-  parseDebugStack,
-} from "./resolveSourceMap";
+import { resolveSourceFromDebugStack } from "./resolveSourceMap";
+
+type React19Fiber = Fiber & { _debugStack?: { stack?: string } };
 
 export function findDebugSource(
   fiber: Fiber
@@ -34,7 +33,7 @@ export async function findDebugSourceAsync(
   // React 19: try resolving via _debugStack + source maps
   let current: Fiber | null = fiber;
   while (current) {
-    const debugStack = (current as any)._debugStack;
+    const debugStack = (current as React19Fiber)._debugStack;
     if (debugStack?.stack) {
       const source = await resolveSourceFromDebugStack(debugStack);
       if (source) {
@@ -51,5 +50,5 @@ export async function findDebugSourceAsync(
  * Check if this is a React 19+ environment (has _debugStack but not _debugSource).
  */
 export function isReact19Fiber(fiber: Fiber): boolean {
-  return !fiber._debugSource && !!(fiber as any)._debugStack;
+  return !fiber._debugSource && !!(fiber as React19Fiber)._debugStack;
 }

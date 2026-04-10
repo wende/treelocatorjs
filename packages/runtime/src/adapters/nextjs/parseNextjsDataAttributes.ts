@@ -50,7 +50,7 @@ function parseDataLocatorjsValue(value: string): ServerComponentInfo | null {
   if (parts.length < 2) return null;
 
   // Last two parts are column and line (in reverse order)
-  const column = parts.pop();
+  parts.pop(); // discard column
   const line = parts.pop();
 
   // Everything else is the file path (which may contain colons on Windows)

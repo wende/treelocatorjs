@@ -17,75 +17,73 @@ import { HtmlElementTreeNode } from "../HtmlElementTreeNode";
 import { getExpressionData } from "./getExpressionData";
 import { getJSXComponentBoundingBox } from "./getJSXComponentBoundingBox";
 
+type JSXLocatorData = {
+  fileFullPath: string;
+  fileData: FileStorage | undefined;
+  filePath: string;
+  projectPath: string;
+};
+
+function resolveJSXLocatorData(element: Element): JSXLocatorData | null {
+  const dataId = element.getAttribute("data-locatorjs-id");
+  const dataPath = element.getAttribute("data-locatorjs");
+
+  if (!dataId && !dataPath) return null;
+
+  let fileFullPath: string;
+
+  if (dataPath) {
+    const parsed = parseDataPath(dataPath);
+    if (!parsed) return null;
+    [fileFullPath] = parsed;
+  } else if (dataId) {
+    [fileFullPath] = parseDataId(dataId);
+  } else {
+    return null;
+  }
+
+  const locatorData = window.__LOCATOR_DATA__;
+  const fileData: FileStorage | undefined = locatorData?.[fileFullPath];
+
+  let filePath: string;
+  let projectPath: string;
+
+  if (fileData) {
+    filePath = fileData.filePath;
+    projectPath = fileData.projectPath;
+  } else {
+    [projectPath, filePath] = splitFullPath(fileFullPath);
+  }
+
+  return { fileFullPath, fileData, filePath, projectPath };
+}
+
 export function getElementInfo(target: HTMLElement): FullElementInfo | null {
   const found = target.closest("[data-locatorjs-id], [data-locatorjs]");
 
   // Support both HTMLElement and SVGElement
   // SVG elements don't have dataset, so use getAttribute instead
-  const dataId = found?.getAttribute("data-locatorjs-id");
-  const dataPath = found?.getAttribute("data-locatorjs");
   const styledDataId = found?.getAttribute("data-locatorjs-styled");
 
   if (
     found &&
-    (found instanceof HTMLElement || found instanceof SVGElement) &&
-    (dataId || dataPath || styledDataId)
+    (found instanceof HTMLElement || found instanceof SVGElement)
   ) {
-
-    if (!dataId && !dataPath) {
+    const resolved = resolveJSXLocatorData(found);
+    if (!resolved && !styledDataId) {
+      return null;
+    }
+    if (!resolved) {
       return null;
     }
 
-    let fileFullPath: string;
-
-    if (dataPath) {
-      const parsed = parseDataPath(dataPath);
-      if (!parsed) {
-        return null;
-      }
-      [fileFullPath] = parsed;
-    } else if (dataId) {
-      [fileFullPath] = parseDataId(dataId);
-    } else {
-      return null;
-    }
-
+    const { fileFullPath, fileData, filePath, projectPath } = resolved;
     const locatorData = window.__LOCATOR_DATA__;
-    const fileData: FileStorage | undefined = locatorData?.[fileFullPath];
-
-    // Handle styled components (only when locatorData is available)
-    const [styledFileFullPath, styledId] = styledDataId
-      ? parseDataId(styledDataId)
-      : [null, null];
-    const styledFileData: FileStorage | undefined =
-      styledFileFullPath && locatorData?.[styledFileFullPath];
-    const styledExpData =
-      styledFileData && styledFileData.styledDefinitions[Number(styledId)];
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const styledLink = styledExpData && {
-      filePath: styledFileData.filePath,
-      projectPath: styledFileData.projectPath,
-      column: (styledExpData.loc?.start.column || 0) + 1,
-      line: styledExpData.loc?.start.line || 0,
-    };
 
     // Get expression data (works with or without locatorData)
     const expData = getExpressionData(found, fileData || null);
     if (!expData) {
       return null;
-    }
-
-    // Extract file path components
-    let filePath: string;
-    let projectPath: string;
-
-    if (fileData) {
-      filePath = fileData.filePath;
-      projectPath = fileData.projectPath;
-    } else {
-      // If no fileData, split the full path
-      [projectPath, filePath] = splitFullPath(fileFullPath);
     }
 
     const wrappingComponent =
@@ -133,47 +131,16 @@ export function getElementInfo(target: HTMLElement): FullElementInfo | null {
 
 export class JSXTreeNodeElement extends HtmlElementTreeNode {
   getSource(): Source | null {
-    // Use getAttribute instead of dataset to support both HTML and SVG elements
-    const dataId = this.element.getAttribute("data-locatorjs-id");
-    const dataPath = this.element.getAttribute("data-locatorjs");
+    const resolved = resolveJSXLocatorData(this.element);
+    if (!resolved) return null;
 
-    if (!dataId && !dataPath) {
-      return null;
-    }
-
-    let fileFullPath: string;
-
-    if (dataPath) {
-      const parsed = parseDataPath(dataPath);
-      if (!parsed) {
-        return null;
-      }
-      [fileFullPath] = parsed;
-    } else if (dataId) {
-      [fileFullPath] = parseDataId(dataId);
-    } else {
-      return null;
-    }
-
-    const locatorData = window.__LOCATOR_DATA__;
-    const fileData: FileStorage | undefined = locatorData?.[fileFullPath];
+    const { fileData, filePath, projectPath } = resolved;
 
     // Get expression data (works with or without locatorData)
     const expData = getExpressionData(this.element, fileData || null);
     if (expData) {
-      let fileName: string;
-      let projectPath: string;
-
-      if (fileData) {
-        fileName = fileData.filePath;
-        projectPath = fileData.projectPath;
-      } else {
-        // If no fileData, split the full path
-        [projectPath, fileName] = splitFullPath(fileFullPath);
-      }
-
       return {
-        fileName,
+        fileName: filePath,
         projectPath,
         columnNumber: (expData.loc.start.column || 0) + 1,
         lineNumber: expData.loc.start.line || 0,
@@ -183,30 +150,10 @@ export class JSXTreeNodeElement extends HtmlElementTreeNode {
     return null;
   }
   getComponent(): TreeNodeComponent | null {
-    // Use getAttribute instead of dataset to support both HTML and SVG elements
-    const dataId = this.element.getAttribute("data-locatorjs-id");
-    const dataPath = this.element.getAttribute("data-locatorjs");
+    const resolved = resolveJSXLocatorData(this.element);
+    if (!resolved) return null;
 
-    if (!dataId && !dataPath) {
-      return null;
-    }
-
-    let fileFullPath: string;
-
-    if (dataPath) {
-      const parsed = parseDataPath(dataPath);
-      if (!parsed) {
-        return null;
-      }
-      [fileFullPath] = parsed;
-    } else if (dataId) {
-      [fileFullPath] = parseDataId(dataId);
-    } else {
-      return null;
-    }
-
-    const locatorData = window.__LOCATOR_DATA__;
-    const fileData: FileStorage | undefined = locatorData?.[fileFullPath];
+    const { fileData } = resolved;
 
     // Component information is only available when we have fileData
     if (fileData) {

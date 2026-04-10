@@ -1,5 +1,5 @@
 import { Targets } from "@locator/shared";
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { AdapterId } from "../consts";
 import { isCombinationModifiersPressed } from "../functions/isCombinationModifiersPressed";
@@ -7,22 +7,18 @@ import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
-import { collectAncestry, formatAncestryChain, truncateAtFirstFile } from "../functions/formatAncestryChain";
+import {
+  collectAncestry,
+  formatAncestryChain,
+  truncateAtFirstFile,
+} from "../functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
 import { createTreeNode } from "../adapters/createTreeNode";
-import treeIconUrl from "../_generated_tree_icon";
-import { createDejitterRecorder, DejitterAPI, DejitterFinding, DejitterSummary } from "../dejitter/recorder";
 import { RecordingOutline } from "./RecordingOutline";
-import { RecordingResults, InteractionEvent } from "./RecordingResults";
-
-const DEJITTER_CONFIG: Partial<import("../dejitter/recorder").DejitterConfig> = {
-  selector: '[data-treelocator-recording]',
-  props: ['opacity', 'transform', 'boundingRect', 'width', 'height'],
-  sampleRate: 15,
-  maxDuration: 30000,
-  idleTimeout: 0,
-  mutations: true,
-};
+import { RecordingResults } from "./RecordingResults";
+import { RecordingPillButton } from "./RecordingPillButton";
+import { useRecordingState } from "../hooks/useRecordingState";
+import { useEventListeners } from "../hooks/useEventListeners";
 
 type RuntimeProps = {
   adapterId?: AdapterId;
@@ -38,58 +34,13 @@ function Runtime(props: RuntimeProps) {
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [locatorActive, setLocatorActive] = createSignal<boolean>(false);
 
-  // Recording state machine: idle -> selecting -> recording -> results -> idle
-  type RecordingState = 'idle' | 'selecting' | 'recording' | 'results';
+  const recording = useRecordingState(props.adapterId);
 
-  // --- localStorage persistence ---
-  const STORAGE_KEY = '__treelocator_recording__';
-
-  type SavedRecording = {
-    findings: DejitterFinding[];
-    summary: DejitterSummary | null;
-    data: any;
-    elementPath: string;
-    interactions: InteractionEvent[];
-  };
-
-  function loadFromStorage(): { last: SavedRecording | null; previous: SavedRecording | null } {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch { /* localStorage may be unavailable */ }
-    return { last: null, previous: null };
-  }
-
-  function saveToStorage(current: SavedRecording) {
-    try {
-      const stored = loadFromStorage();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        last: current,
-        previous: stored.last,
-      }));
-    } catch { /* localStorage may be unavailable */ }
-  }
-
-  // Restore last results on mount
-  const restored = loadFromStorage();
-  const restoredLast = restored.last;
-
-  const [recordingState, setRecordingState] = createSignal<RecordingState>(restoredLast ? 'results' : 'idle');
-  const [recordedElement, setRecordedElement] = createSignal<HTMLElement | null>(null);
-  const [recordingFindings, setRecordingFindings] = createSignal<DejitterFinding[]>(restoredLast?.findings ?? []);
-  const [recordingSummary, setRecordingSummary] = createSignal<DejitterSummary | null>(restoredLast?.summary ?? null);
-  const [interactionLog, setInteractionLog] = createSignal<InteractionEvent[]>(restoredLast?.interactions ?? []);
-  const [recordingData, setRecordingData] = createSignal<any>(restoredLast?.data ?? null);
-  const [recordingElementPath, setRecordingElementPath] = createSignal<string>(restoredLast?.elementPath ?? "");
-  const [replayBox, setReplayBox] = createSignal<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [replaying, setReplaying] = createSignal(false);
-  const [viewingPrevious, setViewingPrevious] = createSignal(false);
-  let dejitterInstance: DejitterAPI | null = null;
-  let interactionClickHandler: ((e: MouseEvent) => void) | null = null;
-  let recordingStartTime = 0;
-  let replayTimerId: number | null = null;
-
-  const isActive = () => (holdingModKey() || locatorActive() || recordingState() === 'selecting') && currentElement();
+  const isActive = () =>
+    (holdingModKey() ||
+      locatorActive() ||
+      recording.recordingState() === "selecting") &&
+    currentElement();
 
   createEffect(() => {
     if (isActive()) {
@@ -101,382 +52,57 @@ function Runtime(props: RuntimeProps) {
 
   // Expose replay functions on the browser API
   if (typeof window !== "undefined" && (window as any).__treelocator__) {
-    (window as any).__treelocator__.replay = () => replayRecording();
-    (window as any).__treelocator__.replayWithRecord = (elementOrSelector: HTMLElement | string) =>
-      replayWithRecord(elementOrSelector);
+    (window as any).__treelocator__.replay = () => recording.replayRecording();
+    (window as any).__treelocator__.replayWithRecord = (
+      elementOrSelector: HTMLElement | string
+    ) => recording.replayWithRecord(elementOrSelector);
   }
 
-  function keyUpListener(e: KeyboardEvent) {
-    setHoldingModKey(isCombinationModifiersPressed(e));
-    setHoldingShift(e.shiftKey);
-  }
-
-  function keyDownListener(e: KeyboardEvent) {
-    setHoldingModKey(isCombinationModifiersPressed(e, true));
-    setHoldingShift(e.shiftKey);
-  }
-
-  function mouseMoveListener(e: MouseEvent) {
-    // Update modifier state from mouse events - more reliable than keydown/keyup
-    setHoldingModKey(e.altKey);
-    setHoldingShift(e.shiftKey);
-  }
+  // --- Event handlers ---
 
   function findElementAtPoint(e: MouseEvent): HTMLElement | null {
     const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
     for (const el of elementsAtPoint) {
       if (isLocatorsOwnElement(el as HTMLElement)) continue;
       if (el instanceof HTMLElement || el instanceof SVGElement) {
-        const withLocator = el.closest('[data-locatorjs-id], [data-locatorjs]');
+        const withLocator = el.closest(
+          "[data-locatorjs-id], [data-locatorjs]"
+        );
         if (withLocator) return withLocator as HTMLElement;
       }
     }
-    // Fallback to e.target
     const target = e.target;
-    if (target && (target instanceof HTMLElement || target instanceof SVGElement)) {
-      const el = target instanceof SVGElement
-        ? (target.closest('[data-locatorjs-id], [data-locatorjs]') as HTMLElement | null) ??
-          (target.closest('svg') as HTMLElement | null) ??
-          (target as unknown as HTMLElement)
-        : target;
+    if (
+      target &&
+      (target instanceof HTMLElement || target instanceof SVGElement)
+    ) {
+      const el =
+        target instanceof SVGElement
+          ? ((target.closest(
+              "[data-locatorjs-id], [data-locatorjs]"
+            ) as HTMLElement | null) ??
+            (target.closest("svg") as HTMLElement | null) ??
+            (target as unknown as HTMLElement))
+          : target;
       if (el && !isLocatorsOwnElement(el)) return el;
     }
     return null;
   }
 
-  // --- Recording lifecycle ---
-
-  function handleRecordClick() {
-    switch (recordingState()) {
-      case 'idle':
-        setRecordingState('selecting');
-        break;
-      case 'selecting':
-        setRecordingState('idle');
-        break;
-      case 'recording':
-        stopRecording();
-        break;
-      case 'results':
-        dismissResults();
-        break;
-    }
-  }
-
-  function startRecording(element: HTMLElement) {
-    element.setAttribute('data-treelocator-recording', 'true');
-    setRecordedElement(element);
-
-    dejitterInstance = createDejitterRecorder();
-    dejitterInstance.configure(DEJITTER_CONFIG);
-    dejitterInstance.start();
-    startInteractionTracker();
-    setRecordingState('recording');
-  }
-
-  function stopRecording() {
-    if (!dejitterInstance) return;
-    dejitterInstance.stop();
-    const findings = dejitterInstance.findings(true) as DejitterFinding[];
-    const summary = dejitterInstance.summary(true) as DejitterSummary;
-    const data = dejitterInstance.getData();
-
-    // Collect ancestry path from treelocator before clearing
-    const el = recordedElement();
-    let elementPath = "";
-    if (el) {
-      const treeNode = createTreeNode(el, props.adapterId);
-      if (treeNode) {
-        const ancestry = collectAncestry(treeNode);
-        elementPath = formatAncestryChain(ancestry);
-      }
-    }
-
-    setRecordingFindings(findings);
-    setRecordingSummary(summary);
-    setRecordingData(data);
-    setRecordingElementPath(elementPath);
-    stopInteractionTracker();
-
-    // Persist to localStorage (moves previous "last" to "previous")
-    saveToStorage({
-      findings,
-      summary,
-      data,
-      elementPath,
-      interactions: interactionLog(),
-    });
-
-    el?.removeAttribute('data-treelocator-recording');
-    setRecordingState('results');
-    dejitterInstance = null;
-  }
-
-  function replayRecording() {
-    const events = interactionLog();
-    if (events.length === 0) return;
-
-    stopReplay();
-    setReplaying(true);
-
-    let eventIdx = 0;
-
-    function scheduleNext() {
-      if (eventIdx >= events.length) {
-        stopReplay();
-        return;
-      }
-
-      const evt = events[eventIdx]!;
-      const delay = eventIdx === 0 ? 100 : evt.t - events[eventIdx - 1]!.t;
-
-      replayTimerId = window.setTimeout(() => {
-        // Show click indicator
-        setReplayBox({ x: evt.x - 12, y: evt.y - 12, w: 24, h: 24 });
-
-        // Dispatch a real click at the recorded position
-        const target = document.elementFromPoint(evt.x, evt.y);
-        if (target) {
-          target.dispatchEvent(new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            clientX: evt.x,
-            clientY: evt.y,
-            view: window,
-          }));
-        }
-
-        // Clear click indicator after a short flash
-        window.setTimeout(() => setReplayBox(null), 200);
-
-        eventIdx++;
-        scheduleNext();
-      }, Math.max(delay, 50));
-    }
-
-    scheduleNext();
-  }
-
-  function stopReplay() {
-    if (replayTimerId) {
-      clearTimeout(replayTimerId);
-      replayTimerId = null;
-    }
-    setReplaying(false);
-    setReplayBox(null);
-  }
-
-  function replayWithRecord(elementOrSelector: HTMLElement | string): Promise<{
-    path: string;
-    findings: DejitterFinding[];
-    summary: DejitterSummary | null;
-    data: any;
-    interactions: InteractionEvent[];
-  } | null> {
-    // Resolve element
-    let element: HTMLElement | null;
-    if (typeof elementOrSelector === 'string') {
-      const found = document.querySelector(elementOrSelector);
-      element = found instanceof HTMLElement ? found : null;
-    } else {
-      element = elementOrSelector;
-    }
-    if (!element) return Promise.resolve(null);
-
-    // Get stored interactions to replay
-    const stored = loadFromStorage();
-    const events = stored.last?.interactions ?? interactionLog();
-    if (events.length === 0) return Promise.resolve(null);
-
-    return new Promise((resolve) => {
-      // Start recording on the element
-      element!.setAttribute('data-treelocator-recording', 'true');
-      setRecordedElement(element);
-
-      dejitterInstance = createDejitterRecorder();
-      dejitterInstance.configure(DEJITTER_CONFIG);
-      dejitterInstance.start();
-      setRecordingState('recording');
-      setReplaying(true);
-
-      let eventIdx = 0;
-
-      function finishRecording() {
-        setReplaying(false);
-        setReplayBox(null);
-
-        if (!dejitterInstance) { resolve(null); return; }
-        dejitterInstance.stop();
-        const findings = dejitterInstance.findings(true) as DejitterFinding[];
-        const summary = dejitterInstance.summary(true) as DejitterSummary;
-        const data = dejitterInstance.getData();
-
-        const el = recordedElement();
-        let elementPath = "";
-        if (el) {
-          const treeNode = createTreeNode(el, props.adapterId);
-          if (treeNode) {
-            const ancestry = collectAncestry(treeNode);
-            elementPath = formatAncestryChain(ancestry);
-          }
-        }
-
-        setRecordingFindings(findings);
-        setRecordingSummary(summary);
-        setRecordingData(data);
-        setRecordingElementPath(elementPath);
-        setInteractionLog(events);
-
-        saveToStorage({ findings, summary, data, elementPath, interactions: events });
-
-        el?.removeAttribute('data-treelocator-recording');
-        setRecordingState('results');
-        dejitterInstance = null;
-
-        resolve({ path: elementPath, findings, summary, data, interactions: events });
-      }
-
-      function scheduleNext() {
-        if (eventIdx >= events.length) {
-          // Wait for CSS transitions to settle before stopping recording
-          replayTimerId = window.setTimeout(finishRecording, 500);
-          return;
-        }
-
-        const evt = events[eventIdx]!;
-        const delay = eventIdx === 0 ? 100 : evt.t - events[eventIdx - 1]!.t;
-
-        replayTimerId = window.setTimeout(() => {
-          setReplayBox({ x: evt.x - 12, y: evt.y - 12, w: 24, h: 24 });
-
-          const target = document.elementFromPoint(evt.x, evt.y);
-          if (target) {
-            target.dispatchEvent(new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              clientX: evt.x,
-              clientY: evt.y,
-              view: window,
-            }));
-          }
-
-          window.setTimeout(() => setReplayBox(null), 200);
-
-          eventIdx++;
-          scheduleNext();
-        }, Math.max(delay, 50));
-      }
-
-      scheduleNext();
-    });
-  }
-
-  function dismissResults() {
-    stopReplay();
-    setRecordingFindings([]);
-    setRecordingSummary(null);
-    setRecordingData(null);
-    setRecordingElementPath("");
-    setInteractionLog([]);
-    setRecordedElement(null);
-    setViewingPrevious(false);
-    setRecordingState('idle');
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-  }
-
-  function hasPreviousRecording(): boolean {
-    return loadFromStorage().previous !== null;
-  }
-
-  function loadPreviousRecording() {
-    const stored = loadFromStorage();
-    if (!stored.previous) return;
-    const prev = stored.previous;
-    setRecordingFindings(prev.findings);
-    setRecordingSummary(prev.summary);
-    setRecordingData(prev.data);
-    setRecordingElementPath(prev.elementPath);
-    setInteractionLog(prev.interactions);
-    setViewingPrevious(true);
-    setRecordingState('results');
-  }
-
-  function loadLatestRecording() {
-    const stored = loadFromStorage();
-    if (!stored.last) return;
-    const last = stored.last;
-    setRecordingFindings(last.findings);
-    setRecordingSummary(last.summary);
-    setRecordingData(last.data);
-    setRecordingElementPath(last.elementPath);
-    setInteractionLog(last.interactions);
-    setViewingPrevious(false);
-    setRecordingState('results');
-  }
-
-  function startInteractionTracker() {
-    recordingStartTime = performance.now();
-    setInteractionLog([]);
-    interactionClickHandler = (e: MouseEvent) => {
-      if (isLocatorsOwnElement(e.target as HTMLElement)) return;
-      const el = e.target as HTMLElement;
-      const tag = el.tagName?.toLowerCase() || 'unknown';
-      const id = el.id ? '#' + el.id : '';
-      const cls = el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '';
-      setInteractionLog((prev) => [...prev, {
-        t: Math.round(performance.now() - recordingStartTime),
-        type: 'click',
-        target: `${tag}${id}${cls}`,
-        x: e.clientX,
-        y: e.clientY,
-      }]);
-    };
-    document.addEventListener('click', interactionClickHandler, { capture: true });
-  }
-
-  function stopInteractionTracker() {
-    if (interactionClickHandler) {
-      document.removeEventListener('click', interactionClickHandler, { capture: true });
-      interactionClickHandler = null;
-    }
-  }
-
-  function mouseOverListener(e: MouseEvent) {
-    setHoldingModKey(e.altKey);
-    setHoldingShift(e.shiftKey);
-
-    // Don't update hovered element while recording -- highlight is sticky
-    if (recordingState() === 'recording') return;
-
-    const element = findElementAtPoint(e);
-    if (element) {
-      setCurrentElement(element);
-    }
-  }
-
-  function mouseDownUpListener(e: MouseEvent) {
-    setHoldingModKey(e.altKey);
-
-    if (e.altKey || locatorActive() || recordingState() === 'selecting') {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }
-
   function clickListener(e: MouseEvent) {
     // Handle recording element selection
-    if (recordingState() === 'selecting') {
+    if (recording.recordingState() === "selecting") {
       e.preventDefault();
       e.stopPropagation();
       const element = findElementAtPoint(e);
       if (element && !isLocatorsOwnElement(element)) {
-        startRecording(element);
+        recording.startRecording(element);
       }
       return;
     }
 
     // During recording, let clicks pass through (tracked by interaction logger)
-    if (recordingState() === 'recording') return;
+    if (recording.recordingState() === "recording") return;
 
     if (!e.altKey && !isCombinationModifiersPressed(e) && !locatorActive()) {
       return;
@@ -484,17 +110,9 @@ function Runtime(props: RuntimeProps) {
 
     const element = findElementAtPoint(e);
 
-    if (!element) {
-      return;
-    }
-
-    if (element instanceof HTMLElement && element.shadowRoot) {
-      return;
-    }
-
-    if (isLocatorsOwnElement(element as HTMLElement)) {
-      return;
-    }
+    if (!element) return;
+    if (element instanceof HTMLElement && element.shadowRoot) return;
+    if (isLocatorsOwnElement(element as HTMLElement)) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -509,7 +127,6 @@ function Runtime(props: RuntimeProps) {
         ancestry = truncateAtFirstFile(ancestry);
       }
 
-      // Write immediately with component names (preserves user gesture for clipboard API)
       const formatted = formatAncestryChain(ancestry);
       navigator.clipboard.writeText(formatted).then(() => {
         setToastMessage("Copied to clipboard");
@@ -534,67 +151,49 @@ function Runtime(props: RuntimeProps) {
     }
   }
 
-  function scrollListener() {
-    setCurrentElement(null);
+  function mouseOverListener(e: MouseEvent) {
+    setHoldingModKey(e.altKey);
+    setHoldingShift(e.shiftKey);
+
+    // Don't update hovered element while recording — highlight is sticky
+    if (recording.recordingState() === "recording") return;
+
+    const element = findElementAtPoint(e);
+    if (element) {
+      setCurrentElement(element);
+    }
   }
 
-  const roots: (Document | ShadowRoot)[] = [document];
-  document.querySelectorAll("*").forEach((node) => {
-    if (node.id === "locatorjs-wrapper") {
-      return;
-    }
-    if (node.shadowRoot) {
-      roots.push(node.shadowRoot);
-    }
-  });
-
-  for (const root of roots) {
-    root.addEventListener("mouseover", mouseOverListener as EventListener, {
-      capture: true,
-    });
-    root.addEventListener("mousemove", mouseMoveListener as EventListener, {
-      capture: true,
-    });
-    root.addEventListener("keydown", keyDownListener as EventListener);
-    root.addEventListener("keyup", keyUpListener as EventListener);
-    root.addEventListener("click", clickListener as EventListener, {
-      capture: true,
-    });
-    root.addEventListener("mousedown", mouseDownUpListener as EventListener, {
-      capture: true,
-    });
-    root.addEventListener("mouseup", mouseDownUpListener as EventListener, {
-      capture: true,
-    });
-    root.addEventListener("scroll", scrollListener);
-  }
-
-  onCleanup(() => {
-    stopReplay();
-    stopInteractionTracker();
-    for (const root of roots) {
-      root.removeEventListener("keyup", keyUpListener as EventListener);
-      root.removeEventListener("keydown", keyDownListener as EventListener);
-      root.removeEventListener(
-        "mouseover",
-        mouseOverListener as EventListener,
-        { capture: true }
-      );
-      root.removeEventListener("click", clickListener as EventListener, {
-        capture: true,
-      });
-      root.removeEventListener(
-        "mousedown",
-        mouseDownUpListener as EventListener,
-        { capture: true }
-      );
-      root.removeEventListener(
-        "mouseup",
-        mouseDownUpListener as EventListener,
-        { capture: true }
-      );
-      root.removeEventListener("scroll", scrollListener);
-    }
+  useEventListeners({
+    mouseOverListener,
+    mouseMoveListener(e: MouseEvent) {
+      setHoldingModKey(e.altKey);
+      setHoldingShift(e.shiftKey);
+    },
+    keyDownListener(e: KeyboardEvent) {
+      setHoldingModKey(isCombinationModifiersPressed(e, true));
+      setHoldingShift(e.shiftKey);
+    },
+    keyUpListener(e: KeyboardEvent) {
+      setHoldingModKey(isCombinationModifiersPressed(e));
+      setHoldingShift(e.shiftKey);
+    },
+    clickListener,
+    mouseDownUpListener(e: MouseEvent) {
+      setHoldingModKey(e.altKey);
+      if (
+        e.altKey ||
+        locatorActive() ||
+        recording.recordingState() === "selecting"
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    scrollListener() {
+      setCurrentElement(null);
+    },
+    onCleanup: recording.cleanup,
   });
 
   return (
@@ -607,18 +206,19 @@ function Runtime(props: RuntimeProps) {
           dashed={holdingShift()}
         />
       ) : null}
-      {recordingState() === 'recording' && recordedElement() ? (
-        <RecordingOutline element={recordedElement()!} />
+      {recording.recordingState() === "recording" &&
+      recording.recordedElement() ? (
+        <RecordingOutline element={recording.recordedElement()!} />
       ) : null}
-      {replayBox() ? (
+      {recording.replayBox() ? (
         <div
           style={{
             position: "fixed",
             "z-index": "2147483645",
-            left: replayBox()!.x + "px",
-            top: replayBox()!.y + "px",
-            width: replayBox()!.w + "px",
-            height: replayBox()!.h + "px",
+            left: recording.replayBox()!.x + "px",
+            top: recording.replayBox()!.y + "px",
+            width: recording.replayBox()!.w + "px",
+            height: recording.replayBox()!.h + "px",
             "border-radius": "50%",
             "pointer-events": "none",
             background: "rgba(59, 130, 246, 0.4)",
@@ -627,21 +227,23 @@ function Runtime(props: RuntimeProps) {
           }}
         />
       ) : null}
-      {recordingState() === 'results' ? (
+      {recording.recordingState() === "results" ? (
         <RecordingResults
-          findings={recordingFindings()}
-          summary={recordingSummary()}
-          data={recordingData()}
-          elementPath={recordingElementPath()}
-          interactions={interactionLog()}
-          onDismiss={dismissResults}
-          onReplay={replayRecording}
-          replaying={replaying()}
+          findings={recording.recordingFindings()}
+          summary={recording.recordingSummary()}
+          data={recording.recordingData()}
+          elementPath={recording.recordingElementPath()}
+          interactions={recording.interactionLog()}
+          onDismiss={recording.dismissResults}
+          onReplay={recording.replayRecording}
+          replaying={recording.replaying()}
           onToast={setToastMessage}
-          hasPrevious={!viewingPrevious() && hasPreviousRecording()}
-          onLoadPrevious={loadPreviousRecording}
-          hasNext={viewingPrevious()}
-          onLoadNext={loadLatestRecording}
+          hasPrevious={
+            !recording.viewingPrevious() && recording.hasPreviousRecording()
+          }
+          onLoadPrevious={recording.loadPreviousRecording}
+          hasNext={recording.viewingPrevious()}
+          onLoadNext={recording.loadLatestRecording}
         />
       ) : null}
       {toastMessage() && (
@@ -650,124 +252,12 @@ function Runtime(props: RuntimeProps) {
           onClose={() => setToastMessage(null)}
         />
       )}
-      <div
-        class="fixed pointer-events-auto"
-        style={{ "z-index": "2147483646", bottom: "20px", right: "20px" }}
-        title="TreeLocatorJS - Component Ancestry Tracker"
-        data-treelocator-api="window.__treelocator__"
-        data-treelocator-help="window.__treelocator__.help()"
-      >
-        <style>{`
-          @keyframes treelocator-rec-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-          }
-        `}</style>
-        {/* Combined pill button: tree (left) | record (right) */}
-        <div
-          style={{
-            display: "flex",
-            "align-items": "stretch",
-            "border-radius": "27px",
-            overflow: "hidden",
-            "box-shadow":
-              locatorActive()
-                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : recordingState() === 'selecting'
-                ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : recordingState() === 'recording'
-                ? "0 0 0 3px #ef4444, 0 4px 14px rgba(0, 0, 0, 0.25)"
-                : "0 4px 14px rgba(0, 0, 0, 0.25)",
-            transition: "box-shadow 0.2s ease-in-out",
-          }}
-        >
-          {/* Left half: Tree icon */}
-          <div
-            style={{
-              width: "54px",
-              height: "54px",
-              background: "#ffffff",
-              display: "flex",
-              "align-items": "center",
-              "justify-content": "center",
-              cursor: "pointer",
-              overflow: "hidden",
-              "border-right": "1px solid rgba(0, 0, 0, 0.1)",
-              transition: "background 0.15s ease-in-out",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#f0f0f0"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
-            onClick={() => setLocatorActive(!locatorActive())}
-            aria-label="TreeLocatorJS: Get component paths using window.__treelocator__.getPath(selector)"
-            role="button"
-          >
-            <img
-              src={treeIconUrl}
-              alt="TreeLocatorJS"
-              width={44}
-              height={44}
-            />
-          </div>
-          {/* Right half: Record button */}
-          <div
-            style={{
-              width: "54px",
-              height: "54px",
-              background: recordingState() === 'recording' ? "#ef4444" : "#ffffff",
-              display: "flex",
-              "align-items": "center",
-              "justify-content": "center",
-              cursor: "pointer",
-              transition: "background 0.15s ease-in-out",
-            }}
-            onMouseEnter={(e) => {
-              if (recordingState() !== 'recording') e.currentTarget.style.background = "#f0f0f0";
-            }}
-            onMouseLeave={(e) => {
-              if (recordingState() !== 'recording') e.currentTarget.style.background = "#ffffff";
-            }}
-            onClick={handleRecordClick}
-            aria-label={
-              recordingState() === 'idle' ? "Record element changes. API: window.__treelocator__.replayWithRecord(selector)" :
-              recordingState() === 'selecting' ? "Cancel recording selection" :
-              recordingState() === 'recording' ? "Stop recording" :
-              "Dismiss results"
-            }
-            role="button"
-          >
-            {recordingState() === 'recording' ? (
-              <div style={{ width: "18px", height: "18px", background: "#fff", "border-radius": "3px" }} />
-            ) : (
-              <div
-                style={{
-                  width: "18px",
-                  height: "18px",
-                  background: "#ef4444",
-                  "border-radius": "50%",
-                  animation: recordingState() === 'selecting' ? "treelocator-rec-pulse 1s ease-in-out infinite" : "none",
-                }}
-              />
-            )}
-          </div>
-        </div>
-        <div
-          role="note"
-          aria-label="TreeLocatorJS Developer Tool API — Run: window.__treelocator__.help() for full usage instructions. Quick start: window.__treelocator__.getPath('button.submit') returns component ancestry. window.__treelocator__.replayWithRecord('.my-element') replays recorded interactions while tracking visual changes."
-          style={{
-            position: "absolute",
-            width: "1px",
-            height: "1px",
-            padding: "0",
-            margin: "-1px",
-            overflow: "hidden",
-            clip: "rect(0,0,0,0)",
-            "white-space": "nowrap",
-            border: "0",
-          }}
-        >
-          TreeLocatorJS: Run window.__treelocator__.help() for API docs
-        </div>
-      </div>
+      <RecordingPillButton
+        locatorActive={locatorActive()}
+        recordingState={recording.recordingState()}
+        onLocatorToggle={() => setLocatorActive(!locatorActive())}
+        onRecordClick={recording.handleRecordClick}
+      />
     </>
   );
 }
