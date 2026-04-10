@@ -6,6 +6,7 @@ import {
   AncestryItem,
 } from "./functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
+import { extractComputedStyles, ComputedStylesResult } from "./functions/extractComputedStyles";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
 
@@ -92,6 +93,34 @@ export interface LocatorJSAPI {
   getPathData(
     elementOrSelector: HTMLElement | string
   ): Promise<{ path: string; ancestry: AncestryItem[] } | null>;
+
+  /**
+   * Get computed styles for an element, formatted for AI consumption.
+   * Extracts layout, visual, typography, and interaction styles filtered against browser defaults.
+   * Clicking the same element twice within 30s returns a diff of changed properties.
+   *
+   * @param elementOrSelector - HTMLElement or CSS selector string
+   * @returns Object with formatted string and raw snapshot, or null if element not found
+   *
+   * @example
+   * // Get formatted computed styles
+   * const result = window.__treelocator__.getStyles('button.submit');
+   * console.log(result.formatted);
+   * // [ComputedStyles] Button at src/Button.tsx:23
+   * // ─────────────────────────────────────────
+   * // Layout
+   * //   display: flex
+   * //   padding: 8px 16px
+   * // ...
+   *
+   * @example
+   * // In Playwright
+   * const styles = await page.evaluate(() => {
+   *   return window.__treelocator__.getStyles('.my-element');
+   * });
+   * console.log(styles?.formatted);
+   */
+  getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null;
 
   /**
    * Display help information about the LocatorJS API.
@@ -227,13 +256,23 @@ METHODS:
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
-4. replay()
+4. getStyles(elementOrSelector)
+   Returns computed styles for an element, optimized for AI consumption.
+   Filters out browser defaults and groups by category (Layout, Visual, Typography).
+   Calling twice on the same element within 30s returns a diff of changes.
+
+   Usage:
+     const result = window.__treelocator__.getStyles('button.submit')
+     console.log(result.formatted)  // formatted styles string
+     console.log(result.snapshot)   // raw property values + bounding rect
+
+5. replay()
    Replays the last recorded interaction sequence as a macro.
 
    Usage:
      window.__treelocator__.replay()
 
-5. replayWithRecord(elementOrSelector)
+6. replayWithRecord(elementOrSelector)
    Replays stored interactions while recording element changes.
    Returns dejitter analysis when replay completes.
 
@@ -242,7 +281,7 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-6. help()
+7. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -336,6 +375,23 @@ export function createBrowserAPI(
       return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
         ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
       );
+    },
+
+    getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null {
+      const element = resolveElement(elementOrSelector);
+      if (!element) return null;
+
+      // Build label from ancestry if available
+      let label: string | undefined;
+      const ancestry = getAncestryForElement(element, adapterId);
+      if (ancestry && ancestry.length > 0) {
+        const item = ancestry[0]!;
+        const name = item.componentName || item.elementName;
+        const location = item.filePath ? ` at ${item.filePath}:${item.line}` : "";
+        label = `${name}${location}`;
+      }
+
+      return extractComputedStyles(element, label);
     },
 
     help(): string {
