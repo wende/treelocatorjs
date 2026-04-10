@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Fiber } from "@locator/shared";
 import { getUsableName } from "../../functions/getUsableName";
 import { mergeRects } from "../../functions/mergeRects";

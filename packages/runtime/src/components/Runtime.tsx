@@ -56,7 +56,7 @@ function Runtime(props: RuntimeProps) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch { /* localStorage may be unavailable */ }
     return { last: null, previous: null };
   }
 
@@ -67,7 +67,7 @@ function Runtime(props: RuntimeProps) {
         last: current,
         previous: stored.last,
       }));
-    } catch {}
+    } catch { /* localStorage may be unavailable */ }
   }
 
   // Restore last results on mount
@@ -381,7 +381,7 @@ function Runtime(props: RuntimeProps) {
     setRecordedElement(null);
     setViewingPrevious(false);
     setRecordingState('idle');
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }
 
   function hasPreviousRecording(): boolean {
