@@ -7,12 +7,9 @@ import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
-import {
-  collectAncestry,
-  formatAncestryChain,
-  truncateAtFirstFile,
-} from "../functions/formatAncestryChain";
+import { collectAncestry, formatAncestryChain, truncateAtFirstFile, getElementLabel } from "../functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
+import { extractComputedStyles } from "../functions/extractComputedStyles";
 import { createTreeNode } from "../adapters/createTreeNode";
 import { RecordingOutline } from "./RecordingOutline";
 import { RecordingResults } from "./RecordingResults";
@@ -117,7 +114,7 @@ function Runtime(props: RuntimeProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    // Copy ancestry to clipboard on alt+click
+    // Copy ancestry + computed styles to clipboard on alt+click
     const treeNode = createTreeNode(element as HTMLElement, props.adapterId);
     if (treeNode) {
       let ancestry = collectAncestry(treeNode);
@@ -127,17 +124,31 @@ function Runtime(props: RuntimeProps) {
         ancestry = truncateAtFirstFile(ancestry);
       }
 
+      // Extract computed styles for the clicked element
+      const elementLabel = getElementLabel(ancestry);
+      const stylesResult = extractComputedStyles(element as Element, elementLabel);
+
+      // Write immediately with component names (preserves user gesture for clipboard API)
       const formatted = formatAncestryChain(ancestry);
-      navigator.clipboard.writeText(formatted).then(() => {
+      const fullOutput = formatted + "\n\n" + stylesResult.formatted;
+      navigator.clipboard.writeText(fullOutput).then(() => {
         setToastMessage("Copied to clipboard");
       });
 
-      // For React 19+: try to enrich with source map file paths and re-copy
+      // For React 19+: try to enrich with source map file paths and re-copy.
+      // If the enriched label differs, re-extract with forceFull:true so the
+      // diff-mode fast path doesn't collapse the second extraction (for the
+      // same element within the diff window) into "No changes detected".
       enrichAncestryWithSourceMaps(ancestry, element as HTMLElement).then(
         (enriched) => {
           const enrichedFormatted = formatAncestryChain(enriched);
           if (enrichedFormatted !== formatted) {
-            navigator.clipboard.writeText(enrichedFormatted).then(() => {
+            const enrichedLabel = getElementLabel(enriched);
+            const enrichedStyles = enrichedLabel !== elementLabel
+              ? extractComputedStyles(element as Element, enrichedLabel, { forceFull: true }).formatted
+              : stylesResult.formatted;
+            const enrichedFull = enrichedFormatted + "\n\n" + enrichedStyles;
+            navigator.clipboard.writeText(enrichedFull).then(() => {
               setToastMessage("Copied to clipboard");
             });
           }
