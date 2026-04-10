@@ -985,6 +985,10 @@ input:where([type='file']):focus {
   display: contents;
 }
 
+.\!hidden {
+  display: none !important;
+}
+
 .hidden {
   display: none;
 }

@@ -184,6 +184,17 @@ function Runtime(props: RuntimeProps) {
     keyDownListener(e: KeyboardEvent) {
       setHoldingModKey(isCombinationModifiersPressed(e, true));
       setHoldingShift(e.shiftKey);
+      if (e.key === "Escape") {
+        const wasSelecting = recording.recordingState() === "selecting";
+        const wasLocatorActive = locatorActive();
+        if (wasSelecting || wasLocatorActive) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (wasLocatorActive) setLocatorActive(false);
+          if (wasSelecting) recording.handleRecordClick();
+          setCurrentElement(null);
+        }
+      }
     },
     keyUpListener(e: KeyboardEvent) {
       setHoldingModKey(isCombinationModifiersPressed(e));
@@ -245,6 +256,7 @@ function Runtime(props: RuntimeProps) {
           data={recording.recordingData()}
           elementPath={recording.recordingElementPath()}
           interactions={recording.interactionLog()}
+          visualDiff={recording.visualDiff()}
           onDismiss={recording.dismissResults}
           onReplay={recording.replayRecording}
           replaying={recording.replaying()}

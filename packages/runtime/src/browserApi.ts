@@ -15,6 +15,10 @@ import {
 import { extractComputedStyles, ComputedStylesResult } from "./functions/extractComputedStyles";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
+import { takeSnapshot } from "./visualDiff/snapshot";
+import { computeDiff, formatReport } from "./visualDiff/diff";
+import { waitForSettle } from "./visualDiff/settle";
+import type { DeltaReport, ElementSnapshot } from "./visualDiff/types";
 
 export interface LocatorJSAPI {
   /**
@@ -255,7 +259,45 @@ export interface LocatorJSAPI {
     summary: DejitterSummary | null;
     data: any;
     interactions: InteractionEvent[];
+    visualDiff: DeltaReport | null;
   } | null>;
+
+  /**
+   * Visual diff engine — snapshot page state before/after an action and return
+   * a compact delta report.
+   *
+   * @example
+   * // In browser console or Playwright
+   * const report = await window.__treelocator__.diff.captureDiff(() => {
+   *   document.querySelector('button.submit')?.click();
+   * });
+   * console.log(report.text);
+   */
+  diff: {
+    /**
+     * Capture a snapshot of all visible viewport elements right now.
+     * Pure — no side effects on the page.
+     */
+    snapshot(): ElementSnapshot[];
+
+    /**
+     * Compute the delta between two snapshots.
+     */
+    computeDiff(
+      before: ElementSnapshot[],
+      after: ElementSnapshot[]
+    ): DeltaReport;
+
+    /**
+     * Take a before-snapshot, run the action, wait for the page to settle
+     * (animations idle + mutations silent for 150ms), take an after-snapshot,
+     * and return the computed delta.
+     */
+    captureDiff(
+      action: () => void | Promise<void>,
+      opts?: { settleTimeoutMs?: number }
+    ): Promise<DeltaReport>;
+  };
 }
 
 function resolveElement(
@@ -386,7 +428,17 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-9. help()
+9. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
+   Visual diff engine. Captures viewport element state and returns a compact
+   delta showing what appeared, disappeared, moved, or changed.
+
+   Usage:
+     const report = await window.__treelocator__.diff.captureDiff(() => {
+       document.querySelector('button.submit').click();
+     });
+     console.log(report.text);
+
+10. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -555,6 +607,30 @@ export function createBrowserAPI(
     replayWithRecord() {
       // Replaced by Runtime component once mounted
       return Promise.resolve(null);
+    },
+
+    diff: {
+      snapshot() {
+        return takeSnapshot();
+      },
+      computeDiff(before, after) {
+        return computeDiff(before, after);
+      },
+      async captureDiff(action, opts) {
+        const started = performance.now();
+        const before = takeSnapshot();
+        await action();
+        const settle = await waitForSettle(opts?.settleTimeoutMs);
+        const after = takeSnapshot();
+        const report = computeDiff(before, after);
+        report.elapsedMs = performance.now() - started;
+        report.settle = settle;
+        report.text = formatReport(report.entries, {
+          elapsedMs: report.elapsedMs,
+          settle,
+        });
+        return report;
+      },
     },
   };
 }

@@ -1,5 +1,6 @@
 import type { DejitterFinding, DejitterSummary } from "../dejitter/recorder";
 import type { InteractionEvent } from "../components/RecordingResults";
+import type { DeltaReport } from "../visualDiff/types";
 
 export const STORAGE_KEY = "__treelocator_recording__";
 
@@ -9,6 +10,7 @@ export type SavedRecording = {
   data: any;
   elementPath: string;
   interactions: InteractionEvent[];
+  visualDiff?: DeltaReport | null;
 };
 
 export function loadFromStorage(): {

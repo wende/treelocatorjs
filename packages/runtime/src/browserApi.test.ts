@@ -31,6 +31,7 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");
+      expect(api).toHaveProperty("diff");
     });
 
     test("all methods are functions", () => {
@@ -41,6 +42,43 @@ describe("browserApi", () => {
       expect(typeof api.help).toBe("function");
       expect(typeof api.replay).toBe("function");
       expect(typeof api.replayWithRecord).toBe("function");
+      expect(typeof api.diff.snapshot).toBe("function");
+      expect(typeof api.diff.computeDiff).toBe("function");
+      expect(typeof api.diff.captureDiff).toBe("function");
+    });
+  });
+
+  describe("diff namespace", () => {
+    beforeEach(() => {
+      if (typeof (document as any).getAnimations !== "function") {
+        (document as any).getAnimations = () => [];
+      }
+    });
+
+    test("snapshot() returns an array", () => {
+      const api = createBrowserAPI();
+      const snaps = api.diff.snapshot();
+      expect(Array.isArray(snaps)).toBe(true);
+    });
+
+    test("computeDiff of identical snapshots has empty entries", () => {
+      const api = createBrowserAPI();
+      const snaps = api.diff.snapshot();
+      const report = api.diff.computeDiff(snaps, snaps);
+      expect(report.entries).toHaveLength(0);
+      expect(report.counts.added).toBe(0);
+    });
+
+    test("captureDiff returns a DeltaReport with settle and text populated", async () => {
+      const api = createBrowserAPI();
+      const report = await api.diff.captureDiff(() => {
+        // no-op action
+      }, { settleTimeoutMs: 200 });
+      expect(report).toHaveProperty("entries");
+      expect(report).toHaveProperty("counts");
+      expect(report).toHaveProperty("text");
+      expect(typeof report.text).toBe("string");
+      expect(["clean", "timeout"]).toContain(report.settle);
     });
   });
 
@@ -218,6 +256,8 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");
+      expect(api).toHaveProperty("diff");
+      expect(typeof api.diff.snapshot).toBe("function");
     });
 
     test("installBrowserAPI passes adapterId to createBrowserAPI", () => {

@@ -6,6 +6,41 @@ import path from "path";
 import { execSync } from "child_process";
 import prompts from "prompts";
 import pc from "picocolors";
+function readPackageJson(dir) {
+  const pkgPath = path.join(dir, "package.json");
+  try {
+    return JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function exitWithError(message) {
+  console.error(pc.red(message));
+  process.exit(1);
+}
+function injectBabelPluginIntoVitePlugin(content, pluginNames, babelConfig) {
+  for (const pluginName of pluginNames) {
+    const emptyCallRegex = new RegExp(`${pluginName}\\(\\s*\\)`);
+    const withOptionsRegex = new RegExp(`${pluginName}\\(\\s*\\{`);
+    if (emptyCallRegex.test(content)) {
+      content = content.replace(
+        emptyCallRegex,
+        `${pluginName}({
+      ${babelConfig},
+    })`
+      );
+      return content;
+    } else if (withOptionsRegex.test(content)) {
+      content = content.replace(
+        withOptionsRegex,
+        `${pluginName}({
+      ${babelConfig},`
+      );
+      return content;
+    }
+  }
+  return content;
+}
 function detectPackageManager() {
   let dir = process.cwd();
   const root = path.parse(dir).root;
@@ -21,10 +56,12 @@ function detectPackageManager() {
 function detectProject() {
   const pkgPath = path.join(process.cwd(), "package.json");
   if (!fs.existsSync(pkgPath)) {
-    console.error(pc.red("No package.json found. Run this from your project root."));
-    process.exit(1);
+    exitWithError("No package.json found. Run this from your project root.");
   }
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const pkg = readPackageJson(process.cwd());
+  if (!pkg) {
+    exitWithError("Failed to read package.json. Check that it contains valid JSON.");
+  }
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   const info = {
     packageManager: detectPackageManager(),
@@ -108,8 +145,10 @@ function getInstallCommand(pm, packages) {
 }
 function checkConfiguration(info) {
   const results = [];
-  const pkgPath = path.join(process.cwd(), "package.json");
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const pkg = readPackageJson(process.cwd());
+  if (!pkg) {
+    exitWithError("Failed to read package.json. Check that it contains valid JSON.");
+  }
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (deps["@treelocator/runtime"]) {
     results.push({
@@ -283,64 +322,13 @@ function updateViteConfig(configFile, framework) {
         ],
       }`;
   if (framework === "react") {
-    const reactPluginRegex = /react\(\s*\)/;
-    const reactPluginWithOptionsRegex = /react\(\s*\{/;
-    if (reactPluginRegex.test(content)) {
-      content = content.replace(
-        reactPluginRegex,
-        `react({
-      ${babelConfig},
-    })`
-      );
-    } else if (reactPluginWithOptionsRegex.test(content)) {
-      content = content.replace(
-        /react\(\s*\{/,
-        `react({
-      ${babelConfig},`
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["react"], babelConfig);
   }
   if (framework === "solid") {
-    const solidPluginRegex = /solid(?:Plugin)?\(\s*\)/;
-    const solidPluginWithOptionsRegex = /solid(?:Plugin)?\(\s*\{/;
-    if (solidPluginRegex.test(content)) {
-      content = content.replace(
-        solidPluginRegex,
-        (match) => {
-          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
-          return `${funcName}({
-      ${babelConfig},
-    })`;
-        }
-      );
-    } else if (solidPluginWithOptionsRegex.test(content)) {
-      content = content.replace(
-        /solid(?:Plugin)?\(\s*\{/,
-        (match) => {
-          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
-          return `${funcName}({
-      ${babelConfig},`;
-        }
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["solid", "solidPlugin"], babelConfig);
   }
   if (framework === "preact") {
-    const preactPluginRegex = /preact\(\s*\)/;
-    const preactPluginWithOptionsRegex = /preact\(\s*\{/;
-    if (preactPluginRegex.test(content)) {
-      content = content.replace(
-        preactPluginRegex,
-        `preact({
-      ${babelConfig},
-    })`
-      );
-    } else if (preactPluginWithOptionsRegex.test(content)) {
-      content = content.replace(
-        /preact\(\s*\{/,
-        `preact({
-      ${babelConfig},`
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["preact"], babelConfig);
   }
   fs.writeFileSync(configFile, content);
   console.log(pc.green(`Updated ${configFile}`));
@@ -435,9 +423,7 @@ async function runCheck(info) {
   console.log(pc.dim(`  Config file: ${info.configFile || "not found"}`));
   console.log(pc.dim(`  Entry file: ${info.entryFile || "not found"}`));
   if (info.buildTool === "unknown") {
-    console.log(pc.red("\nCould not detect build tool (Vite or Next.js)."));
-    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
-    process.exit(1);
+    exitWithError("\nCould not detect build tool (Vite or Next.js). TreeLocatorJS currently supports Vite and Next.js projects.");
   }
   const results = checkConfiguration(info);
   const isOk = printCheckResults(results);
@@ -452,13 +438,10 @@ async function runSetup(info, skipConfirm = false) {
   console.log(pc.dim(`  TypeScript: ${info.hasTypeScript}`));
   console.log();
   if (info.buildTool === "unknown") {
-    console.log(pc.red("Could not detect build tool (Vite or Next.js)."));
-    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
-    process.exit(1);
+    exitWithError("Could not detect build tool (Vite or Next.js). TreeLocatorJS currently supports Vite and Next.js projects.");
   }
   if (info.framework === "unknown") {
-    console.log(pc.red("Could not detect framework."));
-    process.exit(1);
+    exitWithError("Could not detect framework.");
   }
   if (!skipConfirm) {
     const { confirm } = await prompts({
@@ -488,8 +471,7 @@ Installing ${packages.join(", ")}...`));
   try {
     execSync(installCmd, { stdio: "inherit" });
   } catch {
-    console.error(pc.red("Failed to install packages."));
-    process.exit(1);
+    exitWithError("Failed to install packages.");
   }
   if (info.configFile) {
     const needsConfigUpdate = info.buildTool === "next" || info.buildTool === "vite" && info.framework !== "vue" && info.framework !== "svelte";
@@ -552,4 +534,16 @@ ${pc.bold("What it checks:")}
     await runSetup(info, isYes);
   }
 }
-main().catch(console.error);
+var isDirectRun = process.argv[1] && (import.meta.url === new URL(`file://${process.argv[1]}`).href || import.meta.url.endsWith(process.argv[1]));
+if (isDirectRun) {
+  main().catch(console.error);
+}
+export {
+  checkConfiguration,
+  detectPackageManager,
+  detectProject,
+  exitWithError,
+  getInstallCommand,
+  injectBabelPluginIntoVitePlugin,
+  readPackageJson
+};

@@ -16,6 +16,10 @@ import {
   saveToStorage,
   clearStorage,
 } from "./useLocatorStorage";
+import { takeSnapshot } from "../visualDiff/snapshot";
+import { computeDiff, formatReport } from "../visualDiff/diff";
+import { waitForSettle } from "../visualDiff/settle";
+import type { DeltaReport, ElementSnapshot } from "../visualDiff/types";
 
 export type RecordingState = "idle" | "selecting" | "recording" | "results";
 
@@ -36,12 +40,13 @@ export interface RecordingStateAPI {
   recordingData: Accessor<any>;
   recordingElementPath: Accessor<string>;
   interactionLog: Accessor<InteractionEvent[]>;
+  visualDiff: Accessor<DeltaReport | null>;
   replayBox: Accessor<{ x: number; y: number; w: number; h: number } | null>;
   replaying: Accessor<boolean>;
   viewingPrevious: Accessor<boolean>;
   handleRecordClick: () => void;
   startRecording: (element: HTMLElement) => void;
-  stopRecording: () => void;
+  stopRecording: () => Promise<void>;
   replayRecording: () => void;
   stopReplay: () => void;
   replayWithRecord: (
@@ -52,6 +57,7 @@ export interface RecordingStateAPI {
     summary: DejitterSummary | null;
     data: any;
     interactions: InteractionEvent[];
+    visualDiff: DeltaReport | null;
   } | null>;
   dismissResults: () => void;
   hasPreviousRecording: () => boolean;
@@ -84,6 +90,9 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
   const [recordingElementPath, setRecordingElementPath] = createSignal<string>(
     restoredLast?.elementPath ?? ""
   );
+  const [visualDiff, setVisualDiff] = createSignal<DeltaReport | null>(
+    restoredLast?.visualDiff ?? null
+  );
   const [replayBox, setReplayBox] = createSignal<{
     x: number;
     y: number;
@@ -96,7 +105,28 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
   let dejitterInstance: DejitterAPI | null = null;
   let interactionClickHandler: ((e: MouseEvent) => void) | null = null;
   let recordingStartTime = 0;
+  let recordingStartPerf = 0;
   let replayTimerId: number | null = null;
+  let visualDiffContext: {
+    before: ElementSnapshot[];
+    root: HTMLElement;
+  } | null = null;
+
+  async function finalizeVisualDiff(): Promise<DeltaReport | null> {
+    if (!visualDiffContext) return null;
+    const { before, root } = visualDiffContext;
+    visualDiffContext = null;
+    const settle = await waitForSettle(1000);
+    const after = takeSnapshot(root);
+    const report = computeDiff(before, after);
+    report.elapsedMs = performance.now() - recordingStartPerf;
+    report.settle = settle;
+    report.text = formatReport(report.entries, {
+      elapsedMs: report.elapsedMs,
+      settle,
+    });
+    return report;
+  }
 
   function collectElementPath(el: HTMLElement): string {
     const treeNode = createTreeNode(el, adapterId);
@@ -130,6 +160,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     element.setAttribute("data-treelocator-recording", "true");
     setRecordedElement(element);
 
+    recordingStartPerf = performance.now();
+    visualDiffContext = {
+      before: takeSnapshot(element),
+      root: element,
+    };
+
     dejitterInstance = createDejitterRecorder();
     dejitterInstance.configure(DEJITTER_CONFIG);
     dejitterInstance.start();
@@ -137,21 +173,26 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordingState("recording");
   }
 
-  function stopRecording() {
-    if (!dejitterInstance) return;
-    dejitterInstance.stop();
-    const findings = dejitterInstance.findings(true) as DejitterFinding[];
-    const summary = dejitterInstance.summary(true) as DejitterSummary;
-    const data = dejitterInstance.getData();
+  async function stopRecording() {
+    const instance = dejitterInstance;
+    if (!instance) return;
+    dejitterInstance = null;
+    instance.stop();
+    const findings = instance.findings(true) as DejitterFinding[];
+    const summary = instance.summary(true) as DejitterSummary;
+    const data = instance.getData();
 
     const el = recordedElement();
     const elementPath = el ? collectElementPath(el) : "";
+
+    stopInteractionTracker();
+    const diffReport = await finalizeVisualDiff();
 
     setRecordingFindings(findings);
     setRecordingSummary(summary);
     setRecordingData(data);
     setRecordingElementPath(elementPath);
-    stopInteractionTracker();
+    setVisualDiff(diffReport);
 
     saveToStorage({
       findings,
@@ -159,11 +200,11 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
       data,
       elementPath,
       interactions: interactionLog(),
+      visualDiff: diffReport,
     });
 
     el?.removeAttribute("data-treelocator-recording");
     setRecordingState("results");
-    dejitterInstance = null;
   }
 
   function replayRecording() {
@@ -227,6 +268,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     summary: DejitterSummary | null;
     data: any;
     interactions: InteractionEvent[];
+    visualDiff: DeltaReport | null;
   } | null> {
     let element: HTMLElement | null;
     if (typeof elementOrSelector === "string") {
@@ -245,6 +287,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
       element!.setAttribute("data-treelocator-recording", "true");
       setRecordedElement(element);
 
+      recordingStartPerf = performance.now();
+      visualDiffContext = {
+        before: takeSnapshot(element!),
+        root: element!,
+      };
+
       dejitterInstance = createDejitterRecorder();
       dejitterInstance.configure(DEJITTER_CONFIG);
       dejitterInstance.start();
@@ -253,27 +301,32 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
 
       let eventIdx = 0;
 
-      function finishRecording() {
+      async function finishRecording() {
         setReplaying(false);
         setReplayBox(null);
 
-        if (!dejitterInstance) {
+        const instance = dejitterInstance;
+        if (!instance) {
           resolve(null);
           return;
         }
-        dejitterInstance.stop();
-        const findings = dejitterInstance.findings(true) as DejitterFinding[];
-        const summary = dejitterInstance.summary(true) as DejitterSummary;
-        const data = dejitterInstance.getData();
+        dejitterInstance = null;
+        instance.stop();
+        const findings = instance.findings(true) as DejitterFinding[];
+        const summary = instance.summary(true) as DejitterSummary;
+        const data = instance.getData();
 
         const el = recordedElement();
         const elementPath = el ? collectElementPath(el) : "";
+
+        const diffReport = await finalizeVisualDiff();
 
         setRecordingFindings(findings);
         setRecordingSummary(summary);
         setRecordingData(data);
         setRecordingElementPath(elementPath);
         setInteractionLog(events);
+        setVisualDiff(diffReport);
 
         saveToStorage({
           findings,
@@ -281,11 +334,11 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
           data,
           elementPath,
           interactions: events,
+          visualDiff: diffReport,
         });
 
         el?.removeAttribute("data-treelocator-recording");
         setRecordingState("results");
-        dejitterInstance = null;
 
         resolve({
           path: elementPath,
@@ -293,6 +346,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
           summary,
           data,
           interactions: events,
+          visualDiff: diffReport,
         });
       }
 
@@ -339,6 +393,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordingData(null);
     setRecordingElementPath("");
     setInteractionLog([]);
+    setVisualDiff(null);
     setRecordedElement(null);
     setViewingPrevious(false);
     setRecordingState("idle");
@@ -358,6 +413,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordingData(prev.data);
     setRecordingElementPath(prev.elementPath);
     setInteractionLog(prev.interactions);
+    setVisualDiff(prev.visualDiff ?? null);
     setViewingPrevious(true);
     setRecordingState("results");
   }
@@ -371,6 +427,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordingData(last.data);
     setRecordingElementPath(last.elementPath);
     setInteractionLog(last.interactions);
+    setVisualDiff(last.visualDiff ?? null);
     setViewingPrevious(false);
     setRecordingState("results");
   }
@@ -427,6 +484,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     recordingData,
     recordingElementPath,
     interactionLog,
+    visualDiff,
     replayBox,
     replaying,
     viewingPrevious,
