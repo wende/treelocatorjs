@@ -233,7 +233,14 @@ function resolveElement(
   elementOrSelector: HTMLElement | string
 ): HTMLElement | null {
   if (typeof elementOrSelector === "string") {
-    const element = document.querySelector(elementOrSelector);
+    // querySelector throws DOMException for invalid selector strings
+    // (e.g. "!!!") — return null instead of crashing the API call.
+    let element: Element | null = null;
+    try {
+      element = document.querySelector(elementOrSelector);
+    } catch {
+      return null;
+    }
     return element instanceof HTMLElement ? element : null;
   }
   return elementOrSelector;
