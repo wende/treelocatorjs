@@ -1,16 +1,19 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Source } from "@locator/shared";
 import { getReferenceId } from "../functions/getReferenceId";
 import nonNullable from "../functions/nonNullable";
 import { TreeNode, TreeNodeComponent } from "../types/TreeNode";
 import { SimpleDOMRect } from "../types/types";
 
+type HtmlElementTreeNodeConstructor = new (
+  element: HTMLElement | SVGElement
+) => HtmlElementTreeNode;
+
 export class HtmlElementTreeNode implements TreeNode {
   type: "element" = "element";
-  element: HTMLElement;
+  element: HTMLElement | SVGElement;
   name: string;
   uniqueId: string;
-  constructor(element: HTMLElement) {
+  constructor(element: HTMLElement | SVGElement) {
     this.element = element;
     this.name = element.nodeName.toLowerCase();
     this.uniqueId = String(getReferenceId(element));
@@ -23,11 +26,11 @@ export class HtmlElementTreeNode implements TreeNode {
   }
   getChildren(): TreeNode[] {
     const children = Array.from(this.element.children);
+    const Ctor = this.constructor as HtmlElementTreeNodeConstructor;
     return children
       .map((child) => {
         if (child instanceof HTMLElement || child instanceof SVGElement) {
-          // @ts-ignore
-          return new this.constructor(child as HTMLElement);
+          return new Ctor(child);
         } else {
           return null;
         }
@@ -36,8 +39,8 @@ export class HtmlElementTreeNode implements TreeNode {
   }
   getParent(): TreeNode | null {
     if (this.element.parentElement) {
-      // @ts-ignore
-      return new this.constructor(this.element.parentElement);
+      const Ctor = this.constructor as HtmlElementTreeNodeConstructor;
+      return new Ctor(this.element.parentElement);
     } else {
       return null;
     }

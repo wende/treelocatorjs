@@ -22,6 +22,46 @@ interface CheckResult {
   fix?: string;
 }
 
+function readPackageJson(dir: string): Record<string, any> | null {
+  const pkgPath = path.join(dir, "package.json");
+  try {
+    return JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+function exitWithError(message: string): never {
+  console.error(pc.red(message));
+  process.exit(1);
+}
+
+function injectBabelPluginIntoVitePlugin(
+  content: string,
+  pluginNames: string[],
+  babelConfig: string
+): string {
+  for (const pluginName of pluginNames) {
+    const emptyCallRegex = new RegExp(`${pluginName}\\(\\s*\\)`);
+    const withOptionsRegex = new RegExp(`${pluginName}\\(\\s*\\{`);
+
+    if (emptyCallRegex.test(content)) {
+      content = content.replace(
+        emptyCallRegex,
+        `${pluginName}({\n      ${babelConfig},\n    })`
+      );
+      return content;
+    } else if (withOptionsRegex.test(content)) {
+      content = content.replace(
+        withOptionsRegex,
+        `${pluginName}({\n      ${babelConfig},`
+      );
+      return content;
+    }
+  }
+  return content;
+}
+
 function detectPackageManager(): ProjectInfo["packageManager"] {
   // Check current dir and parent dirs (for monorepos)
   let dir = process.cwd();
@@ -40,11 +80,13 @@ function detectPackageManager(): ProjectInfo["packageManager"] {
 function detectProject(): ProjectInfo {
   const pkgPath = path.join(process.cwd(), "package.json");
   if (!fs.existsSync(pkgPath)) {
-    console.error(pc.red("No package.json found. Run this from your project root."));
-    process.exit(1);
+    exitWithError("No package.json found. Run this from your project root.");
   }
 
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const pkg = readPackageJson(process.cwd());
+  if (!pkg) {
+    exitWithError("Failed to read package.json. Check that it contains valid JSON.");
+  }
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
   const info: ProjectInfo = {
@@ -147,8 +189,10 @@ function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[]
 
 function checkConfiguration(info: ProjectInfo): CheckResult[] {
   const results: CheckResult[] = [];
-  const pkgPath = path.join(process.cwd(), "package.json");
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const pkg = readPackageJson(process.cwd());
+  if (!pkg) {
+    exitWithError("Failed to read package.json. Check that it contains valid JSON.");
+  }
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
   // Check 1: Runtime package installed
@@ -346,78 +390,14 @@ function updateViteConfig(configFile: string, framework: string): void {
         ],
       }`;
 
-  // For React with Vite, add babel plugin
   if (framework === "react") {
-    // Find the react plugin and add babel config
-    const reactPluginRegex = /react\(\s*\)/;
-    const reactPluginWithOptionsRegex = /react\(\s*\{/;
-
-    if (reactPluginRegex.test(content)) {
-      content = content.replace(
-        reactPluginRegex,
-        `react({
-      ${babelConfig},
-    })`
-      );
-    } else if (reactPluginWithOptionsRegex.test(content)) {
-      // Already has options, need to add babel config
-      content = content.replace(
-        /react\(\s*\{/,
-        `react({
-      ${babelConfig},`
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["react"], babelConfig);
   }
-
-  // For SolidJS with Vite, add babel plugin
   if (framework === "solid") {
-    // Try both solidPlugin() and solid() patterns
-    const solidPluginRegex = /solid(?:Plugin)?\(\s*\)/;
-    const solidPluginWithOptionsRegex = /solid(?:Plugin)?\(\s*\{/;
-
-    if (solidPluginRegex.test(content)) {
-      content = content.replace(
-        solidPluginRegex,
-        (match) => {
-          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
-          return `${funcName}({
-      ${babelConfig},
-    })`;
-        }
-      );
-    } else if (solidPluginWithOptionsRegex.test(content)) {
-      // Already has options, need to add babel config
-      content = content.replace(
-        /solid(?:Plugin)?\(\s*\{/,
-        (match) => {
-          const funcName = match.includes("solidPlugin") ? "solidPlugin" : "solid";
-          return `${funcName}({
-      ${babelConfig},`;
-        }
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["solid", "solidPlugin"], babelConfig);
   }
-
-  // For Preact with Vite, add babel plugin
   if (framework === "preact") {
-    const preactPluginRegex = /preact\(\s*\)/;
-    const preactPluginWithOptionsRegex = /preact\(\s*\{/;
-
-    if (preactPluginRegex.test(content)) {
-      content = content.replace(
-        preactPluginRegex,
-        `preact({
-      ${babelConfig},
-    })`
-      );
-    } else if (preactPluginWithOptionsRegex.test(content)) {
-      // Already has options, need to add babel config
-      content = content.replace(
-        /preact\(\s*\{/,
-        `preact({
-      ${babelConfig},`
-      );
-    }
+    content = injectBabelPluginIntoVitePlugin(content, ["preact"], babelConfig);
   }
 
   fs.writeFileSync(configFile, content);
@@ -532,9 +512,7 @@ async function runCheck(info: ProjectInfo): Promise<void> {
   console.log(pc.dim(`  Entry file: ${info.entryFile || "not found"}`));
 
   if (info.buildTool === "unknown") {
-    console.log(pc.red("\nCould not detect build tool (Vite or Next.js)."));
-    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
-    process.exit(1);
+    exitWithError("\nCould not detect build tool (Vite or Next.js). TreeLocatorJS currently supports Vite and Next.js projects.");
   }
 
   const results = checkConfiguration(info);
@@ -554,14 +532,11 @@ async function runSetup(info: ProjectInfo, skipConfirm = false): Promise<void> {
   console.log();
 
   if (info.buildTool === "unknown") {
-    console.log(pc.red("Could not detect build tool (Vite or Next.js)."));
-    console.log(pc.dim("TreeLocatorJS currently supports Vite and Next.js projects."));
-    process.exit(1);
+    exitWithError("Could not detect build tool (Vite or Next.js). TreeLocatorJS currently supports Vite and Next.js projects.");
   }
 
   if (info.framework === "unknown") {
-    console.log(pc.red("Could not detect framework."));
-    process.exit(1);
+    exitWithError("Could not detect framework.");
   }
 
   if (!skipConfirm) {
@@ -597,8 +572,7 @@ async function runSetup(info: ProjectInfo, skipConfirm = false): Promise<void> {
   try {
     execSync(installCmd, { stdio: "inherit" });
   } catch {
-    console.error(pc.red("Failed to install packages."));
-    process.exit(1);
+    exitWithError("Failed to install packages.");
   }
 
   // Update config (only for frameworks that need babel plugin)
@@ -671,4 +645,22 @@ ${pc.bold("What it checks:")}
   }
 }
 
-main().catch(console.error);
+// Exported for testing
+export {
+  detectPackageManager,
+  detectProject,
+  getInstallCommand,
+  checkConfiguration,
+  readPackageJson,
+  injectBabelPluginIntoVitePlugin,
+  exitWithError,
+};
+
+// Only run when invoked directly as CLI, not when imported for testing
+const isDirectRun = process.argv[1] &&
+  (import.meta.url === new URL(`file://${process.argv[1]}`).href ||
+   import.meta.url.endsWith(process.argv[1]));
+
+if (isDirectRun) {
+  main().catch(console.error);
+}
