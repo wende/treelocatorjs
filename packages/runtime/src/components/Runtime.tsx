@@ -7,7 +7,7 @@ import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
-import { collectAncestry, formatAncestryChain, truncateAtFirstFile, AncestryItem } from "../functions/formatAncestryChain";
+import { collectAncestry, formatAncestryChain, truncateAtFirstFile, getElementLabel } from "../functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
 import { extractComputedStyles } from "../functions/extractComputedStyles";
 import { createTreeNode } from "../adapters/createTreeNode";
@@ -464,14 +464,6 @@ function Runtime(props: RuntimeProps) {
     }
   }
 
-  function getElementLabel(ancestry: AncestryItem[]): string {
-    if (ancestry.length === 0) return "";
-    const item = ancestry[0]!;
-    const name = item.componentName || item.elementName;
-    const location = item.filePath ? ` at ${item.filePath}:${item.line}` : "";
-    return `${name}${location}`;
-  }
-
   function clickListener(e: MouseEvent) {
     // Handle recording element selection
     if (recordingState() === 'selecting') {
@@ -529,15 +521,19 @@ function Runtime(props: RuntimeProps) {
         setToastMessage("Copied to clipboard");
       });
 
-      // For React 19+: try to enrich with source map file paths and re-copy
+      // For React 19+: try to enrich with source map file paths and re-copy.
+      // If the enriched label differs, re-extract with forceFull:true so the
+      // diff-mode fast path doesn't collapse the second extraction (for the
+      // same element within the diff window) into "No changes detected".
       enrichAncestryWithSourceMaps(ancestry, element as HTMLElement).then(
         (enriched) => {
           const enrichedFormatted = formatAncestryChain(enriched);
           if (enrichedFormatted !== formatted) {
             const enrichedLabel = getElementLabel(enriched);
-            const enrichedFull = enrichedFormatted + "\n\n" + (enrichedLabel !== elementLabel
-              ? extractComputedStyles(element as Element, enrichedLabel).formatted
-              : stylesResult.formatted);
+            const enrichedStyles = enrichedLabel !== elementLabel
+              ? extractComputedStyles(element as Element, enrichedLabel, { forceFull: true }).formatted
+              : stylesResult.formatted;
+            const enrichedFull = enrichedFormatted + "\n\n" + enrichedStyles;
             navigator.clipboard.writeText(enrichedFull).then(() => {
               setToastMessage("Copied to clipboard");
             });

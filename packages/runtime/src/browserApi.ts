@@ -3,6 +3,7 @@ import { createTreeNode } from "./adapters/createTreeNode";
 import {
   collectAncestry,
   formatAncestryChain,
+  getElementLabel,
   AncestryItem,
 } from "./functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
@@ -381,17 +382,10 @@ export function createBrowserAPI(
       const element = resolveElement(elementOrSelector);
       if (!element) return null;
 
-      // Build label from ancestry if available
-      let label: string | undefined;
       const ancestry = getAncestryForElement(element, adapterId);
-      if (ancestry && ancestry.length > 0) {
-        const item = ancestry[0]!;
-        const name = item.componentName || item.elementName;
-        const location = item.filePath ? ` at ${item.filePath}:${item.line}` : "";
-        label = `${name}${location}`;
-      }
+      const label = ancestry ? getElementLabel(ancestry) : undefined;
 
-      return extractComputedStyles(element, label);
+      return extractComputedStyles(element, label || undefined);
     },
 
     help(): string {

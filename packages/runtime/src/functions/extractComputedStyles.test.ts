@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import {
   _collapseFourValues,
   _processGroupEntries,
   _formatDiff,
+  extractComputedStyles,
   LAYOUT_PROPERTIES,
   VISUAL_PROPERTIES,
   TYPOGRAPHY_PROPERTIES,
@@ -10,6 +12,7 @@ import {
   SVG_PROPERTIES,
   StyleSnapshot,
 } from "./extractComputedStyles";
+import { getElementLabel } from "./formatAncestryChain";
 
 describe("extractComputedStyles", () => {
   describe("collapseFourValues", () => {
@@ -493,6 +496,78 @@ describe("extractComputedStyles", () => {
       expect(SVG_PROPERTIES).toContain("fill");
       expect(SVG_PROPERTIES).toContain("stroke");
       expect(SVG_PROPERTIES).toContain("stroke-width");
+    });
+  });
+
+  describe("forceFull option", () => {
+    it("returns full styles on repeat call within diff window when forceFull is true", () => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      try {
+        // First call primes the snapshot
+        const first = extractComputedStyles(el, "Button");
+        expect(first.formatted).toContain("[ComputedStyles]");
+        expect(first.formatted).not.toContain("\u0394"); // no diff marker
+
+        // Second call without forceFull enters diff mode
+        const second = extractComputedStyles(el, "Button");
+        expect(second.formatted).toContain("\u0394");
+
+        // Third call with forceFull bypasses diff mode
+        const third = extractComputedStyles(el, "Button", { forceFull: true });
+        expect(third.formatted).toContain("[ComputedStyles]");
+        expect(third.formatted).not.toContain("\u0394");
+        expect(third.formatted).toContain("BoundingRect");
+      } finally {
+        el.remove();
+      }
+    });
+
+    it("still updates lastSnapshot so subsequent calls can diff against the forced-full snapshot", () => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      try {
+        extractComputedStyles(el);
+        extractComputedStyles(el, undefined, { forceFull: true });
+        // Next call should be a diff against the forced-full snapshot,
+        // not the original one.
+        const after = extractComputedStyles(el);
+        expect(after.formatted).toContain("\u0394");
+      } finally {
+        el.remove();
+      }
+    });
+  });
+
+  describe("getElementLabel", () => {
+    it("returns empty string for empty ancestry", () => {
+      expect(getElementLabel([])).toBe("");
+    });
+
+    it("returns component name with file location", () => {
+      const label = getElementLabel([
+        {
+          elementName: "button",
+          componentName: "SubmitButton",
+          filePath: "src/components/SubmitButton.tsx",
+          line: 12,
+        },
+      ]);
+      expect(label).toBe("SubmitButton at src/components/SubmitButton.tsx:12");
+    });
+
+    it("falls back to element name when no component name is set", () => {
+      const label = getElementLabel([
+        { elementName: "div", filePath: "src/App.tsx", line: 5 },
+      ]);
+      expect(label).toBe("div at src/App.tsx:5");
+    });
+
+    it("omits location when filePath is missing", () => {
+      const label = getElementLabel([
+        { elementName: "span", componentName: "Label" },
+      ]);
+      expect(label).toBe("Label");
     });
   });
 });

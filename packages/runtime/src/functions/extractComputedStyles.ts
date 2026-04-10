@@ -170,20 +170,32 @@ function getPropertyGroups(isSvg: boolean): PropertyGroup[] {
 
 // --- Default Detection via Temp Element ---
 
+/**
+ * Cache of default computed styles per tag name (+ SVG namespace marker).
+ * Browser defaults for a given tag are constant within a page load, so we
+ * avoid creating a temporary element and triggering layout on every click.
+ */
+const defaultStylesCache = new Map<string, Map<string, string>>();
+
 function getDefaultStyles(
   element: Element,
   properties: string[]
 ): Map<string, string> {
+  const tagName = element.tagName.toLowerCase();
+  const isSvgElement =
+    element.namespaceURI === "http://www.w3.org/2000/svg";
+  const cacheKey = `${isSvgElement ? "svg:" : ""}${tagName}`;
+
+  const cached = defaultStylesCache.get(cacheKey);
+  if (cached) return cached;
+
   const defaults = new Map<string, string>();
   try {
-    const tagName = element.tagName.toLowerCase();
-    const isSvgElement =
-      element.namespaceURI === "http://www.w3.org/2000/svg";
     const temp = isSvgElement
       ? document.createElementNS("http://www.w3.org/2000/svg", tagName)
       : document.createElement(tagName);
-    if (temp instanceof HTMLElement) {
-      temp.style.cssText =
+    if (temp instanceof HTMLElement || temp instanceof SVGElement) {
+      (temp as HTMLElement | SVGElement).style.cssText =
         "position:fixed!important;visibility:hidden!important;pointer-events:none!important;left:-9999px!important;top:-9999px!important;width:auto!important;height:auto!important;";
     }
     document.body.appendChild(temp);
@@ -192,8 +204,10 @@ function getDefaultStyles(
       defaults.set(prop, computed.getPropertyValue(prop));
     }
     document.body.removeChild(temp);
+    defaultStylesCache.set(cacheKey, defaults);
   } catch {
-    // Fallback: empty defaults means nothing gets filtered
+    // Fallback: empty defaults means nothing gets filtered. Do not cache
+    // a partial result so a future call can retry.
   }
   return defaults;
 }
@@ -480,8 +494,29 @@ function tryOutlineShorthand(
 
 // --- Diff Mode ---
 
+// WeakRef is only guaranteed in modern runtimes (Chrome 84+, Safari 14.1+,
+// Firefox 79+, Node 14.6+). Guard access so the runtime doesn't throw a
+// ReferenceError in older environments; we fall back to a strong reference.
+const HAS_WEAK_REF = typeof (globalThis as any).WeakRef !== "undefined";
+
+type ElementHolder = {
+  deref: () => Element | undefined;
+};
+
+function makeElementHolder(element: Element): ElementHolder {
+  if (HAS_WEAK_REF) {
+    const ref = new (globalThis as any).WeakRef(element) as {
+      deref: () => Element | undefined;
+    };
+    return { deref: () => ref.deref() };
+  }
+  // Fallback: strong reference. Prevents GC of the element, but that's
+  // bounded by DIFF_WINDOW_MS because we overwrite lastSnapshot on each call.
+  return { deref: () => element };
+}
+
 let lastSnapshot: {
-  elementRef: WeakRef<Element>;
+  elementRef: ElementHolder;
   snapshot: StyleSnapshot;
   timestamp: number;
 } | null = null;
@@ -556,9 +591,20 @@ function formatDiff(
 
 // --- Main Extraction Function ---
 
+export interface ExtractOptions {
+  /**
+   * Skip diff-mode detection and always return the full formatted styles.
+   * Used by internal call sites that re-extract for the same element within
+   * the diff window (e.g. source-map enrichment re-runs in Runtime.tsx) where
+   * returning a "No changes detected" delta would be incorrect.
+   */
+  forceFull?: boolean;
+}
+
 export function extractComputedStyles(
   element: Element,
-  elementLabel?: string
+  elementLabel?: string,
+  options: ExtractOptions = {}
 ): ComputedStylesResult {
   const isSvg = element instanceof SVGElement;
   const properties = isSvg ? ALL_PROPERTIES_WITH_SVG : ALL_PROPERTIES;
@@ -586,10 +632,12 @@ export function extractComputedStyles(
 
   const snapshot: StyleSnapshot = { properties: values, boundingRect };
 
-  // Check for diff mode: same element clicked again within the time window
+  // Check for diff mode: same element clicked again within the time window.
+  // `forceFull` bypasses diff mode so callers that re-extract for labelling
+  // purposes (e.g. source-map enrichment) always get the full style dump.
   let diffMode = false;
   let previousSnapshot: StyleSnapshot | null = null;
-  if (lastSnapshot) {
+  if (lastSnapshot && !options.forceFull) {
     const prevElement = lastSnapshot.elementRef.deref();
     if (
       prevElement === element &&
@@ -602,7 +650,7 @@ export function extractComputedStyles(
 
   // Store current snapshot for future diff
   lastSnapshot = {
-    elementRef: new WeakRef(element),
+    elementRef: makeElementHolder(element),
     snapshot,
     timestamp: Date.now(),
   };
