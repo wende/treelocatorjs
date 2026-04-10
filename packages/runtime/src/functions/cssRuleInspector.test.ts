@@ -383,13 +383,29 @@ describe("inspectCSSRules (integration)", () => {
     styleEl!.textContent = css;
   }
 
-  function makeElement(html: string): HTMLElement {
-    const wrap = document.createElement("div");
-    wrap.innerHTML = html;
-    const el = wrap.firstElementChild as HTMLElement;
-    document.body.appendChild(el);
-    testEl = el;
-    return el;
+  /**
+   * Build a DOM element using createElement + setAttribute (no innerHTML).
+   * Avoids the XSS-pattern lint warning while keeping tests readable.
+   */
+  function make(
+    tag: string,
+    attrs: Record<string, string> = {},
+    ...children: HTMLElement[]
+  ): HTMLElement {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      node.setAttribute(k, v);
+    }
+    for (const child of children) {
+      node.appendChild(child);
+    }
+    return node;
+  }
+
+  function mount(node: HTMLElement): HTMLElement {
+    document.body.appendChild(node);
+    testEl = node;
+    return node;
   }
 
   it("source-order tie breaks: later rule wins on equal specificity", () => {
@@ -397,7 +413,7 @@ describe("inspectCSSRules (integration)", () => {
       .btn { color: red; }
       .btn { color: blue; }
     `);
-    const el = makeElement(`<button class="btn"></button>`);
+    const el = mount(make("button", { class: "btn" }));
 
     const result = inspectCSSRules(el);
     const colorProp = result.properties.find((p) => p.property === "color")!;
@@ -416,8 +432,8 @@ describe("inspectCSSRules (integration)", () => {
       .btn, #unrelated { color: red; }
       #main .btn { color: blue; }
     `);
-    const el = makeElement(`<div id="main"><button class="btn"></button></div>`);
-    const btn = el.querySelector("button") as HTMLElement;
+    const btn = make("button", { class: "btn" });
+    mount(make("div", { id: "main" }, btn));
 
     const result = inspectCSSRules(btn);
     const colorProp = result.properties.find((p) => p.property === "color")!;
@@ -431,7 +447,7 @@ describe("inspectCSSRules (integration)", () => {
       #main { color: blue; }
       .btn { color: red; }
     `);
-    const el = makeElement(`<div id="main" class="btn"></div>`);
+    const el = mount(make("div", { id: "main", class: "btn" }));
 
     const result = inspectCSSRules(el);
     const colorProp = result.properties.find((p) => p.property === "color")!;
@@ -444,7 +460,7 @@ describe("inspectCSSRules (integration)", () => {
       #main { color: blue; }
       .btn { color: red !important; }
     `);
-    const el = makeElement(`<div id="main" class="btn"></div>`);
+    const el = mount(make("div", { id: "main", class: "btn" }));
 
     const result = inspectCSSRules(el);
     const colorProp = result.properties.find((p) => p.property === "color")!;
@@ -457,7 +473,7 @@ describe("inspectCSSRules (integration)", () => {
     setStyles(`
       #main { color: blue; }
     `);
-    const el = makeElement(`<div id="main" style="color: green;"></div>`);
+    const el = mount(make("div", { id: "main", style: "color: green;" }));
 
     const result = inspectCSSRules(el);
     const colorProp = result.properties.find((p) => p.property === "color")!;
@@ -467,7 +483,7 @@ describe("inspectCSSRules (integration)", () => {
 
   it("returns empty properties when no rules match", () => {
     setStyles(`.unrelated { color: red; }`);
-    const el = makeElement(`<div></div>`);
+    const el = mount(make("div"));
 
     const result = inspectCSSRules(el);
     expect(result.properties).toEqual([]);
@@ -475,7 +491,7 @@ describe("inspectCSSRules (integration)", () => {
 
   it("does not crash when getComputedStyle is unavailable", () => {
     setStyles(`.btn { color: red; }`);
-    const el = makeElement(`<button class="btn"></button>`);
+    const el = mount(make("button", { class: "btn" }));
 
     // Temporarily clobber getComputedStyle to simulate an environment without it
     const original = window.getComputedStyle;
