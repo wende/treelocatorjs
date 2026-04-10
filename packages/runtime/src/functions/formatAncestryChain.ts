@@ -60,6 +60,20 @@ function treeNodeComponentToOwnerInfo(
   };
 }
 
+/**
+ * Build a short label for the innermost (clicked) element in an ancestry array.
+ * Used as the header for computed-style extraction output.
+ *
+ * Example: `"Button at src/components/Button.tsx:23"` or `"div"` as a fallback.
+ */
+export function getElementLabel(ancestry: AncestryItem[]): string {
+  if (ancestry.length === 0) return "";
+  const item = ancestry[0]!;
+  const name = item.componentName || item.elementName;
+  const location = item.filePath ? ` at ${item.filePath}:${item.line}` : "";
+  return `${name}${location}`;
+}
+
 export function collectAncestry(node: TreeNode): AncestryItem[] {
   const items: AncestryItem[] = [];
   let current: TreeNode | null = node;

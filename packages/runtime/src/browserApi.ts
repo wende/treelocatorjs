@@ -3,6 +3,7 @@ import { createTreeNode } from "./adapters/createTreeNode";
 import {
   collectAncestry,
   formatAncestryChain,
+  getElementLabel,
   AncestryItem,
 } from "./functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "./functions/enrichAncestrySourceMaps";
@@ -11,6 +12,7 @@ import {
   formatCSSInspection,
   CSSInspectionResult,
 } from "./functions/cssRuleInspector";
+import { extractComputedStyles, ComputedStylesResult } from "./functions/extractComputedStyles";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
 
@@ -97,6 +99,34 @@ export interface LocatorJSAPI {
   getPathData(
     elementOrSelector: HTMLElement | string
   ): Promise<{ path: string; ancestry: AncestryItem[] } | null>;
+
+  /**
+   * Get computed styles for an element, formatted for AI consumption.
+   * Extracts layout, visual, typography, and interaction styles filtered against browser defaults.
+   * Clicking the same element twice within 30s returns a diff of changed properties.
+   *
+   * @param elementOrSelector - HTMLElement or CSS selector string
+   * @returns Object with formatted string and raw snapshot, or null if element not found
+   *
+   * @example
+   * // Get formatted computed styles
+   * const result = window.__treelocator__.getStyles('button.submit');
+   * console.log(result.formatted);
+   * // [ComputedStyles] Button at src/Button.tsx:23
+   * // ─────────────────────────────────────────
+   * // Layout
+   * //   display: flex
+   * //   padding: 8px 16px
+   * // ...
+   *
+   * @example
+   * // In Playwright
+   * const styles = await page.evaluate(() => {
+   *   return window.__treelocator__.getStyles('.my-element');
+   * });
+   * console.log(styles?.formatted);
+   */
+  getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null;
 
   /**
    * Display help information about the LocatorJS API.
@@ -304,7 +334,17 @@ METHODS:
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
-4. getCSSRules(elementOrSelector)
+4. getStyles(elementOrSelector)
+   Returns computed styles for an element, optimized for AI consumption.
+   Filters out browser defaults and groups by category (Layout, Visual, Typography).
+   Calling twice on the same element within 30s returns a diff of changes.
+
+   Usage:
+     const result = window.__treelocator__.getStyles('button.submit')
+     console.log(result.formatted)  // formatted styles string
+     console.log(result.snapshot)   // raw property values + bounding rect
+
+5. getCSSRules(elementOrSelector)
    Returns structured CSS rule data for the element.
    Shows all matching rules grouped by property with specificity and source.
 
@@ -315,7 +355,7 @@ METHODS:
        p.rules.forEach(r => console.log('  ' + (r.winning ? 'WIN' : '   ') + ' ' + r.selector))
      })
 
-5. getCSSReport(elementOrSelector, options?)
+6. getCSSReport(elementOrSelector, options?)
    Returns a formatted string showing all CSS rules and which wins per property.
    Pass { properties: ['color', 'font-size'] } to filter to specific properties.
 
@@ -331,13 +371,13 @@ METHODS:
         ✗ .button          (0,1,0) — base.css
         ✗ button           (0,0,1) — reset.css"
 
-6. replay()
+7. replay()
    Replays the last recorded interaction sequence as a macro.
 
    Usage:
      window.__treelocator__.replay()
 
-7. replayWithRecord(elementOrSelector)
+8. replayWithRecord(elementOrSelector)
    Replays stored interactions while recording element changes.
    Returns dejitter analysis when replay completes.
 
@@ -346,7 +386,7 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-8. help()
+9. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -453,6 +493,16 @@ export function createBrowserAPI(
       return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
         ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
       );
+    },
+
+    getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null {
+      const element = resolveElement(elementOrSelector);
+      if (!element) return null;
+
+      const ancestry = getAncestryForElement(element, adapterId);
+      const label = ancestry ? getElementLabel(ancestry) : undefined;
+
+      return extractComputedStyles(element, label || undefined);
     },
 
     getCSSRules(
