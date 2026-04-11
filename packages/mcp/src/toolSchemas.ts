@@ -39,3 +39,13 @@ export const snapshotIdSchema = z.object({
   sessionId: z.string().min(1).optional(),
   snapshotId: z.string().min(1),
 });
+
+export const executeJsSchema = z.object({
+  sessionId: z.string().min(1).optional(),
+  code: z.string().min(1),
+});
+
+export const getConsoleSchema = z.object({
+  sessionId: z.string().min(1).optional(),
+  last: z.number().int().min(1).max(500).optional(),
+});

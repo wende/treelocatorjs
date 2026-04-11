@@ -1,6 +1,6 @@
 {
   "name": "@treelocator/mcp",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "MCP server that bridges to live TreeLocator runtime instances in browsers",
   "type": "module",
   "bin": {

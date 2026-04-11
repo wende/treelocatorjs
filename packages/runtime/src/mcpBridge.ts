@@ -1,4 +1,5 @@
 import type { LocatorJSAPI } from "./browserApi";
+import { getConsoleEntries, installConsoleCapture } from "./consoleCapture";
 
 export const MCP_BRIDGE_DEFAULT_URL = "wss://127.0.0.1:7463/treelocator";
 export const MCP_BRIDGE_FALLBACK_URL = "wss://localhost:7463/treelocator";
@@ -20,7 +21,9 @@ export type BridgeCommandName =
   | "clear_snapshot"
   | "click"
   | "hover"
-  | "type";
+  | "type"
+  | "execute_js"
+  | "get_console";
 
 export interface HelloMessage {
   type: "hello";
@@ -228,6 +231,69 @@ function dispatchType(
   );
 }
 
+function safeSerialize(value: unknown): unknown {
+  const seen = new WeakSet<object>();
+  const walk = (v: unknown): unknown => {
+    if (v === null || v === undefined) return v ?? null;
+    const t = typeof v;
+    if (t === "string" || t === "number" || t === "boolean") return v;
+    if (t === "bigint") return (v as bigint).toString();
+    if (t === "function") {
+      const name = (v as { name?: string }).name || "anonymous";
+      return `[Function: ${name}]`;
+    }
+    if (t === "symbol") return (v as symbol).toString();
+    if (v instanceof Error) {
+      return { name: v.name, message: v.message, stack: v.stack };
+    }
+    if (typeof Element !== "undefined" && v instanceof Element) {
+      const el = v as Element;
+      return `[Element: <${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}>]`;
+    }
+    if (t === "object") {
+      if (seen.has(v as object)) return "[Circular]";
+      seen.add(v as object);
+      if (Array.isArray(v)) return v.map(walk);
+      const out: Record<string, unknown> = {};
+      for (const key of Object.keys(v as object)) {
+        try {
+          out[key] = walk((v as Record<string, unknown>)[key]);
+        } catch (err) {
+          out[key] = `[Unreadable: ${(err as Error).message}]`;
+        }
+      }
+      return out;
+    }
+    return String(v);
+  };
+  return walk(value);
+}
+
+const AsyncFunctionCtor = Object.getPrototypeOf(async function () {}).constructor as {
+  new (...args: string[]): (...fnArgs: unknown[]) => Promise<unknown>;
+};
+
+async function runUserCode(code: string): Promise<unknown> {
+  let fn: (...a: unknown[]) => Promise<unknown>;
+  try {
+    fn = new AsyncFunctionCtor(code);
+  } catch (err) {
+    throw new BridgeRuntimeError(
+      "compile_error",
+      err instanceof Error ? err.message : "Failed to compile code"
+    );
+  }
+  try {
+    return await fn();
+  } catch (err) {
+    throw new BridgeRuntimeError(
+      "runtime_error",
+      err instanceof Error ? err.message : "Execution failed",
+      err instanceof Error ? { stack: err.stack } : undefined
+    );
+  }
+}
+
 export async function executeBridgeCommand(
   api: LocatorJSAPI,
   command: BridgeCommandName,
@@ -337,6 +403,26 @@ export async function executeBridgeCommand(
       }
       const submit = typeof args?.submit === "boolean" ? args.submit : false;
       return dispatchType(element, text, submit);
+    }
+    case "execute_js": {
+      const code = typeof args?.code === "string" ? args.code : "";
+      if (!code) {
+        throw new BridgeRuntimeError("invalid_args", "code is required for execute_js");
+      }
+      const result = await runUserCode(code);
+      return {
+        type: result === null ? "null" : typeof result,
+        value: safeSerialize(result),
+      };
+    }
+    case "get_console": {
+      const rawLast = args?.last;
+      const last =
+        typeof rawLast === "number" && Number.isFinite(rawLast) && rawLast > 0
+          ? Math.floor(rawLast)
+          : undefined;
+      const captured = getConsoleEntries(last);
+      return { count: captured.length, entries: captured };
     }
     default:
       throw new BridgeRuntimeError("unsupported_command", `Unsupported command: ${command}`);
@@ -465,6 +551,8 @@ export class TreeLocatorMCPBridgeClient {
         "click",
         "hover",
         "type",
+        "execute_js",
+        "get_console",
       ],
       connectedAt: new Date().toISOString(),
     };
@@ -577,6 +665,8 @@ export class TreeLocatorMCPBridgeClient {
 export function startMCPBridge(config?: MCPBridgeConfig): TreeLocatorMCPBridgeClient | null {
   if (config?.enabled === false) return null;
   if (typeof window === "undefined") return null;
+
+  installConsoleCapture();
 
   const client = new TreeLocatorMCPBridgeClient(
     () => (window as Window & { __treelocator__?: LocatorJSAPI }).__treelocator__,

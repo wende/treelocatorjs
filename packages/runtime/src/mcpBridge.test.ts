@@ -1,5 +1,9 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { executeBridgeCommand } from "./mcpBridge";
+import {
+  clearConsoleEntries,
+  installConsoleCapture,
+} from "./consoleCapture";
 
 function createApiMock() {
   return {
@@ -143,6 +147,103 @@ describe("mcpBridge executeBridgeCommand", () => {
     });
     expect(api.clearSnapshot).toHaveBeenCalledWith("baseline");
     expect(result).toEqual({ ok: true });
+  });
+
+  describe("execute_js", () => {
+    test("returns serialized value from async function body", async () => {
+      const api = createApiMock();
+      const result = await executeBridgeCommand(api, "execute_js", {
+        code: "return 1 + 2;",
+      });
+      expect(result).toEqual({ type: "number", value: 3 });
+    });
+
+    test("awaits returned promise", async () => {
+      const api = createApiMock();
+      const result = await executeBridgeCommand(api, "execute_js", {
+        code: "return await Promise.resolve({ hello: 'world' });",
+      });
+      expect(result).toEqual({
+        type: "object",
+        value: { hello: "world" },
+      });
+    });
+
+    test("can read from the document", async () => {
+      document.body.innerHTML = `<div id="greeting">hi</div>`;
+      const api = createApiMock();
+      const result = await executeBridgeCommand(api, "execute_js", {
+        code: "return document.getElementById('greeting').textContent;",
+      });
+      expect(result).toEqual({ type: "string", value: "hi" });
+    });
+
+    test("wraps runtime errors with stack details", async () => {
+      const api = createApiMock();
+      await expect(
+        executeBridgeCommand(api, "execute_js", {
+          code: "throw new Error('boom');",
+        })
+      ).rejects.toThrow("boom");
+    });
+
+    test("rejects compile errors", async () => {
+      const api = createApiMock();
+      await expect(
+        executeBridgeCommand(api, "execute_js", { code: "return (" })
+      ).rejects.toThrow();
+    });
+
+    test("rejects empty code", async () => {
+      const api = createApiMock();
+      await expect(
+        executeBridgeCommand(api, "execute_js", { code: "" })
+      ).rejects.toThrow("code is required");
+    });
+  });
+
+  describe("get_console", () => {
+    beforeEach(() => {
+      installConsoleCapture();
+      clearConsoleEntries();
+    });
+
+    test("captures console.log and returns last N entries", async () => {
+      console.log("first");
+      console.warn("second");
+      console.error("third");
+
+      const api = createApiMock();
+      const result = (await executeBridgeCommand(api, "get_console", {
+        last: 2,
+      })) as { count: number; entries: Array<{ level: string; message: string }> };
+
+      expect(result.count).toBe(2);
+      expect(result.entries.map((e) => e.level)).toEqual(["warn", "error"]);
+      expect(result.entries.map((e) => e.message)).toEqual(["second", "third"]);
+    });
+
+    test("returns all entries when last is omitted", async () => {
+      console.log("a");
+      console.log("b");
+
+      const api = createApiMock();
+      const result = (await executeBridgeCommand(api, "get_console", {})) as {
+        count: number;
+      };
+      expect(result.count).toBe(2);
+    });
+
+    test("formats multiple args joined by spaces", async () => {
+      console.log("count is", 42, { ok: true });
+
+      const api = createApiMock();
+      const result = (await executeBridgeCommand(api, "get_console", {
+        last: 1,
+      })) as { entries: Array<{ message: string }> };
+
+      expect(result.entries[0]?.message).toBe('count is 42 {"ok":true}');
+    });
   });
 
   test("type rejects unsupported elements", async () => {

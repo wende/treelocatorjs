@@ -16,6 +16,8 @@ export const BRIDGE_COMMANDS = [
   "click",
   "hover",
   "type",
+  "execute_js",
+  "get_console",
 ] as const;
 
 export type BridgeCommandName = (typeof BRIDGE_COMMANDS)[number];

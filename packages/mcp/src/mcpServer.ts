@@ -3,6 +3,8 @@ import { BridgeCommandName } from "./protocol";
 import { SessionBroker, SessionBrokerError } from "./sessionBroker";
 import { CompatStdioServerTransport } from "./compatStdioTransport";
 import {
+  executeJsSchema,
+  getConsoleSchema,
   getCssReportSchema,
   getStylesSchema,
   selectorSchema,
@@ -311,6 +313,28 @@ export class TreeLocatorMCPServer {
         inputSchema: typeSchema.shape,
       },
       async (args, extra) => this.runBridgeCommand("type", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_execute_js",
+      {
+        title: "Execute JavaScript",
+        description:
+          "Execute arbitrary JavaScript in the active page. The code runs as an async function body — you can use `await` and `return` at the top level. Returns the serialized return value.",
+        inputSchema: executeJsSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("execute_js", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_get_console",
+      {
+        title: "Get console output",
+        description:
+          "Return captured console entries (log/info/warn/error/debug) from the active page. Use `last` to limit to the most recent N entries (default 50, max 500).",
+        inputSchema: getConsoleSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("get_console", args, extra)
     );
   }
 }
