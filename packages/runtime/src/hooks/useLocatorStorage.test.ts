@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "vitest";
+import { describe, expect, test, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import {
   STORAGE_KEY,
   loadFromStorage,
@@ -6,9 +6,34 @@ import {
   clearStorage,
 } from "./useLocatorStorage";
 
+const mockStorage = new Map<string, string>();
+
+const mockLocalStorage = {
+  getItem(key: string): string | null {
+    return mockStorage.has(key) ? mockStorage.get(key)! : null;
+  },
+  setItem(key: string, value: string): void {
+    mockStorage.set(key, String(value));
+  },
+  removeItem(key: string): void {
+    mockStorage.delete(key);
+  },
+  clear(): void {
+    mockStorage.clear();
+  },
+};
+
 describe("useLocatorStorage", () => {
+  beforeAll(() => {
+    vi.stubGlobal("localStorage", mockLocalStorage);
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
-    localStorage.clear();
+    mockLocalStorage.clear();
   });
 
   describe("loadFromStorage", () => {

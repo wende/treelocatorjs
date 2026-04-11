@@ -1,6 +1,7 @@
 import type { DejitterFinding, DejitterSummary } from "../dejitter/recorder";
 import type { InteractionEvent } from "../components/RecordingResults";
 import type { DeltaReport } from "../visualDiff/types";
+import { getStorage } from "./getStorage";
 
 export const STORAGE_KEY = "__treelocator_recording__";
 
@@ -17,8 +18,11 @@ export function loadFromStorage(): {
   last: SavedRecording | null;
   previous: SavedRecording | null;
 } {
+  const storage = getStorage();
+  if (!storage) return { last: null, previous: null };
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = storage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     // Ignore localStorage errors (SSR, permissions, quota)
@@ -27,9 +31,12 @@ export function loadFromStorage(): {
 }
 
 export function saveToStorage(current: SavedRecording): void {
+  const storage = getStorage();
+  if (!storage) return;
+
   try {
     const stored = loadFromStorage();
-    localStorage.setItem(
+    storage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         last: current,
@@ -42,8 +49,11 @@ export function saveToStorage(current: SavedRecording): void {
 }
 
 export function clearStorage(): void {
+  const storage = getStorage();
+  if (!storage) return;
+
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    storage.removeItem(STORAGE_KEY);
   } catch {
     // Ignore localStorage errors (SSR, permissions, quota)
   }

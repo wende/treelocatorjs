@@ -16,6 +16,7 @@ import {
   saveToStorage,
   clearStorage,
 } from "./useLocatorStorage";
+import { settings } from "./useSettings";
 import { takeSnapshot } from "../visualDiff/snapshot";
 import { computeDiff, formatReport } from "../visualDiff/diff";
 import { waitForSettle } from "../visualDiff/settle";
@@ -23,14 +24,21 @@ import type { DeltaReport, ElementSnapshot } from "../visualDiff/types";
 
 export type RecordingState = "idle" | "selecting" | "recording" | "results";
 
-const DEJITTER_CONFIG: Partial<DejitterConfig> = {
-  selector: "[data-treelocator-recording]",
-  props: ["opacity", "transform", "boundingRect", "width", "height"],
-  sampleRate: 15,
-  maxDuration: 30000,
-  idleTimeout: 0,
-  mutations: true,
-};
+function buildDejitterConfig(): Partial<DejitterConfig> {
+  const s = settings();
+  return {
+    selector: "[data-treelocator-recording]",
+    props: ["opacity", "transform", "boundingRect", "width", "height"],
+    sampleRate: s.sampleRate,
+    maxDuration: s.maxDurationMs,
+    idleTimeout: 0,
+    mutations: true,
+    thresholds: {
+      jump: { minAbsolute: s.jumpMinAbsolute },
+      lag: { minDelay: s.lagMinDelay },
+    },
+  } as Partial<DejitterConfig>;
+}
 
 export interface RecordingStateAPI {
   recordingState: Accessor<RecordingState>;
@@ -116,7 +124,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     if (!visualDiffContext) return null;
     const { before, root } = visualDiffContext;
     visualDiffContext = null;
-    const settle = await waitForSettle(1000);
+    const settle = await waitForSettle(1000, root);
     const after = takeSnapshot(root);
     const report = computeDiff(before, after);
     report.elapsedMs = performance.now() - recordingStartPerf;
@@ -152,6 +160,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
         break;
       case "results":
         dismissResults();
+        setRecordingState("selecting");
         break;
     }
   }
@@ -161,13 +170,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordedElement(element);
 
     recordingStartPerf = performance.now();
-    visualDiffContext = {
-      before: takeSnapshot(element),
-      root: element,
-    };
+    visualDiffContext = settings().visualDiff
+      ? { before: takeSnapshot(element), root: element }
+      : null;
 
     dejitterInstance = createDejitterRecorder();
-    dejitterInstance.configure(DEJITTER_CONFIG);
+    dejitterInstance.configure(buildDejitterConfig());
     dejitterInstance.start();
     startInteractionTracker();
     setRecordingState("recording");
@@ -178,9 +186,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     if (!instance) return;
     dejitterInstance = null;
     instance.stop();
-    const findings = instance.findings(true) as DejitterFinding[];
+    const anomalyEnabled = settings().anomalyTracking;
+    const findings = anomalyEnabled
+      ? (instance.findings(true) as DejitterFinding[])
+      : [];
     const summary = instance.summary(true) as DejitterSummary;
-    const data = instance.getData();
+    const data = anomalyEnabled ? instance.getData() : null;
 
     const el = recordedElement();
     const elementPath = el ? collectElementPath(el) : "";
@@ -288,13 +299,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
       setRecordedElement(element);
 
       recordingStartPerf = performance.now();
-      visualDiffContext = {
-        before: takeSnapshot(element!),
-        root: element!,
-      };
+      visualDiffContext = settings().visualDiff
+        ? { before: takeSnapshot(element!), root: element! }
+        : null;
 
       dejitterInstance = createDejitterRecorder();
-      dejitterInstance.configure(DEJITTER_CONFIG);
+      dejitterInstance.configure(buildDejitterConfig());
       dejitterInstance.start();
       setRecordingState("recording");
       setReplaying(true);
@@ -312,9 +322,12 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
         }
         dejitterInstance = null;
         instance.stop();
-        const findings = instance.findings(true) as DejitterFinding[];
+        const anomalyEnabled = settings().anomalyTracking;
+        const findings = anomalyEnabled
+          ? (instance.findings(true) as DejitterFinding[])
+          : [];
         const summary = instance.summary(true) as DejitterSummary;
-        const data = instance.getData();
+        const data = anomalyEnabled ? instance.getData() : null;
 
         const el = recordedElement();
         const elementPath = el ? collectElementPath(el) : "";

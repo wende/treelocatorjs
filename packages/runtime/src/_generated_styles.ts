@@ -815,6 +815,10 @@ input:where([type='file']):focus {
   visibility: collapse;
 }
 
+.static {
+  position: static;
+}
+
 .fixed {
   position: fixed;
 }
@@ -1119,6 +1123,10 @@ input:where([type='file']):focus {
 
 .flex-col {
   flex-direction: column;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
 }
 
 .items-center {
@@ -1564,6 +1572,10 @@ input:where([type='file']):focus {
 
 .lowercase {
   text-transform: lowercase;
+}
+
+.italic {
+  font-style: italic;
 }
 
 .text-black {

@@ -14,8 +14,10 @@ import { createTreeNode } from "../adapters/createTreeNode";
 import { RecordingOutline } from "./RecordingOutline";
 import { RecordingResults } from "./RecordingResults";
 import { RecordingPillButton } from "./RecordingPillButton";
+import { SettingsPanel } from "./SettingsPanel";
 import { useRecordingState } from "../hooks/useRecordingState";
 import { useEventListeners } from "../hooks/useEventListeners";
+import { settings } from "../hooks/useSettings";
 
 type RuntimeProps = {
   adapterId?: AdapterId;
@@ -30,6 +32,7 @@ function Runtime(props: RuntimeProps) {
   );
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [locatorActive, setLocatorActive] = createSignal<boolean>(false);
+  const [settingsOpen, setSettingsOpen] = createSignal<boolean>(false);
 
   const recording = useRecordingState(props.adapterId);
 
@@ -56,6 +59,18 @@ function Runtime(props: RuntimeProps) {
   }
 
   // --- Event handlers ---
+
+  function eventPathHasAttribute(e: Event, attr: string): boolean {
+    const path =
+      typeof e.composedPath === "function"
+        ? e.composedPath()
+        : e.target
+          ? [e.target]
+          : [];
+    return path.some(
+      (node) => node instanceof Element && node.hasAttribute(attr)
+    );
+  }
 
   function findElementAtPoint(e: MouseEvent): HTMLElement | null {
     const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
@@ -87,6 +102,14 @@ function Runtime(props: RuntimeProps) {
   }
 
   function clickListener(e: MouseEvent) {
+    if (
+      settingsOpen() &&
+      !eventPathHasAttribute(e, "data-treelocator-settings-panel") &&
+      !eventPathHasAttribute(e, "data-treelocator-settings-toggle")
+    ) {
+      setSettingsOpen(false);
+    }
+
     // Handle recording element selection
     if (recording.recordingState() === "selecting") {
       e.preventDefault();
@@ -124,13 +147,20 @@ function Runtime(props: RuntimeProps) {
         ancestry = truncateAtFirstFile(ancestry);
       }
 
-      // Extract computed styles for the clicked element
+      // Extract computed styles for the clicked element (if enabled)
+      const stylesEnabled = settings().computedStyles;
       const elementLabel = getElementLabel(ancestry);
-      const stylesResult = extractComputedStyles(element as Element, elementLabel);
+      const stylesResult = stylesEnabled
+        ? extractComputedStyles(element as Element, elementLabel, {
+            includeDefaults: settings().computedStylesIncludeDefaults,
+          })
+        : null;
 
       // Write immediately with component names (preserves user gesture for clipboard API)
       const formatted = formatAncestryChain(ancestry);
-      const fullOutput = formatted + "\n\n" + stylesResult.formatted;
+      const fullOutput = stylesResult
+        ? formatted + "\n\n" + stylesResult.formatted
+        : formatted;
       navigator.clipboard.writeText(fullOutput).then(() => {
         setToastMessage("Copied to clipboard");
       });
@@ -143,11 +173,18 @@ function Runtime(props: RuntimeProps) {
         (enriched) => {
           const enrichedFormatted = formatAncestryChain(enriched);
           if (enrichedFormatted !== formatted) {
-            const enrichedLabel = getElementLabel(enriched);
-            const enrichedStyles = enrichedLabel !== elementLabel
-              ? extractComputedStyles(element as Element, enrichedLabel, { forceFull: true }).formatted
-              : stylesResult.formatted;
-            const enrichedFull = enrichedFormatted + "\n\n" + enrichedStyles;
+            let enrichedFull = enrichedFormatted;
+            if (stylesResult) {
+              const enrichedLabel = getElementLabel(enriched);
+              const enrichedStyles =
+                enrichedLabel !== elementLabel
+                  ? extractComputedStyles(element as Element, enrichedLabel, {
+                      forceFull: true,
+                      includeDefaults: settings().computedStylesIncludeDefaults,
+                    }).formatted
+                  : stylesResult.formatted;
+              enrichedFull = enrichedFormatted + "\n\n" + enrichedStyles;
+            }
             navigator.clipboard.writeText(enrichedFull).then(() => {
               setToastMessage("Copied to clipboard");
             });
@@ -269,6 +306,9 @@ function Runtime(props: RuntimeProps) {
           onLoadNext={recording.loadLatestRecording}
         />
       ) : null}
+      {settingsOpen() ? (
+        <SettingsPanel onDismiss={() => setSettingsOpen(false)} />
+      ) : null}
       {toastMessage() && (
         <Toast
           message={toastMessage()!}
@@ -278,8 +318,10 @@ function Runtime(props: RuntimeProps) {
       <RecordingPillButton
         locatorActive={locatorActive()}
         recordingState={recording.recordingState()}
+        settingsOpen={settingsOpen()}
         onLocatorToggle={() => setLocatorActive(!locatorActive())}
         onRecordClick={recording.handleRecordClick}
+        onSettingsClick={() => setSettingsOpen(!settingsOpen())}
       />
     </>
   );

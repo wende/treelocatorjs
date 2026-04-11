@@ -146,7 +146,7 @@ export function RecordingResults(props: RecordingResultsProps) {
     <div
       style={{
         position: "fixed",
-        bottom: "84px",
+        bottom: "180px",
         right: "20px",
         "z-index": "2147483646",
         width: "340px",
