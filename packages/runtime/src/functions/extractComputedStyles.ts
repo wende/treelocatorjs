@@ -176,6 +176,43 @@ function getPropertyGroups(isSvg: boolean): PropertyGroup[] {
  * avoid creating a temporary element and triggering layout on every click.
  */
 const defaultStylesCache = new Map<string, Map<string, string>>();
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
+function createDefaultStyleProbe(
+  tagName: string,
+  isSvgElement: boolean
+): { element: Element; cleanup: () => void } {
+  const createProbeElement = () =>
+    isSvgElement
+      ? document.createElementNS(SVG_NAMESPACE, tagName)
+      : document.createElement(tagName);
+
+  const mountTarget = document.body ?? document.documentElement;
+  if (!mountTarget) {
+    return { element: createProbeElement(), cleanup: () => {} };
+  }
+
+  const host = document.createElement("div");
+  if (typeof host.attachShadow === "function") {
+    // Reset inherited values on the host and use Shadow DOM so author CSS
+    // from the page does not suppress informative inherited typography.
+    host.style.cssText =
+      "all:initial!important;position:fixed!important;display:block!important;visibility:hidden!important;pointer-events:none!important;left:-9999px!important;top:-9999px!important;contain:style layout paint!important;";
+    const root = host.attachShadow({ mode: "open" });
+    const probe = createProbeElement();
+    root.appendChild(probe);
+    mountTarget.appendChild(host);
+    return { element: probe, cleanup: () => host.remove() };
+  }
+
+  const probe = createProbeElement();
+  if (probe instanceof HTMLElement || probe instanceof SVGElement) {
+    probe.style.cssText =
+      "position:fixed!important;visibility:hidden!important;pointer-events:none!important;left:-9999px!important;top:-9999px!important;width:auto!important;height:auto!important;";
+  }
+  mountTarget.appendChild(probe);
+  return { element: probe, cleanup: () => probe.remove() };
+}
 
 function getDefaultStyles(
   element: Element,
@@ -190,24 +227,20 @@ function getDefaultStyles(
   if (cached) return cached;
 
   const defaults = new Map<string, string>();
+  let cleanup = () => {};
   try {
-    const temp = isSvgElement
-      ? document.createElementNS("http://www.w3.org/2000/svg", tagName)
-      : document.createElement(tagName);
-    if (temp instanceof HTMLElement || temp instanceof SVGElement) {
-      (temp as HTMLElement | SVGElement).style.cssText =
-        "position:fixed!important;visibility:hidden!important;pointer-events:none!important;left:-9999px!important;top:-9999px!important;width:auto!important;height:auto!important;";
-    }
-    document.body.appendChild(temp);
-    const computed = window.getComputedStyle(temp);
+    const probe = createDefaultStyleProbe(tagName, isSvgElement);
+    cleanup = probe.cleanup;
+    const computed = window.getComputedStyle(probe.element);
     for (const prop of properties) {
       defaults.set(prop, computed.getPropertyValue(prop));
     }
-    document.body.removeChild(temp);
     defaultStylesCache.set(cacheKey, defaults);
   } catch {
     // Fallback: empty defaults means nothing gets filtered. Do not cache
     // a partial result so a future call can retry.
+  } finally {
+    cleanup();
   }
   return defaults;
 }
@@ -510,18 +543,13 @@ function makeElementHolder(element: Element): ElementHolder {
     };
     return { deref: () => ref.deref() };
   }
-  // Fallback: strong reference. Prevents GC of the element, but that's
-  // bounded by DIFF_WINDOW_MS because we overwrite lastSnapshot on each call.
   return { deref: () => element };
 }
 
 let lastSnapshot: {
   elementRef: ElementHolder;
   snapshot: StyleSnapshot;
-  timestamp: number;
 } | null = null;
-
-const DIFF_WINDOW_MS = 30000;
 
 function formatDiff(
   prev: StyleSnapshot,
@@ -599,25 +627,23 @@ export interface ExtractOptions {
    * returning a "No changes detected" delta would be incorrect.
    */
   forceFull?: boolean;
+  /**
+   * Include curated properties even when they match browser defaults for the
+   * element's tag. Useful when you want a fuller dump closer to DevTools.
+   */
+  includeDefaults?: boolean;
 }
 
-export function extractComputedStyles(
-  element: Element,
-  elementLabel?: string,
-  options: ExtractOptions = {}
-): ComputedStylesResult {
+export function readSnapshot(element: Element): StyleSnapshot {
   const isSvg = element instanceof SVGElement;
   const properties = isSvg ? ALL_PROPERTIES_WITH_SVG : ALL_PROPERTIES;
 
   const computed = window.getComputedStyle(element);
-
-  // Read all property values
   const values: Record<string, string> = {};
   for (const prop of properties) {
     values[prop] = computed.getPropertyValue(prop);
   }
 
-  // Get bounding rect
   const rect = element.getBoundingClientRect();
   const boundingRect = {
     x: Math.round(rect.x),
@@ -630,46 +656,66 @@ export function extractComputedStyles(
     left: Math.round(rect.left),
   };
 
-  const snapshot: StyleSnapshot = { properties: values, boundingRect };
+  return { properties: values, boundingRect };
+}
 
-  // Check for diff mode: same element clicked again within the time window.
-  // `forceFull` bypasses diff mode so callers that re-extract for labelling
-  // purposes (e.g. source-map enrichment) always get the full style dump.
+export function extractComputedStyles(
+  element: Element,
+  elementLabel?: string,
+  options: ExtractOptions = {}
+): ComputedStylesResult {
+  const isSvg = element instanceof SVGElement;
+  const properties = isSvg ? ALL_PROPERTIES_WITH_SVG : ALL_PROPERTIES;
+
+  const snapshot = readSnapshot(element);
+  const values = snapshot.properties;
+  const boundingRect = snapshot.boundingRect;
+
   let diffMode = false;
   let previousSnapshot: StyleSnapshot | null = null;
   if (lastSnapshot && !options.forceFull) {
     const prevElement = lastSnapshot.elementRef.deref();
-    if (
-      prevElement === element &&
-      Date.now() - lastSnapshot.timestamp < DIFF_WINDOW_MS
-    ) {
+    if (prevElement === element) {
       diffMode = true;
       previousSnapshot = lastSnapshot.snapshot;
     }
   }
 
-  // Store current snapshot for future diff
   lastSnapshot = {
     elementRef: makeElementHolder(element),
     snapshot,
-    timestamp: Date.now(),
   };
 
-  if (diffMode && previousSnapshot) {
-    return {
-      formatted: formatDiff(previousSnapshot, snapshot, elementLabel),
-      snapshot,
-    };
-  }
-
-  // Normal mode: filter defaults and format
-  const defaults = getDefaultStyles(element, properties);
+  // Compute default filtering up front so both diff-mode and normal-mode
+  // return paths can hand callers a filtered snapshot.
+  const defaults = options.includeDefaults
+    ? null
+    : getDefaultStyles(element, properties);
 
   const isNonDefault = (prop: string, value: string): boolean => {
     if (!value || value === "") return false;
     if (ALWAYS_EXCLUDE_VALUES.has(value)) return false;
-    return defaults.get(prop) !== value;
+    if (options.includeDefaults) return true;
+    return defaults?.get(prop) !== value;
   };
+
+  const returnedSnapshot: StyleSnapshot = options.includeDefaults
+    ? snapshot
+    : {
+        properties: Object.fromEntries(
+          Object.entries(values).filter(([prop, value]) =>
+            isNonDefault(prop, value)
+          )
+        ),
+        boundingRect,
+      };
+
+  if (diffMode && previousSnapshot) {
+    return {
+      formatted: formatDiff(previousSnapshot, snapshot, elementLabel),
+      snapshot: returnedSnapshot,
+    };
+  }
 
   const lines: string[] = [];
 
@@ -704,8 +750,10 @@ export function extractComputedStyles(
     `  x: ${boundingRect.x}  y: ${boundingRect.y}  width: ${boundingRect.width}  height: ${boundingRect.height}`
   );
 
-  return { formatted: lines.join("\n"), snapshot };
+  return { formatted: lines.join("\n"), snapshot: returnedSnapshot };
 }
+
+export { formatDiff as formatSnapshotDiff };
 
 // Exported for testing
 export {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   _collapseFourValues,
   _processGroupEntries,
@@ -535,6 +535,114 @@ describe("extractComputedStyles", () => {
         expect(after.formatted).toContain("\u0394");
       } finally {
         el.remove();
+      }
+    });
+  });
+
+  describe("includeDefaults option", () => {
+    it("includes curated properties even when they match the tag defaults", () => {
+      const heading = document.createElement("h1");
+      document.body.appendChild(heading);
+
+      const makeStyle = (values: Record<string, string>) =>
+        ({
+          getPropertyValue: (prop: string) => values[prop] ?? "",
+        }) as CSSStyleDeclaration;
+
+      const headingStyles = {
+        display: "block",
+        "font-weight": "700",
+        "font-size": "51.2px",
+        "line-height": "56.32px",
+      };
+
+      const getComputedStyleSpy = vi
+        .spyOn(window, "getComputedStyle")
+        .mockImplementation((node: Element) => {
+          if (node === heading) {
+            return makeStyle(headingStyles);
+          }
+
+          if (node.tagName === "H1") {
+            return makeStyle(headingStyles);
+          }
+
+          return makeStyle({});
+        });
+
+      try {
+        const result = extractComputedStyles(heading, "App heading", {
+          forceFull: true,
+          includeDefaults: true,
+        });
+
+        expect(result.formatted).toContain("Layout");
+        expect(result.formatted).toContain("display: block");
+        expect(result.formatted).toContain("Typography");
+        expect(result.formatted).toContain("font-weight: 700");
+        expect(result.formatted).toContain("font-size: 51.2px");
+      } finally {
+        getComputedStyleSpy.mockRestore();
+        heading.remove();
+      }
+    });
+  });
+
+  describe("default filtering", () => {
+    it("keeps inherited typography when defaults are probed in an isolated shadow root", () => {
+      const link = document.createElement("a");
+      document.body.appendChild(link);
+
+      const makeStyle = (values: Record<string, string>) =>
+        ({
+          getPropertyValue: (prop: string) => values[prop] ?? "",
+        }) as CSSStyleDeclaration;
+
+      const inheritedTypography = {
+        "font-family": '"Fira Code", monospace',
+        "font-size": "21px",
+        "font-style": "italic",
+        "font-weight": "700",
+      };
+
+      const defaultTypography = {
+        "font-family": "Times",
+        "font-size": "16px",
+        "font-style": "normal",
+        "font-weight": "400",
+      };
+
+      const getComputedStyleSpy = vi
+        .spyOn(window, "getComputedStyle")
+        .mockImplementation((node: Element) => {
+          if (node === link) {
+            return makeStyle(inheritedTypography);
+          }
+
+          if (node.tagName === "A") {
+            return makeStyle(
+              node.getRootNode() instanceof ShadowRoot
+                ? defaultTypography
+                : inheritedTypography
+            );
+          }
+
+          return makeStyle({});
+        });
+
+      try {
+        const result = extractComputedStyles(link, "NavItem", {
+          forceFull: true,
+        });
+
+        expect(result.formatted).toContain("Typography");
+        expect(result.formatted).toMatch(/font-family: .*monospace/i);
+        expect(result.formatted).toContain("font-size: 21px");
+        expect(result.formatted).toContain("font-style: italic");
+        expect(result.formatted).toContain("font-weight: 700");
+      } finally {
+        getComputedStyleSpy.mockRestore();
+        link.remove();
       }
     });
   });

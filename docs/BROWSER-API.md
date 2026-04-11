@@ -51,6 +51,32 @@ Returns both formatted path and raw ancestry data in a single call.
 **Returns:**
 - Object with `path` (string) and `ancestry` (array), or `null` if element not found/unsupported
 
+### `getStyles(elementOrSelector: HTMLElement | string, options?: { includeDefaults?: boolean }): { formatted: string; snapshot: object } | null`
+
+Returns a formatted computed-style summary for the element plus a raw snapshot object.
+
+**Parameters:**
+- `elementOrSelector` - Either an HTMLElement or a CSS selector string
+- `options.includeDefaults` - Optional. When `true`, includes curated properties even if they match browser defaults for that tag
+
+**Returns:**
+- Object with `formatted` (human-readable string) and `snapshot` (raw property values + bounding rect), or `null` if element not found
+
+**Example output:**
+```text
+[ComputedStyles] App heading at src/app.jsx:72
+────────────────────────────────────────
+
+Layout
+  display: block
+  margin: 34.304px 0px
+
+Typography
+  font-size: 51.2px
+  font-weight: 700
+  line-height: 56.32px
+```
+
 ## Usage Examples
 
 ### Playwright

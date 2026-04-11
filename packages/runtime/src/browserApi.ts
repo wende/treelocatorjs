@@ -12,7 +12,11 @@ import {
   formatCSSInspection,
   CSSInspectionResult,
 } from "./functions/cssRuleInspector";
-import { extractComputedStyles, ComputedStylesResult } from "./functions/extractComputedStyles";
+import {
+  extractComputedStyles,
+  ComputedStylesResult,
+  ExtractOptions,
+} from "./functions/extractComputedStyles";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
 import { takeSnapshot } from "./visualDiff/snapshot";
@@ -110,6 +114,7 @@ export interface LocatorJSAPI {
    * Clicking the same element twice within 30s returns a diff of changed properties.
    *
    * @param elementOrSelector - HTMLElement or CSS selector string
+   * @param options - Optional flags like { includeDefaults: true } for a fuller dump
    * @returns Object with formatted string and raw snapshot, or null if element not found
    *
    * @example
@@ -126,11 +131,16 @@ export interface LocatorJSAPI {
    * @example
    * // In Playwright
    * const styles = await page.evaluate(() => {
-   *   return window.__treelocator__.getStyles('.my-element');
+   *   return window.__treelocator__.getStyles('.my-element', {
+   *     includeDefaults: true,
+   *   });
    * });
    * console.log(styles?.formatted);
    */
-  getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null;
+  getStyles(
+    elementOrSelector: HTMLElement | string,
+    options?: ExtractOptions
+  ): ComputedStylesResult | null;
 
   /**
    * Display help information about the LocatorJS API.
@@ -376,15 +386,17 @@ METHODS:
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
-4. getStyles(elementOrSelector)
+4. getStyles(elementOrSelector, options?)
    Returns computed styles for an element, optimized for AI consumption.
    Filters out browser defaults and groups by category (Layout, Visual, Typography).
+   Pass { includeDefaults: true } for a fuller dump closer to DevTools.
    Calling twice on the same element within 30s returns a diff of changes.
 
    Usage:
      const result = window.__treelocator__.getStyles('button.submit')
      console.log(result.formatted)  // formatted styles string
      console.log(result.snapshot)   // raw property values + bounding rect
+     const full = window.__treelocator__.getStyles('h1', { includeDefaults: true })
 
 5. getCSSRules(elementOrSelector)
    Returns structured CSS rule data for the element.
@@ -547,14 +559,17 @@ export function createBrowserAPI(
       );
     },
 
-    getStyles(elementOrSelector: HTMLElement | string): ComputedStylesResult | null {
+    getStyles(
+      elementOrSelector: HTMLElement | string,
+      options?: ExtractOptions
+    ): ComputedStylesResult | null {
       const element = resolveElement(elementOrSelector);
       if (!element) return null;
 
       const ancestry = getAncestryForElement(element, adapterId);
       const label = ancestry ? getElementLabel(ancestry) : undefined;
 
-      return extractComputedStyles(element, label || undefined);
+      return extractComputedStyles(element, label || undefined, options);
     },
 
     getCSSRules(
