@@ -14,7 +14,7 @@
     "@locator/babel-jsx": "^0.5.1"
   },
   "dependencies": {
-    "solid-js": "^1.9.2",
+    "solid-js": "^1.9.11",
     "@treelocator/runtime": "workspace:^"
   }
 }
