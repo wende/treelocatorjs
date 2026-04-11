@@ -17,6 +17,13 @@ import {
   ComputedStylesResult,
   ExtractOptions,
 } from "./functions/extractComputedStyles";
+import {
+  takeNamedSnapshot,
+  getNamedSnapshotDiff,
+  clearNamedSnapshot,
+  TakeSnapshotResult,
+  SnapshotDiffResult,
+} from "./functions/namedSnapshots";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
 import { takeSnapshot } from "./visualDiff/snapshot";
@@ -223,6 +230,33 @@ export interface LocatorJSAPI {
     elementOrSelector: HTMLElement | string,
     options?: { properties?: string[] }
   ): string | null;
+
+  /**
+   * Capture a baseline snapshot of an element's computed styles and persist
+   * it in localStorage under `snapshotId`. The baseline survives page reloads
+   * and is never mutated until you call `takeSnapshot` again with the same id.
+   *
+   * @param selector - CSS selector for the element to snapshot
+   * @param snapshotId - caller-chosen id used to retrieve the diff later
+   * @param options - optional `{ index, label }` (index picks among matches)
+   */
+  takeSnapshot(
+    selector: string,
+    snapshotId: string,
+    options?: { index?: number; label?: string }
+  ): TakeSnapshotResult;
+
+  /**
+   * Diff the current computed styles of the element against the baseline
+   * stored under `snapshotId`. Does not overwrite the baseline — safe to call
+   * repeatedly while iterating on a change.
+   */
+  getSnapshotDiff(snapshotId: string): SnapshotDiffResult;
+
+  /**
+   * Remove a stored baseline snapshot.
+   */
+  clearSnapshot(snapshotId: string): void;
 
   /**
    * Replay the last recorded interaction sequence.
@@ -609,6 +643,22 @@ export function createBrowserAPI(
       }
 
       return formatCSSInspection(result);
+    },
+
+    takeSnapshot(
+      selector: string,
+      snapshotId: string,
+      options?: { index?: number; label?: string }
+    ): TakeSnapshotResult {
+      return takeNamedSnapshot(selector, snapshotId, options);
+    },
+
+    getSnapshotDiff(snapshotId: string): SnapshotDiffResult {
+      return getNamedSnapshotDiff(snapshotId);
+    },
+
+    clearSnapshot(snapshotId: string): void {
+      clearNamedSnapshot(snapshotId);
     },
 
     help(): string {

@@ -8,6 +8,12 @@
       "env": {
         "CICADA_CONFIG_DIR": "/Users/wende/.cicada/projects/4a40d840c62c2192"
       }
+    },
+    "treelocator": {
+      "command": "node",
+      "args": [
+        "/Users/wende/projects/treelocatorjs/packages/mcp/dist/index.js"
+      ]
     }
   }
 }

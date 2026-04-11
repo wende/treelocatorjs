@@ -3,13 +3,17 @@ import { AdapterId, fontFamily } from "./consts";
 import generatedStyles from "./_generated_styles";
 import { MAX_ZINDEX } from "./index";
 import { installBrowserAPI } from "./browserApi";
+import { startMCPBridge } from "./mcpBridge";
+import type { MCPBridgeConfig } from "./mcpBridge";
 
 export function initRuntime({
   adapter,
   targets,
+  mcp,
 }: {
   adapter?: AdapterId;
   targets?: { [k: string]: Target | string };
+  mcp?: MCPBridgeConfig;
 } = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -21,6 +25,7 @@ export function initRuntime({
 
   // Install browser API on window.__treelocator__
   installBrowserAPI(adapter);
+  startMCPBridge(mcp);
 
   // add style tag to head
   const style = document.createElement("style");

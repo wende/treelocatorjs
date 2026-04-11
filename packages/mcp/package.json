@@ -1,0 +1,53 @@
+{
+  "name": "@treelocator/mcp",
+  "version": "0.5.2",
+  "description": "MCP server that bridges to live TreeLocator runtime instances in browsers",
+  "type": "module",
+  "bin": {
+    "treelocator-mcp": "./dist/index.js",
+    "@treelocator/mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --watch",
+    "test": "vitest run",
+    "ts": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "selfsigned": "^3.0.1",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/selfsigned": "^2.1.0",
+    "@types/ws": "^8.5.13",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wende/treelocatorjs.git",
+    "directory": "packages/mcp"
+  },
+  "keywords": [
+    "mcp",
+    "treelocator",
+    "websocket",
+    "browser",
+    "debugging"
+  ],
+  "license": "MIT"
+}
