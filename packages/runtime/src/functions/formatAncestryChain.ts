@@ -16,6 +16,7 @@ export interface AncestryItem {
   filePath?: string;
   line?: number;
   id?: string;
+  classes?: string[];
   nthChild?: number; // 1-indexed, only set when there are ambiguous siblings
   /** All owner components from outermost (Sidebar) to innermost (GlassPanel) */
   ownerComponents?: OwnerComponentInfo[];
@@ -97,6 +98,9 @@ export function collectAncestry(node: TreeNode): AncestryItem[] {
       if (element instanceof Element) {
         if (element.id) {
           item.id = element.id;
+        }
+        if (element.classList.length > 0) {
+          item.classes = Array.from(element.classList);
         }
         const nthChild = getNthChildIfAmbiguous(element);
         if (nthChild !== undefined) {
@@ -268,13 +272,16 @@ export function formatAncestryChain(items: AncestryItem[]): string {
       }
     }
 
-    // Build element selector: displayName:nth-child(n)#id
+    // Build element selector: displayName:nth-child(n)#id.class1.class2
     let selector = displayName;
     if (item.nthChild !== undefined) {
       selector += `:nth-child(${item.nthChild})`;
     }
     if (item.id) {
       selector += `#${item.id}`;
+    }
+    if (item.classes && item.classes.length > 0) {
+      selector += "." + item.classes.join(".");
     }
 
     let description = selector;

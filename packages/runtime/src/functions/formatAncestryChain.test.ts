@@ -48,6 +48,29 @@ describe("formatAncestryChain", () => {
     );
   });
 
+  it("includes classes after the id", () => {
+    const items: AncestryItem[] = [
+      {
+        elementName: "button",
+        componentName: "Button",
+        id: "save",
+        classes: ["btn", "btn-primary"],
+      },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe("Button#save.btn.btn-primary");
+  });
+
+  it("includes classes without id", () => {
+    const items: AncestryItem[] = [
+      { elementName: "div", classes: ["card", "card--featured"] },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe("div.card.card--featured");
+  });
+
   it("includes both nth-child and ID at component boundary", () => {
     const items: AncestryItem[] = [
       {
