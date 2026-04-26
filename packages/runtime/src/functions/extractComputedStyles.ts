@@ -189,7 +189,7 @@ function createDefaultStyleProbe(
 
   const mountTarget = document.body ?? document.documentElement;
   if (!mountTarget) {
-    return { element: createProbeElement(), cleanup: () => {} };
+    return { element: createProbeElement(), cleanup: () => { /* noop */ } };
   }
 
   const host = document.createElement("div");
@@ -227,7 +227,7 @@ function getDefaultStyles(
   if (cached) return cached;
 
   const defaults = new Map<string, string>();
-  let cleanup = () => {};
+  let cleanup = () => { /* noop */ };
   try {
     const probe = createDefaultStyleProbe(tagName, isSvgElement);
     cleanup = probe.cleanup;

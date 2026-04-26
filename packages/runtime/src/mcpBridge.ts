@@ -269,7 +269,7 @@ function safeSerialize(value: unknown): unknown {
   return walk(value);
 }
 
-const AsyncFunctionCtor = Object.getPrototypeOf(async function () {}).constructor as {
+const AsyncFunctionCtor = Object.getPrototypeOf(async function () { /* probe */ }).constructor as {
   new (...args: string[]): (...fnArgs: unknown[]) => Promise<unknown>;
 };
 

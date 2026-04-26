@@ -123,7 +123,7 @@ describe("takeSnapshot", () => {
   });
 
   test("caps at MAX_SNAPSHOT_ELEMENTS", () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => { /* silence */ });
     for (let i = 0; i < MAX_SNAPSHOT_ELEMENTS + 200; i++) {
       const d = document.createElement("div");
       document.body.appendChild(d);

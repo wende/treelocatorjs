@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- this test exercises the console capture path */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { executeBridgeCommand } from "./mcpBridge";
 import {
