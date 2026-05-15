@@ -43,7 +43,7 @@ cleanup() {
     fi
   done
   # Kill any remaining processes on our ports
-  for port in 3343 3344 3345 3346 3347 3350; do
+  for port in 3343 3344 3345 3346 3347 3350 3353; do
     lsof -ti:$port | xargs kill -9 2>/dev/null || true
   done
   echo -e "${GREEN}Cleanup complete${NC}"
@@ -120,6 +120,7 @@ start_app "vite-solid-project" "Solid" 3345
 start_app "vite-preact-project" "Preact" 3346
 start_app "vite-svelte-project" "Svelte" 3347
 start_app "vite-vue-project" "Vue" 3350
+start_app "vite-rescript" "ReScript" 3353
 
 echo ""
 echo -e "${YELLOW}Waiting for apps to be ready...${NC}"
@@ -133,6 +134,7 @@ wait_for_url "http://localhost:3345" "Solid"
 wait_for_url "http://localhost:3346" "Preact"
 wait_for_url "http://localhost:3347" "Svelte"
 wait_for_url "http://localhost:3350" "Vue"
+wait_for_url "http://localhost:3353" "ReScript"
 
 echo ""
 echo -e "${GREEN}All apps are ready!${NC}"
