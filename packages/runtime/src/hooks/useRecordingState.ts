@@ -9,7 +9,11 @@ import {
 } from "../dejitter/recorder";
 import type { InteractionEvent } from "../components/RecordingResults";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
-import { collectAncestry, formatAncestryChain } from "../functions/formatAncestryChain";
+import {
+  collectAncestry,
+  formatAncestryChain,
+  getElementLabel,
+} from "../functions/formatAncestryChain";
 import { createTreeNode } from "../adapters/createTreeNode";
 import {
   loadFromStorage,
@@ -19,7 +23,6 @@ import {
 import { settings } from "./useSettings";
 import { takeSnapshot } from "../visualDiff/snapshot";
 import { computeDiff, formatReport } from "../visualDiff/diff";
-import { waitForSettle } from "../visualDiff/settle";
 import type { DeltaReport, ElementSnapshot } from "../visualDiff/types";
 
 export type RecordingState = "idle" | "selecting" | "recording" | "results";
@@ -117,21 +120,48 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
   let replayTimerId: number | null = null;
   let visualDiffContext: {
     before: ElementSnapshot[];
+    beforeElements: Map<string, HTMLElement | SVGElement>;
     root: HTMLElement;
   } | null = null;
 
-  async function finalizeVisualDiff(): Promise<DeltaReport | null> {
+  function componentLabelFor(el: HTMLElement | SVGElement): string | null {
+    if (!(el instanceof HTMLElement)) return null;
+    const node = createTreeNode(el, adapterId);
+    if (!node) return null;
+    const ancestry = collectAncestry(node);
+    const label = getElementLabel(ancestry);
+    return label || null;
+  }
+
+  function enrichEntryLabels(
+    report: DeltaReport,
+    beforeElements: Map<string, HTMLElement | SVGElement>,
+    afterElements: Map<string, HTMLElement | SVGElement>
+  ): void {
+    for (const entry of report.entries) {
+      const el =
+        entry.type === "-"
+          ? beforeElements.get(entry.key)
+          : afterElements.get(entry.key) ?? beforeElements.get(entry.key);
+      if (!el) continue;
+      const label = componentLabelFor(el);
+      if (label) entry.label = label;
+    }
+  }
+
+  function finalizeVisualDiff(): DeltaReport | null {
     if (!visualDiffContext) return null;
-    const { before, root } = visualDiffContext;
+    const { before, beforeElements, root } = visualDiffContext;
     visualDiffContext = null;
-    const settle = await waitForSettle(1000, root);
-    const after = takeSnapshot(root);
+    const afterElements = new Map<string, HTMLElement | SVGElement>();
+    const after = takeSnapshot(root, afterElements);
     const report = computeDiff(before, after);
+    enrichEntryLabels(report, beforeElements, afterElements);
     report.elapsedMs = performance.now() - recordingStartPerf;
-    report.settle = settle;
+    report.settle = "clean";
     report.text = formatReport(report.entries, {
       elapsedMs: report.elapsedMs,
-      settle,
+      settle: "clean",
     });
     return report;
   }
@@ -170,9 +200,16 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     setRecordedElement(element);
 
     recordingStartPerf = performance.now();
-    visualDiffContext = settings().visualDiff
-      ? { before: takeSnapshot(element), root: element }
-      : null;
+    if (settings().visualDiff) {
+      const beforeElements = new Map<string, HTMLElement | SVGElement>();
+      visualDiffContext = {
+        before: takeSnapshot(element, beforeElements),
+        beforeElements,
+        root: element,
+      };
+    } else {
+      visualDiffContext = null;
+    }
 
     dejitterInstance = createDejitterRecorder();
     dejitterInstance.configure(buildDejitterConfig());
@@ -197,7 +234,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     const elementPath = el ? collectElementPath(el) : "";
 
     stopInteractionTracker();
-    const diffReport = await finalizeVisualDiff();
+    const diffReport = finalizeVisualDiff();
 
     setRecordingFindings(findings);
     setRecordingSummary(summary);
@@ -299,9 +336,16 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
       setRecordedElement(element);
 
       recordingStartPerf = performance.now();
-      visualDiffContext = settings().visualDiff
-        ? { before: takeSnapshot(element!), root: element! }
-        : null;
+      if (settings().visualDiff) {
+        const beforeElements = new Map<string, HTMLElement | SVGElement>();
+        visualDiffContext = {
+          before: takeSnapshot(element!, beforeElements),
+          beforeElements,
+          root: element!,
+        };
+      } else {
+        visualDiffContext = null;
+      }
 
       dejitterInstance = createDejitterRecorder();
       dejitterInstance.configure(buildDejitterConfig());
@@ -332,7 +376,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
         const el = recordedElement();
         const elementPath = el ? collectElementPath(el) : "";
 
-        const diffReport = await finalizeVisualDiff();
+        const diffReport = finalizeVisualDiff();
 
         setRecordingFindings(findings);
         setRecordingSummary(summary);

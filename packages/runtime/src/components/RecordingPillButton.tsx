@@ -36,6 +36,7 @@ const CIRCLES: CircleDef[] = [
 
 export function RecordingPillButton(props: RecordingPillButtonProps) {
   const [hovered, setHovered] = createSignal(false);
+  const [hoveredKind, setHoveredKind] = createSignal<CircleKind | null>(null);
 
   const open = () =>
     hovered() ||
@@ -55,10 +56,14 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
         "pointer-events": "auto",
       }}
 
+      data-treelocator-pill=""
       data-treelocator-api="window.__treelocator__"
       data-treelocator-help="window.__treelocator__.help()"
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => {
+        setHovered(false);
+        setHoveredKind(null);
+      }}
     >
       <style>{`
         @keyframes treelocator-rec-pulse {
@@ -105,10 +110,17 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
 
       {/* Circles */}
       <For each={CIRCLES}>
-        {(circle) => (
+        {(circle) => {
+          const interactive = () =>
+            circle.kind === "record" || circle.kind === "settings";
+          const isHovered = () => interactive() && hoveredKind() === circle.kind;
+          return (
           <div
             data-treelocator-settings-toggle={
               circle.kind === "settings" ? "" : undefined
+            }
+            data-treelocator-record-button={
+              circle.kind === "record" ? "" : undefined
             }
             style={{
               position: "absolute",
@@ -117,25 +129,30 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
               width: CIRCLE_SIZE + "px",
               height: CIRCLE_SIZE + "px",
               "border-radius": "50%",
-              background: "#ffffff",
+              background: isHovered() ? "#e5e7eb" : "#ffffff",
               display: "flex",
               "align-items": "center",
               "justify-content": "center",
-              cursor:
-                circle.kind === "record" || circle.kind === "settings"
-                  ? "pointer"
-                  : "default",
+              cursor: interactive() ? "pointer" : "default",
               "box-shadow": "0 4px 14px rgba(0, 0, 0, 0.25)",
-              transform: open() ? "scale(1)" : "scale(0)",
+              transform: open()
+                ? isHovered()
+                  ? "scale(1.12)"
+                  : "scale(1)"
+                : "scale(0)",
               opacity: open() ? "1" : "0",
               transition:
-                "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease-out",
+                "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease-out, box-shadow 0.15s ease-out, background 0.15s ease-out",
               "transition-delay": open()
                 ? circle.openDelay + "ms"
                 : circle.closeDelay + "ms",
               "transform-origin": "center center",
               overflow: "visible",
             }}
+            onMouseEnter={() => setHoveredKind(circle.kind)}
+            onMouseLeave={() =>
+              setHoveredKind((prev) => (prev === circle.kind ? null : prev))
+            }
             onClick={(e) => {
               if (circle.kind === "record") {
                 e.stopPropagation();
@@ -246,7 +263,8 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
               </svg>
             ) : null}
           </div>
-        )}
+          );
+        }}
       </For>
 
       {/* Main tree button */}
@@ -258,16 +276,18 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
           width: "54px",
           height: "54px",
           "border-radius": "50%",
-          background: "#ffffff",
           display: "flex",
           "align-items": "center",
           "justify-content": "center",
           cursor: "pointer",
           overflow: "hidden",
+          transform: hoveredKind() === null && hovered() ? "scale(1.08)" : "scale(1)",
+          background: hoveredKind() === null && hovered() ? "#e5e7eb" : "#ffffff",
           "box-shadow": props.locatorActive
             ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0, 0, 0, 0.25)"
             : "0 4px 14px rgba(0, 0, 0, 0.25)",
-          transition: "box-shadow 0.2s ease-in-out",
+          transition:
+            "transform 0.15s ease-out, background 0.15s ease-out, box-shadow 0.2s ease-in-out",
         }}
         onClick={(e) => {
           e.stopPropagation();

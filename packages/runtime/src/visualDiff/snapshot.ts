@@ -68,7 +68,8 @@ function snapshotElement(el: HTMLElement | SVGElement): ElementSnapshot | null {
 }
 
 export function takeSnapshot(
-  root?: HTMLElement | SVGElement | null
+  root?: HTMLElement | SVGElement | null,
+  elementMap?: Map<string, HTMLElement | SVGElement>
 ): ElementSnapshot[] {
   if (typeof document === "undefined") return [];
 
@@ -98,6 +99,7 @@ export function takeSnapshot(
     const snap = snapshotElement(el);
     if (!snap) continue;
     out.push(snap);
+    elementMap?.set(snap.key, el);
 
     if (out.length >= MAX_SNAPSHOT_ELEMENTS) {
       if (!warnedOverflow) {

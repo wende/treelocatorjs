@@ -235,6 +235,7 @@ export function formatAncestryChain(items: AncestryItem[]): string {
   const reversed = [...items].reverse();
 
   const lines: string[] = [];
+  let clickedDisplayName = "";
 
   reversed.forEach((item, index) => {
     const indent = "    ".repeat(index);
@@ -272,7 +273,10 @@ export function formatAncestryChain(items: AncestryItem[]): string {
       }
     }
 
-    // Build element selector: displayName:nth-child(n)#id.class1.class2
+    // Build element selector: displayName:nth-child(n)#id
+    // Classes are intentionally omitted here — long class lists make the
+    // tree unreadable. They're emitted as a separate list for the clicked
+    // (innermost) element below the tree.
     let selector = displayName;
     if (item.nthChild !== undefined) {
       selector += `:nth-child(${item.nthChild})`;
@@ -280,8 +284,9 @@ export function formatAncestryChain(items: AncestryItem[]): string {
     if (item.id) {
       selector += `#${item.id}`;
     }
-    if (item.classes && item.classes.length > 0) {
-      selector += "." + item.classes.join(".");
+
+    if (index === reversed.length - 1) {
+      clickedDisplayName = displayName;
     }
 
     let description = selector;
@@ -353,6 +358,20 @@ export function formatAncestryChain(items: AncestryItem[]): string {
 
     lines.push(`${indent}${prefix}${description}${location}`);
   });
+
+  const clicked = items[0]!;
+  const hasId = !!clicked.id;
+  const hasClasses = !!clicked.classes && clicked.classes.length > 0;
+  if (hasId || hasClasses) {
+    lines.push("");
+    lines.push(`${clickedDisplayName}:`);
+    if (hasId) {
+      lines.push(`  id="${clicked.id}"`);
+    }
+    if (hasClasses) {
+      lines.push(`  class="${clicked.classes!.join(" ")}"`);
+    }
+  }
 
   return lines.join("\n");
 }

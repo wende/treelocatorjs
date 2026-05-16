@@ -30,7 +30,10 @@ describe("formatAncestryChain", () => {
     // Both are in App, so second item shows element name not component name
     expect(result).toBe(
       `App
-    └─ button#submit-btn`
+    └─ button#submit-btn
+
+button:
+  id="submit-btn"`
     );
   });
 
@@ -48,7 +51,7 @@ describe("formatAncestryChain", () => {
     );
   });
 
-  it("includes classes after the id", () => {
+  it("lists id and classes of the clicked element as html attributes below the tree", () => {
     const items: AncestryItem[] = [
       {
         elementName: "button",
@@ -59,16 +62,57 @@ describe("formatAncestryChain", () => {
     ];
 
     const result = formatAncestryChain(items);
-    expect(result).toBe("Button#save.btn.btn-primary");
+    expect(result).toBe(
+      `Button#save
+
+Button:
+  id="save"
+  class="btn btn-primary"`
+    );
   });
 
-  it("includes classes without id", () => {
+  it("lists classes below an element without an id or component", () => {
     const items: AncestryItem[] = [
       { elementName: "div", classes: ["card", "card--featured"] },
     ];
 
     const result = formatAncestryChain(items);
-    expect(result).toBe("div.card.card--featured");
+    expect(result).toBe(
+      `div
+
+div:
+  class="card card--featured"`
+    );
+  });
+
+  it("only lists classes of the innermost (clicked) element, not ancestors", () => {
+    const items: AncestryItem[] = [
+      { elementName: "button", componentName: "Button", classes: ["btn"] },
+      { elementName: "div", componentName: "App", classes: ["wrapper", "fancy"] },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe(
+      `App
+    └─ Button
+
+Button:
+  class="btn"`
+    );
+  });
+
+  it("shows id even when there are no classes", () => {
+    const items: AncestryItem[] = [
+      { elementName: "section", componentName: "Hero", id: "top" },
+    ];
+
+    const result = formatAncestryChain(items);
+    expect(result).toBe(
+      `Hero#top
+
+Hero:
+  id="top"`
+    );
   });
 
   it("includes both nth-child and ID at component boundary", () => {
@@ -85,7 +129,10 @@ describe("formatAncestryChain", () => {
     const result = formatAncestryChain(items);
     expect(result).toBe(
       `List
-    └─ ListItem:nth-child(2)#special-item`
+    └─ ListItem:nth-child(2)#special-item
+
+ListItem:
+  id="special-item"`
     );
   });
 
@@ -102,7 +149,12 @@ describe("formatAncestryChain", () => {
 
     const result = formatAncestryChain(items);
     // First item is always a boundary (no previous item)
-    expect(result).toBe("Button#save at src/Button.tsx:42");
+    expect(result).toBe(
+      `Button#save at src/Button.tsx:42
+
+Button:
+  id="save"`
+    );
   });
 
   it("formats element without component name", () => {
@@ -111,7 +163,12 @@ describe("formatAncestryChain", () => {
     ];
 
     const result = formatAncestryChain(items);
-    expect(result).toBe("div#main at src/App.tsx:10");
+    expect(result).toBe(
+      `div#main at src/App.tsx:10
+
+div:
+  id="main"`
+    );
   });
 
   it("returns empty string for empty items", () => {
@@ -147,7 +204,10 @@ describe("formatAncestryChain", () => {
     // GlassPanel (innermost) is the display name, Sidebar (outer) shown in "in"
     expect(result).toBe(
       `App at src/App.jsx:104
-    └─ GlassPanel#sidebar-panel in Sidebar at src/components/game/Sidebar.jsx:78`
+    └─ GlassPanel#sidebar-panel in Sidebar at src/components/game/Sidebar.jsx:78
+
+GlassPanel:
+  id="sidebar-panel"`
     );
   });
 

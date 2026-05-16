@@ -3,6 +3,7 @@ import { ReactTreeNodeElement } from "./react/reactAdapter";
 import { JSXTreeNodeElement } from "./jsx/jsxAdapter";
 import { SvelteTreeNodeElement } from "./svelte/svelteAdapter";
 import { VueTreeNodeElement } from "./vue/vueAdapter";
+import { DOMTreeNodeElement } from "./dom/domAdapter";
 import { detectFramework } from "./detectFramework";
 
 export function createTreeNode(
@@ -22,6 +23,6 @@ export function createTreeNode(
     case "vue": return new VueTreeNodeElement(element);
     case "react": return new ReactTreeNodeElement(element);
     case "jsx": return new JSXTreeNodeElement(element);
-    default: return null;
+    default: return new DOMTreeNodeElement(element);  // Fallback to DOM adapter
   }
 }

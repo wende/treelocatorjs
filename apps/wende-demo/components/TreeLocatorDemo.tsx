@@ -216,12 +216,12 @@ export const TreeLocatorDemo = () => {
         // Try to get tree from TreeLocatorJS API using the clicked element
         const win = window as unknown as {
           __treelocator__?: {
-            getPath?: (el: HTMLElement | string) => string | null;
-            getAncestry?: (el: HTMLElement | string) => Array<{ componentName?: string; elementName?: string }> | null;
+            getPath?: (el: HTMLElement | string) => Promise<string | null>;
+            getAncestry?: (el: HTMLElement | string) => Promise<Array<{ componentName?: string; elementName?: string }> | null>;
           };
           __locatorjs__?: {
-            getPath?: (el: HTMLElement | string) => string | null;
-            getAncestry?: (el: HTMLElement | string) => Array<{ componentName?: string; elementName?: string }> | null;
+            getPath?: (el: HTMLElement | string) => Promise<string | null>;
+            getAncestry?: (el: HTMLElement | string) => Promise<Array<{ componentName?: string; elementName?: string }> | null>;
           };
         };
         const api = win.__treelocator__ || win.__locatorjs__;
@@ -230,10 +230,10 @@ export const TreeLocatorDemo = () => {
         if (api && lastClickedElement.current) {
           // Try getPath first, then getAncestry
           if (api.getPath) {
-            treePath = api.getPath(lastClickedElement.current);
+            treePath = await api.getPath(lastClickedElement.current);
           }
           if (!treePath && api.getAncestry) {
-            const ancestry = api.getAncestry(lastClickedElement.current);
+            const ancestry = await api.getAncestry(lastClickedElement.current);
             if (ancestry && ancestry.length > 0) {
               treePath = ancestry.map(a => a.componentName || a.elementName || '?').join('\n→ ');
             }
@@ -273,12 +273,12 @@ export const TreeLocatorDemo = () => {
 
         const win = window as unknown as {
           __treelocator__?: {
-            getPath?: (el: HTMLElement | string) => string | null;
-            getAncestry?: (el: HTMLElement | string) => Array<{ componentName?: string; elementName?: string }> | null;
+            getPath?: (el: HTMLElement | string) => Promise<string | null>;
+            getAncestry?: (el: HTMLElement | string) => Promise<Array<{ componentName?: string; elementName?: string }> | null>;
           };
           __locatorjs__?: {
-            getPath?: (el: HTMLElement | string) => string | null;
-            getAncestry?: (el: HTMLElement | string) => Array<{ componentName?: string; elementName?: string }> | null;
+            getPath?: (el: HTMLElement | string) => Promise<string | null>;
+            getAncestry?: (el: HTMLElement | string) => Promise<Array<{ componentName?: string; elementName?: string }> | null>;
           };
         };
         const api = win.__treelocator__ || win.__locatorjs__;
@@ -286,10 +286,10 @@ export const TreeLocatorDemo = () => {
 
         if (api) {
           if (api.getPath) {
-            treePath = api.getPath(clickedElement);
+            treePath = await api.getPath(clickedElement);
           }
           if (!treePath && api.getAncestry) {
-            const ancestry = api.getAncestry(clickedElement);
+            const ancestry = await api.getAncestry(clickedElement);
             if (ancestry && ancestry.length > 0) {
               treePath = ancestry.map(a => a.componentName || a.elementName || '?').join('\n→ ');
             }

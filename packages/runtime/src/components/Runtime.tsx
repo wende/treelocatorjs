@@ -112,6 +112,12 @@ function Runtime(props: RuntimeProps) {
 
     // Handle recording element selection
     if (recording.recordingState() === "selecting") {
+      // Clicks on the pill button itself (record/settings/tree toggle) must
+      // flow through to their own handlers instead of being interpreted as the
+      // "element to record".
+      if (eventPathHasAttribute(e, "data-treelocator-pill")) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       const element = findElementAtPoint(e);
@@ -142,13 +148,14 @@ function Runtime(props: RuntimeProps) {
     if (treeNode) {
       let ancestry = collectAncestry(treeNode);
 
-      // Alt+Shift: keep from bottom up to the first element with a file, discard above
-      if (e.shiftKey) {
+      // Default: truncate to the local file context and skip computed styles.
+      // Alt+Shift keeps the full chain and includes computed styles.
+      if (!e.shiftKey) {
         ancestry = truncateAtFirstFile(ancestry);
       }
 
-      // Extract computed styles for the clicked element (if enabled)
-      const stylesEnabled = settings().computedStyles;
+      // Extract computed styles only for the full (Alt+Shift) variant
+      const stylesEnabled = settings().computedStyles && e.shiftKey;
       const elementLabel = getElementLabel(ancestry);
       const stylesResult = stylesEnabled
         ? extractComputedStyles(element as Element, elementLabel, {
