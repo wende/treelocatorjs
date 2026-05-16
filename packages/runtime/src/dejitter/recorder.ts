@@ -1,8 +1,17 @@
 /**
- * Dejitter — Animation frame recorder & jank detector (vendored)
+ * Dejitter — Animation frame recorder & jank detector
  *
- * Ported from dejitter/recorder.js as an ES module factory.
- * Records every rAF at full speed, then downsamples intelligently on getData().
+ * Source of truth lives here. The upstream `dejitter` standalone project
+ * (github.com/wende/dejitter, npm `dejitter`) is the historical seed; new
+ * work happens in this file. Records every rAF at full speed, then
+ * downsamples intelligently on getData().
+ *
+ * Diverges from upstream `dejitter` in two ways:
+ * - Adds a `lag` detector (input-to-paint delay) and matching threshold.
+ * - Threads `existingFindings` through shiver/jump/stutter/stuck so each
+ *   prop only gets reported by the first detector that matches; the
+ *   stutter detector also segments by `maxFrameGap` so a gap between two
+ *   animations isn't read as a mid-motion reversal.
  */
 
 export interface DejitterConfig {
@@ -17,7 +26,7 @@ export interface DejitterConfig {
     jitter: { minDeviation: number; maxDuration: number; highSeverity: number; medSeverity: number };
     shiver: { minReversals: number; minDensity: number; highDensity: number; medDensity: number; minDelta: number };
     jump: { medianMultiplier: number; minAbsolute: number; highMultiplier: number; medMultiplier: number };
-    stutter: { velocityRatio: number; maxFrames: number; minVelocity: number };
+    stutter: { velocityRatio: number; maxFrames: number; minVelocity: number; maxFrameGap: number };
     stuck: { minStillFrames: number; maxDelta: number; minSurroundingVelocity: number; highDuration: number; medDuration: number };
     outlier: { ratioThreshold: number };
     lag: { minDelay: number; highDelay: number; medDelay: number };
@@ -68,7 +77,7 @@ export function createDejitterRecorder(): DejitterAPI {
       jitter: { minDeviation: 1, maxDuration: 1000, highSeverity: 20, medSeverity: 5 },
       shiver: { minReversals: 5, minDensity: 0.3, highDensity: 0.7, medDensity: 0.5, minDelta: 0.01 },
       jump: { medianMultiplier: 10, minAbsolute: 50, highMultiplier: 50, medMultiplier: 20 },
-      stutter: { velocityRatio: 0.3, maxFrames: 3, minVelocity: 0.5 },
+      stutter: { velocityRatio: 0.3, maxFrames: 3, minVelocity: 0.5, maxFrameGap: 100 },
       stuck: { minStillFrames: 3, maxDelta: 0.5, minSurroundingVelocity: 1, highDuration: 500, medDuration: 200 },
       outlier: { ratioThreshold: 3 },
       lag: { minDelay: 50, highDelay: 200, medDelay: 100 },
@@ -501,11 +510,12 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectShiverFindings(propStats: any, elements: any): DejitterFinding[] {
+  function detectShiverFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
 
     for (const p of propStats.props) {
       if (p.raw < 10) continue;
+      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 10) continue;
@@ -557,11 +567,12 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectJumpFindings(propStats: any, elements: any): DejitterFinding[] {
+  function detectJumpFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
 
     for (const p of propStats.props) {
       if (p.raw < 3) continue;
+      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 3) continue;
@@ -612,12 +623,13 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectStutterFindings(propStats: any, elements: any): DejitterFinding[] {
+  function detectStutterFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
     const st = config.thresholds.stutter;
 
     for (const p of propStats.props) {
       if (p.raw < 6) continue;
+      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 6) continue;
@@ -629,84 +641,102 @@ export function createDejitterRecorder(): DejitterAPI {
       }
       if (numeric.length < 6) continue;
 
-      const deltas: number[] = [];
-      for (let i = 1; i < numeric.length; i++) {
-        deltas.push(numeric[i]!.val - numeric[i - 1]!.val);
+      // Split the timeline into temporally-contiguous segments. A gap larger
+      // than maxFrameGap (ms) means the previous animation ended and a new
+      // one started — a direction change across that gap is two separate
+      // motions, not a mid-motion stutter.
+      const segments: Array<Array<{ t: number; val: number }>> = [];
+      let segStart = 0;
+      for (let k = 1; k < numeric.length; k++) {
+        if (numeric[k]!.t - numeric[k - 1]!.t > st.maxFrameGap) {
+          segments.push(numeric.slice(segStart, k));
+          segStart = k;
+        }
       }
+      segments.push(numeric.slice(segStart));
 
-      const windowSize = 5;
-      let i = 0;
-      while (i < deltas.length) {
-        const winStart = Math.max(0, i - windowSize);
-        if (i - winStart < 2) { i++; continue; }
+      for (const segment of segments) {
+        if (segment.length < 6) continue;
 
-        let sum = 0;
-        for (let w = winStart; w < i; w++) sum += deltas[w]!;
-        const dominantDir = Math.sign(sum);
-        if (dominantDir === 0) { i++; continue; }
+        const deltas: number[] = [];
+        for (let k = 1; k < segment.length; k++) {
+          deltas.push(segment[k]!.val - segment[k - 1]!.val);
+        }
 
-        if (deltas[i]! !== 0 && Math.sign(deltas[i]!) !== dominantDir) {
-          const reversalStart = i;
-          let reversalEnd = i;
-          while (
-            reversalEnd + 1 < deltas.length &&
-            reversalEnd - reversalStart + 1 < st.maxFrames &&
-            deltas[reversalEnd + 1]! !== 0 &&
-            Math.sign(deltas[reversalEnd + 1]!) !== dominantDir
-          ) {
-            reversalEnd++;
-          }
+        const windowSize = 5;
+        let i = 0;
+        while (i < deltas.length) {
+          const winStart = Math.max(0, i - windowSize);
+          if (i - winStart < 2) { i++; continue; }
 
-          const afterIdx = reversalEnd + 1;
-          if (afterIdx >= deltas.length || Math.sign(deltas[afterIdx]!) !== dominantDir) {
-            i = reversalEnd + 1;
-            continue;
-          }
+          let sum = 0;
+          for (let w = winStart; w < i; w++) sum += deltas[w]!;
+          const dominantDir = Math.sign(sum);
+          if (dominantDir === 0) { i++; continue; }
 
-          let reversalMag = 0;
-          for (let r = reversalStart; r <= reversalEnd; r++) {
-            reversalMag += Math.abs(deltas[r]!);
-          }
-
-          const localStart = Math.max(0, reversalStart - windowSize);
-          const localEnd = Math.min(deltas.length - 1, reversalEnd + windowSize);
-          let localSum = 0;
-          let localCount = 0;
-          for (let l = localStart; l <= localEnd; l++) {
-            if (l >= reversalStart && l <= reversalEnd) continue;
-            localSum += Math.abs(deltas[l]!);
-            localCount++;
-          }
-          const localVelocity = localCount > 0 ? localSum / localCount : 0;
-
-          if (localVelocity >= st.minVelocity) {
-            const ratio = reversalMag / localVelocity;
-            if (ratio >= st.velocityRatio) {
-              const reversalFrameCount = reversalEnd - reversalStart + 1;
-              const severity = ratio >= 1.0 ? 'high' : ratio >= 0.5 ? 'medium' : 'low';
-              const t = numeric[reversalStart + 1]!.t;
-              findings.push(makeFinding(
-                'stutter', severity,
-                p.elem, elements[p.elem], p.prop,
-                `${p.prop} reverses for ${reversalFrameCount} frame${reversalFrameCount > 1 ? 's' : ''} at t=${t}ms during smooth motion (reversal ${Math.round(reversalMag * 10) / 10}px vs local velocity ${Math.round(localVelocity * 10) / 10}px/frame, ratio ${Math.round(ratio * 100) / 100})`,
-                {
-                  rawChanges: p.raw,
-                  stutter: {
-                    t,
-                    reversalFrames: reversalFrameCount,
-                    reversalMagnitude: Math.round(reversalMag * 10) / 10,
-                    localVelocity: Math.round(localVelocity * 10) / 10,
-                    ratio: Math.round(ratio * 100) / 100,
-                    dominantDirection: dominantDir > 0 ? 'increasing' : 'decreasing',
-                  },
-                }
-              ));
+          if (deltas[i]! !== 0 && Math.sign(deltas[i]!) !== dominantDir) {
+            const reversalStart = i;
+            let reversalEnd = i;
+            while (
+              reversalEnd + 1 < deltas.length &&
+              reversalEnd - reversalStart + 1 < st.maxFrames &&
+              deltas[reversalEnd + 1]! !== 0 &&
+              Math.sign(deltas[reversalEnd + 1]!) !== dominantDir
+            ) {
+              reversalEnd++;
             }
-          }
 
-          i = reversalEnd + 1;
-        } else {
-          i++;
+            const afterIdx = reversalEnd + 1;
+            if (afterIdx >= deltas.length || Math.sign(deltas[afterIdx]!) !== dominantDir) {
+              i = reversalEnd + 1;
+              continue;
+            }
+
+            let reversalMag = 0;
+            for (let r = reversalStart; r <= reversalEnd; r++) {
+              reversalMag += Math.abs(deltas[r]!);
+            }
+
+            const localStart = Math.max(0, reversalStart - windowSize);
+            const localEnd = Math.min(deltas.length - 1, reversalEnd + windowSize);
+            let localSum = 0;
+            let localCount = 0;
+            for (let l = localStart; l <= localEnd; l++) {
+              if (l >= reversalStart && l <= reversalEnd) continue;
+              localSum += Math.abs(deltas[l]!);
+              localCount++;
+            }
+            const localVelocity = localCount > 0 ? localSum / localCount : 0;
+
+            if (localVelocity >= st.minVelocity) {
+              const ratio = reversalMag / localVelocity;
+              if (ratio >= st.velocityRatio) {
+                const reversalFrameCount = reversalEnd - reversalStart + 1;
+                const severity = ratio >= 1.0 ? 'high' : ratio >= 0.5 ? 'medium' : 'low';
+                const t = segment[reversalStart + 1]!.t;
+                findings.push(makeFinding(
+                  'stutter', severity,
+                  p.elem, elements[p.elem], p.prop,
+                  `${p.prop} reverses for ${reversalFrameCount} frame${reversalFrameCount > 1 ? 's' : ''} at t=${t}ms during smooth motion (reversal ${Math.round(reversalMag * 10) / 10}px vs local velocity ${Math.round(localVelocity * 10) / 10}px/frame, ratio ${Math.round(ratio * 100) / 100})`,
+                  {
+                    rawChanges: p.raw,
+                    stutter: {
+                      t,
+                      reversalFrames: reversalFrameCount,
+                      reversalMagnitude: Math.round(reversalMag * 10) / 10,
+                      localVelocity: Math.round(localVelocity * 10) / 10,
+                      ratio: Math.round(ratio * 100) / 100,
+                      dominantDirection: dominantDir > 0 ? 'increasing' : 'decreasing',
+                    },
+                  }
+                ));
+              }
+            }
+
+            i = reversalEnd + 1;
+          } else {
+            i++;
+          }
         }
       }
     }
@@ -714,12 +744,13 @@ export function createDejitterRecorder(): DejitterAPI {
     return findings;
   }
 
-  function detectStuckFindings(propStats: any, elements: any): DejitterFinding[] {
+  function detectStuckFindings(propStats: any, elements: any, existingFindings: DejitterFinding[]): DejitterFinding[] {
     const findings: DejitterFinding[] = [];
     const sk = config.thresholds.stuck;
 
     for (const p of propStats.props) {
       if (p.raw < 6) continue;
+      if (existingFindings.some((f) => f.elem === p.elem && f.prop === p.prop)) continue;
 
       const timeline = getTimeline(p.elem, p.prop);
       if (timeline.length < 6) continue;
@@ -870,10 +901,10 @@ export function createDejitterRecorder(): DejitterAPI {
     const elements = buildElementMap();
 
     let findings = detectOutlierFindings(propStats, elements);
-    findings = findings.concat(detectShiverFindings(propStats, elements));
-    findings = findings.concat(detectJumpFindings(propStats, elements));
-    findings = findings.concat(detectStutterFindings(propStats, elements));
-    findings = findings.concat(detectStuckFindings(propStats, elements));
+    findings = findings.concat(detectShiverFindings(propStats, elements, findings));
+    findings = findings.concat(detectJumpFindings(propStats, elements, findings));
+    findings = findings.concat(detectStutterFindings(propStats, elements, findings));
+    findings = findings.concat(detectStuckFindings(propStats, elements, findings));
     findings = findings.concat(detectLagFindings(elements));
     findings = deduplicateShivers(findings);
 
