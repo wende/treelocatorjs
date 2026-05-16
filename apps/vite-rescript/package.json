@@ -1,0 +1,25 @@
+{
+  "name": "vite-rescript-project",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3353",
+    "build": "vite build",
+    "preview": "vite preview --port 3353",
+    "fixtures": "node scripts/build-fixtures.mjs"
+  },
+  "dependencies": {
+    "@treelocator/runtime": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@treelocator/vite-plugin-rescript": "workspace:*",
+    "@types/react": "^18.0.15",
+    "@types/react-dom": "^18.0.6",
+    "@vitejs/plugin-react": "^4.0.0",
+    "source-map": "^0.7.4",
+    "vite": "^5.0.0"
+  }
+}

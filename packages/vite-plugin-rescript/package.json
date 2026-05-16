@@ -1,0 +1,68 @@
+{
+  "name": "@treelocator/vite-plugin-rescript",
+  "version": "0.6.0",
+  "description": "Vite plugin that remaps ReScript-compiled JSX positions back to the original .res file via source maps, so TreeLocatorJS / React DevTools point at the right line in the right file.",
+  "keywords": [
+    "treelocator",
+    "treelocatorjs",
+    "rescript",
+    "vite-plugin",
+    "vite",
+    "react",
+    "source-map",
+    "devtools"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "test": "vitest run",
+    "test:dev": "vitest watch",
+    "ts": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.26.0",
+    "@babel/parser": "^7.26.0",
+    "@babel/traverse": "^7.26.0",
+    "@babel/types": "^7.26.0",
+    "source-map": "^0.7.4"
+  },
+  "peerDependencies": {
+    "vite": ">=3"
+  },
+  "devDependencies": {
+    "@types/babel__generator": "^7.6.8",
+    "@types/babel__traverse": "^7.20.6",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wende/treelocatorjs.git",
+    "directory": "packages/vite-plugin-rescript"
+  },
+  "author": "Krzysztof Wende",
+  "license": "MIT"
+}
