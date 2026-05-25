@@ -37,6 +37,14 @@
     "npm": ">=7.0.0",
     "node": ">=22.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping": "2.10.32",
+      "browserslist": "4.28.2",
+      "caniuse-lite": "1.0.30001793",
+      "update-browserslist-db": "1.1.4"
+    }
+  },
   "packageManager": "pnpm@8.7.5",
   "dependencies": {}
 }

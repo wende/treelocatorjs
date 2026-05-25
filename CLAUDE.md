@@ -95,7 +95,7 @@ Requires: Node.js >=22.0.0, pnpm 8.7.5
 
 ### Demo Apps (`apps/`)
 
-Test apps for different frameworks: `next-14`, `next-16`, `vite-react-*`, `vite-preact-*`, `vite-svelte-*`, `vite-vue-*`, `vite-solid-*`. E2E tests in `playwright/`.
+Test apps for different frameworks: `next-16`, `vite-react-*`, `vite-preact-*`, `vite-svelte-*`, `vite-vue-*`, `vite-solid-*`. E2E tests in `playwright/`.
 
 See [CLAUDE-DEMO-APP.md](./docs/CLAUDE-DEMO-APP.md) for how to set up new demo apps.
 
@@ -224,4 +224,3 @@ The runtime auto-detects frameworks in this order (see `packages/runtime/src/ada
   - ✓ String literal searches
   - ✓ Pattern matching in single line comments
 </cicada>
-

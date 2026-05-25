@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import {
   takeNamedSnapshot,
   getNamedSnapshotDiff,
@@ -7,9 +7,34 @@ import {
   NamedSnapshotError,
 } from "./namedSnapshots";
 
+const mockStorage = new Map<string, string>();
+
+const mockLocalStorage = {
+  getItem(key: string): string | null {
+    return mockStorage.has(key) ? mockStorage.get(key)! : null;
+  },
+  setItem(key: string, value: string): void {
+    mockStorage.set(key, String(value));
+  },
+  removeItem(key: string): void {
+    mockStorage.delete(key);
+  },
+  clear(): void {
+    mockStorage.clear();
+  },
+};
+
 describe("namedSnapshots", () => {
+  beforeAll(() => {
+    vi.stubGlobal("localStorage", mockLocalStorage);
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
-    localStorage.clear();
+    mockLocalStorage.clear();
     document.body.innerHTML = "";
   });
 

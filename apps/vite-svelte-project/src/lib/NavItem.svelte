@@ -4,14 +4,18 @@
 </script>
 
 <li {id} class="nav-item">
-  <a href="#">{label}</a>
+  <button type="button">{label}</button>
 </li>
 
 <style>
   .nav-item {
     padding: 5px 0;
   }
-  a {
+  button {
+    background: transparent;
+    border: 0;
     color: #fff;
+    cursor: pointer;
+    padding: 0;
   }
 </style>

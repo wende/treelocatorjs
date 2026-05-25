@@ -294,7 +294,7 @@ TreeLocatorJS is a **monorepo** using:
 ### Demo Applications
 
 Test apps for all supported frameworks live in `apps/`:
-- `next-14`, `next-16` - Next.js apps
+- `next-16` - Next.js app
 - `vite-react-*` - React with Vite
 - `vite-preact-*` - Preact with Vite
 - `vite-svelte-*` - Svelte with Vite

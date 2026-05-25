@@ -77,8 +77,12 @@ export function initRuntime({
   // Browser Extension breaks when importing with "import()"
   // Vite breaks when importing with "require()"
   if (typeof require !== "undefined") {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { initRender } = require("./components/Runtime");
+    // Keep the module path opaque so SSR bundlers do not eagerly analyze
+    // the Solid runtime component graph on the server build.
+    const runtimeModulePath = `./components/${"Runtime"}`;
+    const { initRender } = require(runtimeModulePath) as {
+      initRender: typeof import("./components/Runtime").initRender;
+    };
     initRender(layer, adapter, targets || allTargets);
   } else {
     import("./components/Runtime").then(({ initRender }) => {
