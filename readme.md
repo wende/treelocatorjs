@@ -33,8 +33,8 @@ div in App at src/App.tsx:5
 - **One-Command Setup** - `npx @treelocator/init` auto-configures your project
 - **Framework Agnostic** - React, Vue, Svelte, Preact, Solid, and more
 - **Non-Intrusive** - No visual clutter, only a subtle tree icon toggle
-- **Browser Automation Ready** - Programmatic API for Playwright, Puppeteer, Cypress
-- **AI/MCP Ready** - Built-in Model Context Protocol bridge so AI agents can inspect your running app
+- **Browser Automation Ready** - Programmatic API for Playwright, Puppeteer, Cypress ([guide](./docs/PLAYWRIGHT-AND-AUTOMATION.md))
+- **AI/MCP Ready** - Built-in Model Context Protocol bridge so AI agents can inspect your running app ([MCP setup](./docs/MCP.md))
 - **Style-Aware** - Computed styles, matched CSS rules, specificity scoring, and snapshot diffs
 - **Lightweight** - Minimal runtime overhead
 - **Developer First** - Built by developers, for developers
@@ -210,7 +210,10 @@ const ancestry = window.__treelocator__.getAncestry(document.querySelector('.my-
 // ancestry.computedStyles, ancestry.cssRules
 ```
 
-Perfect for E2E tests with Playwright, Puppeteer, Selenium, or Cypress. See [BROWSER-API.md](./docs/BROWSER-API.md) for complete API documentation.
+Perfect for E2E tests with Playwright, Puppeteer, Selenium, or Cypress.
+
+- **API reference:** [BROWSER-API.md](./docs/BROWSER-API.md)
+- **Playwright, extension injection, MCP FAQ:** [PLAYWRIGHT-AND-AUTOMATION.md](./docs/PLAYWRIGHT-AND-AUTOMATION.md) — start here if you are looking for a console inject snippet or wondering how automation fits together
 
 ### 🧠 MCP Bridge for AI Agents
 
@@ -232,6 +235,9 @@ browser runtime  ──wss──▶  @treelocator/mcp broker  ◀──stdio─�
 | Inspect | `treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report` |
 | Snapshot | `treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot` |
 | Interact | `treelocator_click`, `treelocator_hover`, `treelocator_type` |
+| Debug | `treelocator_execute_js`, `treelocator_get_console` |
+
+MCP connects to a browser tab where runtime is **already running** — it does not inject TreeLocator by itself.
 
 Configure the bridge via `setup()`:
 
@@ -245,7 +251,7 @@ setup({
 });
 ```
 
-See [docs/MCP.md](./docs/MCP.md) for architecture and the full tool reference.
+See [docs/MCP.md](./docs/MCP.md) for setup, architecture, and the full tool reference.
 
 ### 📹 Dejitter Recording
 
@@ -294,9 +300,11 @@ Navigate large codebases with ease:
 
 ### 🧪 Testing
 
-Write more maintainable E2E tests:
+Write more maintainable E2E tests (runtime must be loaded in the app first — see [PLAYWRIGHT-AND-AUTOMATION.md](./docs/PLAYWRIGHT-AND-AUTOMATION.md)):
+
 ```javascript
-// In your Playwright test
+await page.waitForFunction(() => typeof window.__treelocator__ !== "undefined");
+
 const path = await page.evaluate(() => {
   return window.__treelocator__.getPath('button.submit');
 });
@@ -320,7 +328,7 @@ TreeLocatorJS is a **monorepo** using:
 | `@treelocator/runtime` | Core runtime with Alt+click handler, overlay UI, settings panel, and MCP bridge client |
 | `@treelocator/vite` | Vite plugin — auto-injects runtime in dev (no entry file edit) |
 | `@treelocator/init` | CLI setup wizard (`npx @treelocator/init`) |
-| `@treelocator/mcp` | Local WSS broker + stdio MCP server for AI agent integration |
+| `@treelocator/mcp` | Local WSS broker + stdio MCP server for AI agent integration ([docs](./docs/MCP.md)) |
 
 **Dependencies (from original LocatorJS):**
 - `@locator/shared` - Shared TypeScript types and utilities

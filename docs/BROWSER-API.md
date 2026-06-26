@@ -2,6 +2,18 @@
 
 TreeLocatorJS exposes a global API (`window.__treelocator__`) that allows browser automation tools to programmatically access component ancestry information for any element on the page.
 
+## Before you call the API
+
+`window.__treelocator__` exists only **after** the TreeLocator runtime has initialized in that tab. It is not available on arbitrary pages by default.
+
+| How runtime loads | When to use |
+|-------------------|-------------|
+| `npx @treelocator/init` or `@treelocator/vite` in dev | Your own app / E2E tests against it |
+| Chrome extension on localhost | Apps without a runtime import |
+| MCP tools (`@treelocator/mcp`) | AI agents inspecting a tab where runtime is already running |
+
+There is **no** console one-liner or CDN script to inject TreeLocator onto any URL. See [PLAYWRIGHT-AND-AUTOMATION.md](./PLAYWRIGHT-AND-AUTOMATION.md) for Playwright fixtures, extension loading, MCP vs Playwright, and common misconceptions.
+
 ## API Reference
 
 ### `getPath(elementOrSelector: HTMLElement | string): string | null`
@@ -260,3 +272,4 @@ test('should match screenshot', async ({ page }) => {
 - Works with all frameworks supported by TreeLocatorJS (React, Vue, Svelte, Preact, etc.)
 - Returns `null` if the element is not found or the framework adapter doesn't support it
 - The API uses the same underlying logic as the Alt+click feature
+- There is no standalone console snippet to inject runtime on arbitrary pages — see [PLAYWRIGHT-AND-AUTOMATION.md](./PLAYWRIGHT-AND-AUTOMATION.md)

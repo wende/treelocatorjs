@@ -22,6 +22,8 @@ const ancestry = window.__treelocator__.getAncestry(element);
 
 See [BROWSER-API.md](./docs/BROWSER-API.md) for full API reference and examples.
 
+For Playwright usage, Chrome extension injection, MCP setup, and what is **not** supported (e.g. console bootstrap on arbitrary pages), see [PLAYWRIGHT-AND-AUTOMATION.md](./docs/PLAYWRIGHT-AND-AUTOMATION.md) and [MCP.md](./docs/MCP.md).
+
 ## Quick Start
 
 ### Development Setup
@@ -103,6 +105,7 @@ See [CLAUDE-DEMO-APP.md](./docs/CLAUDE-DEMO-APP.md) for how to set up new demo a
 
 - **Runtime entry**: `packages/runtime/src/index.ts` → `initRuntime.ts`
 - **Browser API**: `packages/runtime/src/browserApi.ts` (window.__treelocator__ for automation tools)
+- **Automation docs**: `docs/PLAYWRIGHT-AND-AUTOMATION.md`, `docs/MCP.md`, `docs/BROWSER-API.md`
 - **Overlay UI**: `packages/runtime/src/components/Runtime.tsx` (SolidJS)
 - **Tree icon toggle**: `packages/runtime/src/components/Runtime.tsx` (lines 25, 67-98, 170-201)
 - **Tree icon asset**: `packages/runtime/src/assets/tree-icon.png` + `scripts/wrapImage.js`
