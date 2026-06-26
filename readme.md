@@ -30,7 +30,7 @@ div in App at src/App.tsx:5
 
 ## Why TreeLocatorJS?
 
-- **Zero Configuration** - Just import and it works
+- **One-Command Setup** - `npx @treelocator/init` auto-configures your project
 - **Framework Agnostic** - React, Vue, Svelte, Preact, Solid, and more
 - **Non-Intrusive** - No visual clutter, only a subtle tree icon toggle
 - **Browser Automation Ready** - Programmatic API for Playwright, Puppeteer, Cypress
@@ -41,42 +41,78 @@ div in App at src/App.tsx:5
 
 ## Quick Start
 
-### Installation
+### Installation (recommended)
+
+Run the setup wizard from your project root — it detects your stack and configures everything:
 
 ```bash
-npm install @treelocator/runtime
+npx @treelocator/init
 ```
 
-Or use the automated setup wizard (recommended):
+Non-interactive (CI, scripts):
 
 ```bash
-# Interactive mode (default)
-npx @treelocator/init
-
-# Non-interactive mode (CI/CD, automation)
 npx @treelocator/init --yes
-# or
-TREELOCATOR_AUTO_CONFIRM=1 npx @treelocator/init
+# or the shorter alias:
+npx treelocatorjs --yes
+```
 
-# Check existing configuration
+Verify an existing setup:
+
+```bash
 npx @treelocator/init --check
 ```
 
-The wizard will:
-- Auto-detect your project (package manager, build tool, framework)
-- Install required packages
-- Configure your build tool (Vite, Next.js, etc.)
-- Add the runtime import to your entry file
+**What the wizard does:**
 
-### Basic Usage
+| Step | Vite (React, Vue, Svelte, etc.) | Next.js |
+|------|----------------------------------|---------|
+| Installs packages | `@treelocator/runtime`, `@treelocator/vite`, + babel deps for JSX | `@treelocator/runtime`, `@locator/webpack-loader` |
+| Configures build tool | Adds `treelocator()` to `vite.config` (+ babel for JSX frameworks) | Adds webpack loader to `next.config` |
+| Wires up runtime | Auto-injected in dev via Vite plugin — **no entry file edit** | Creates `LocatorProvider` and wraps `app/layout` |
 
-Add one line to your app's entry point:
+Then start your dev server and Alt+click any element.
 
-```js
-import "@treelocator/runtime";
+### Manual installation
+
+If you prefer to set things up yourself:
+
+```bash
+npm install -D @treelocator/runtime @treelocator/vite
+# JSX frameworks (React, Solid, Preact) also need:
+npm install -D @locator/babel-jsx @rolldown/plugin-babel @babel/core
 ```
 
-That's it! Now you can:
+**Vite** — add to `vite.config.js`:
+
+```js
+import treelocator from "@treelocator/vite";
+import babel from "@rolldown/plugin-babel"; // React/Solid/Preact only
+
+export default defineConfig({
+  plugins: [
+    react(),
+    babel({
+      plugins: [["@locator/babel-jsx/dist", { env: "development" }]],
+    }),
+    treelocator(), // auto-injects runtime in dev — no main.tsx edit needed
+  ],
+});
+```
+
+Vue and Svelte skip the babel plugin — they only need `treelocator()`.
+
+**Next.js** — see [NEXTJS-SETUP.md](./docs/NEXTJS-SETUP.md).
+
+Or add the runtime manually to your entry file:
+
+```js
+import { setup } from "@treelocator/runtime";
+if (import.meta.env.DEV) setup();
+```
+
+### Usage
+
 1. Hold **Alt** (or **Option** on Mac) and click any element
 2. Or click the **tree icon** in the bottom-right corner, then click an element
 
@@ -282,7 +318,8 @@ TreeLocatorJS is a **monorepo** using:
 | Package | Description |
 |---------|-------------|
 | `@treelocator/runtime` | Core runtime with Alt+click handler, overlay UI, settings panel, and MCP bridge client |
-| `@treelocator/init` | CLI setup wizard for easy project configuration |
+| `@treelocator/vite` | Vite plugin — auto-injects runtime in dev (no entry file edit) |
+| `@treelocator/init` | CLI setup wizard (`npx @treelocator/init`) |
 | `@treelocator/mcp` | Local WSS broker + stdio MCP server for AI agent integration |
 
 **Dependencies (from original LocatorJS):**
@@ -354,6 +391,7 @@ cd apps/playwright && pnpm test
 
 TreeLocatorJS is published to npm under the `@treelocator` scope:
 - **@treelocator/runtime** - Core functionality
+- **@treelocator/vite** - Vite plugin for dev-only runtime injection
 - **@treelocator/init** - CLI setup wizard
 
 Reuses the following packages from the original LocatorJS:
