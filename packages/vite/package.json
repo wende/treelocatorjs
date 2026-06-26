@@ -23,10 +23,8 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "vite": ">=3.0.0"
-  },
-  "dependencies": {
-    "@treelocator/runtime": "workspace:^"
+    "vite": ">=3.0.0",
+    "@treelocator/runtime": "^0.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
