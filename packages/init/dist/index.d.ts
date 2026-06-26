@@ -15,10 +15,13 @@ interface CheckResult {
 }
 declare function readPackageJson(dir: string): Record<string, any> | null;
 declare function exitWithError(message: string): never;
+declare function usesReactPluginV6(): boolean;
+declare function addRolldownBabelPlugin(content: string): string;
+declare function addTreelocatorVitePlugin(content: string): string;
 declare function injectBabelPluginIntoVitePlugin(content: string, pluginNames: string[], babelConfig: string): string;
 declare function detectPackageManager(): ProjectInfo["packageManager"];
 declare function detectProject(): ProjectInfo;
-declare function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[]): string;
+declare function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[], useLocal?: boolean): string;
 declare function checkConfiguration(info: ProjectInfo): CheckResult[];
 
-export { checkConfiguration, detectPackageManager, detectProject, exitWithError, getInstallCommand, injectBabelPluginIntoVitePlugin, readPackageJson };
+export { addRolldownBabelPlugin, addTreelocatorVitePlugin, checkConfiguration, detectPackageManager, detectProject, exitWithError, getInstallCommand, injectBabelPluginIntoVitePlugin, readPackageJson, usesReactPluginV6 };

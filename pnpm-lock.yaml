@@ -560,6 +560,28 @@ importers:
         specifier: ^3.5.12
         version: 3.5.22(typescript@5.9.3)
 
+  packages/vite:
+    dependencies:
+      '@treelocator/runtime':
+        specifier: workspace:^
+        version: link:../runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.4.2
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(typescript@5.8.3)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.8.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@20.4.2)
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.4.2)
+
 packages:
 
   /@aashutoshrathi/word-wrap@1.2.6:
@@ -8607,7 +8629,7 @@ packages:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 5.4.21(@types/node@20.4.2)
+      vite: 5.4.21(@types/node@22.18.12)
     dev: true
 
   /@vitest/pretty-format@2.1.9:

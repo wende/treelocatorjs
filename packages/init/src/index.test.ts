@@ -8,6 +8,8 @@ import {
   getInstallCommand,
   readPackageJson,
   injectBabelPluginIntoVitePlugin,
+  addTreelocatorVitePlugin,
+  addRolldownBabelPlugin,
   detectPackageManager,
 } from "./index.js";
 
@@ -113,6 +115,44 @@ describe("injectBabelPluginIntoVitePlugin", () => {
     const input = "plugins: [preact()]";
     const result = injectBabelPluginIntoVitePlugin(input, ["preact"], babelConfig);
     expect(result).toBe(`plugins: [preact({\n      ${babelConfig},\n    })]`);
+  });
+});
+
+// ─── addTreelocatorVitePlugin ─────────────────────────────────────────────────
+
+describe("addTreelocatorVitePlugin", () => {
+  test("adds import and plugin call to a simple vite config", () => {
+    const input = `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+});`;
+
+    const result = addTreelocatorVitePlugin(input);
+    expect(result).toContain('import treelocator from "@treelocator/vite";');
+    expect(result).toContain("plugins: [react(), treelocator()]");
+  });
+
+  test("does not duplicate plugin when already configured", () => {
+    const input = `import treelocator from "@treelocator/vite";
+export default defineConfig({ plugins: [react(), treelocator()] });`;
+    expect(addTreelocatorVitePlugin(input)).toBe(input);
+  });
+});
+
+describe("addRolldownBabelPlugin", () => {
+  test("adds rolldown babel for plugin-react v6 style config", () => {
+    const input = `import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+})`;
+
+    const result = addRolldownBabelPlugin(input);
+    expect(result).toContain('import babel from "@rolldown/plugin-babel"');
+    expect(result).toContain("@rolldown/plugin-babel");
+    expect(result).toContain("@locator/babel-jsx/dist");
   });
 });
 

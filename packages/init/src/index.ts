@@ -2,6 +2,7 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import prompts from "prompts";
 import pc from "picocolors";
@@ -34,6 +35,94 @@ function readPackageJson(dir: string): Record<string, any> | null {
 function exitWithError(message: string): never {
   console.error(pc.red(message));
   process.exit(1);
+}
+
+function getPackageVersion(name: string): string | null {
+  const pkg = readPackageJson(process.cwd());
+  if (!pkg) return null;
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  return deps[name] ?? null;
+}
+
+function usesReactPluginV6(): boolean {
+  const version = getPackageVersion("@vitejs/plugin-react");
+  if (!version) return false;
+  const major = parseInt(version.replace(/[\^~>=<]*/g, "").split(".")[0], 10);
+  return !Number.isNaN(major) && major >= 6;
+}
+
+function addRolldownBabelPlugin(content: string): string {
+  if (content.includes("@rolldown/plugin-babel")) {
+    return content;
+  }
+
+  const importLine = `import babel from "@rolldown/plugin-babel";\n`;
+  const importMatches = content.match(/^import .+;?\s*$/gm);
+  if (importMatches?.length) {
+    const reactImport = importMatches.find((line) => line.includes("@vitejs/plugin-react"));
+    const anchor = reactImport ?? importMatches[importMatches.length - 1];
+    content = content.replace(anchor, `${anchor}\n${importLine.trim()}`);
+  } else {
+    content = importLine + content;
+  }
+
+  const babelCall = `babel({
+      plugins: [
+        ["@locator/babel-jsx/dist", { env: "development" }],
+      ],
+    })`;
+
+  if (/react\(\{[\s\S]*?\}\)/.test(content)) {
+    content = content.replace(/react\(\{[\s\S]*?\}\)/, (match) => `${match},\n    ${babelCall}`);
+  } else if (content.includes("react()")) {
+    content = content.replace("react()", `react(),\n    ${babelCall}`);
+  }
+
+  return content;
+}
+
+function addTreelocatorVitePlugin(content: string): string {
+  if (content.includes("@treelocator/vite")) {
+    return content;
+  }
+
+  const importLine = `import treelocator from "@treelocator/vite";\n`;
+
+  const importMatches = content.match(/^import .+;?\s*$/gm);
+  if (importMatches?.length) {
+    const lastImport = importMatches[importMatches.length - 1];
+    content = content.replace(lastImport, `${lastImport}\n${importLine.trim()}`);
+  } else {
+    content = importLine + content;
+  }
+
+  const pluginsMatch = content.match(/plugins:\s*\[/);
+  if (!pluginsMatch?.index) {
+    return content;
+  }
+
+  let depth = 0;
+  let start = pluginsMatch.index + pluginsMatch[0].length;
+  let end = start;
+
+  for (let i = start; i < content.length; i++) {
+    const char = content[i];
+    if (char === "[") depth++;
+    if (char === "]") {
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+      depth--;
+    }
+  }
+
+  const pluginsBody = content.slice(start, end).trim();
+  const updatedPlugins = pluginsBody.length
+    ? `${pluginsBody}, treelocator()`
+    : "treelocator()";
+
+  return content.slice(0, start) + updatedPlugins + content.slice(end);
 }
 
 function injectBabelPluginIntoVitePlugin(
@@ -173,8 +262,28 @@ function detectProject(): ProjectInfo {
   return info;
 }
 
-function getInstallCommand(pm: ProjectInfo["packageManager"], packages: string[]): string {
-  const pkgs = packages.join(" ");
+function getInstallCommand(
+  pm: ProjectInfo["packageManager"],
+  packages: string[],
+  useLocal = false
+): string {
+  const resolvedPackages = useLocal
+    ? packages.map((pkg) => {
+        const packageRoot = path.resolve(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "../.."
+        );
+        if (pkg === "@treelocator/vite") {
+          return `file:${path.join(packageRoot, "vite")}`;
+        }
+        if (pkg === "@treelocator/runtime") {
+          return `file:${path.join(packageRoot, "runtime")}`;
+        }
+        return pkg;
+      })
+    : packages;
+
+  const pkgs = resolvedPackages.join(" ");
   switch (pm) {
     case "bun":
       return `bun add -D ${pkgs}`;
@@ -209,6 +318,23 @@ function checkConfiguration(info: ProjectInfo): CheckResult[] {
       message: "Not installed",
       fix: getInstallCommand(info.packageManager, ["@treelocator/runtime"]),
     });
+  }
+
+  if (info.buildTool === "vite") {
+    if (deps["@treelocator/vite"]) {
+      results.push({
+        name: "@treelocator/vite",
+        status: "ok",
+        message: `Installed (${deps["@treelocator/vite"]})`,
+      });
+    } else {
+      results.push({
+        name: "@treelocator/vite",
+        status: "error",
+        message: "Not installed (required for Vite projects)",
+        fix: getInstallCommand(info.packageManager, ["@treelocator/vite"]),
+      });
+    }
   }
 
   // Check 2: Babel plugin or webpack loader installed
@@ -252,12 +378,26 @@ function checkConfiguration(info: ProjectInfo): CheckResult[] {
 
     // Only check for babel config if framework needs it (not Vue/Svelte)
     if (needsBabelJsx) {
-      // Check for babel-jsx plugin in vite config
-      if (configContent.includes("@locator/babel-jsx") || configContent.includes("locator/babel-jsx")) {
+      const reactV6 = info.framework === "react" && usesReactPluginV6();
+      const hasLegacyBabel =
+        configContent.includes("@locator/babel-jsx") ||
+        configContent.includes("locator/babel-jsx");
+      const hasRolldownBabel = configContent.includes("@rolldown/plugin-babel");
+
+      if ((reactV6 && hasRolldownBabel) || (!reactV6 && hasLegacyBabel)) {
         results.push({
           name: `${info.configFile} babel plugin`,
           status: "ok",
-          message: "Babel plugin configured",
+          message: reactV6
+            ? "Babel plugin configured (@rolldown/plugin-babel)"
+            : "Babel plugin configured",
+        });
+      } else if (reactV6) {
+        results.push({
+          name: `${info.configFile} babel plugin`,
+          status: "error",
+          message: "@vitejs/plugin-react v6+ requires @rolldown/plugin-babel for source tracking",
+          fix: "Run npx @treelocator/init to configure @rolldown/plugin-babel",
         });
       } else {
         // Check if the framework plugin has any babel config at all
@@ -303,21 +443,69 @@ function checkConfiguration(info: ProjectInfo): CheckResult[] {
     });
   }
 
-  // Check 4: Runtime import in entry file
-  if (info.entryFile && fs.existsSync(info.entryFile)) {
-    const entryContent = fs.readFileSync(info.entryFile, "utf-8");
-    if (entryContent.includes("@treelocator/runtime")) {
+  // Check 4: Vite plugin or runtime import
+  if (info.buildTool === "vite" && info.configFile && fs.existsSync(info.configFile)) {
+    const configContent = fs.readFileSync(info.configFile, "utf-8");
+    if (configContent.includes("@treelocator/vite")) {
       results.push({
-        name: `${info.entryFile} runtime import`,
+        name: `${info.configFile} treelocator plugin`,
         status: "ok",
-        message: "Runtime imported",
+        message: "Vite plugin configured (auto-injects runtime)",
       });
-    } else {
+    } else if (info.entryFile && fs.existsSync(info.entryFile)) {
+      const entryContent = fs.readFileSync(info.entryFile, "utf-8");
+      if (entryContent.includes("@treelocator/runtime")) {
+        results.push({
+          name: `${info.entryFile} runtime import`,
+          status: "ok",
+          message: "Runtime imported manually",
+        });
+      } else {
+        results.push({
+          name: `${info.configFile} treelocator plugin`,
+          status: "warning",
+          message: "Vite plugin not configured",
+          fix: `Add treelocator() from @treelocator/vite to plugins, or import @treelocator/runtime in ${info.entryFile}`,
+        });
+      }
+    }
+  } else if (info.buildTool === "next") {
+    const appDir = fs.existsSync("src/app") ? "src/app" : "app";
+    const providerPath = path.join(appDir, "LocatorProvider.tsx");
+    const pagesAppPath = fs.existsSync("src/pages/_app.tsx")
+      ? "src/pages/_app.tsx"
+      : fs.existsSync("pages/_app.tsx")
+        ? "pages/_app.tsx"
+        : null;
+
+    if (fs.existsSync(providerPath)) {
       results.push({
-        name: `${info.entryFile} runtime import`,
+        name: `${providerPath}`,
+        status: "ok",
+        message: "LocatorProvider configured",
+      });
+    } else if (pagesAppPath && fs.existsSync(pagesAppPath)) {
+      const appContent = fs.readFileSync(pagesAppPath, "utf-8");
+      if (appContent.includes("@treelocator/runtime")) {
+        results.push({
+          name: `${pagesAppPath} runtime import`,
+          status: "ok",
+          message: "Runtime imported",
+        });
+      } else {
+        results.push({
+          name: `${pagesAppPath} runtime import`,
+          status: "warning",
+          message: "Runtime not imported",
+          fix: `Add setupLocatorUI import to ${pagesAppPath}`,
+        });
+      }
+    } else if (info.entryFile?.includes("layout.")) {
+      results.push({
+        name: "Next.js runtime setup",
         status: "warning",
-        message: "Runtime not imported (optional but recommended)",
-        fix: `Add: import "@treelocator/runtime"`,
+        message: "LocatorProvider not found",
+        fix: "Run npx @treelocator/init to create LocatorProvider.tsx",
       });
     }
   }
@@ -377,27 +565,43 @@ function printCheckResults(results: CheckResult[]): boolean {
 
 function updateViteConfig(configFile: string, framework: string): void {
   let content = fs.readFileSync(configFile, "utf-8");
+  let changed = false;
 
-  // Check if already configured
-  if (content.includes("@locator/babel-jsx")) {
-    console.log(pc.yellow("TreeLocatorJS babel plugin already configured in vite.config"));
-    return;
+  if (!content.includes("@treelocator/vite")) {
+    content = addTreelocatorVitePlugin(content);
+    changed = true;
   }
 
-  const babelConfig = `babel: {
+  const needsBabel = framework !== "vue" && framework !== "svelte";
+  if (needsBabel && !content.includes("@locator/babel-jsx")) {
+    if (framework === "react" && usesReactPluginV6()) {
+      content = addRolldownBabelPlugin(content);
+    } else {
+      const babelConfig = `babel: {
         plugins: [
           ["@locator/babel-jsx/dist", { env: "development" }],
         ],
       }`;
 
-  if (framework === "react") {
-    content = injectBabelPluginIntoVitePlugin(content, ["react"], babelConfig);
+      if (framework === "react") {
+        content = injectBabelPluginIntoVitePlugin(content, ["react"], babelConfig);
+      }
+      if (framework === "solid") {
+        content = injectBabelPluginIntoVitePlugin(content, ["solid", "solidPlugin"], babelConfig);
+      }
+      if (framework === "preact") {
+        content = injectBabelPluginIntoVitePlugin(content, ["preact"], babelConfig);
+      }
+    }
+    changed = true;
+  } else if (needsBabel && framework === "react" && usesReactPluginV6() && !content.includes("@rolldown/plugin-babel")) {
+    content = addRolldownBabelPlugin(content);
+    changed = true;
   }
-  if (framework === "solid") {
-    content = injectBabelPluginIntoVitePlugin(content, ["solid", "solidPlugin"], babelConfig);
-  }
-  if (framework === "preact") {
-    content = injectBabelPluginIntoVitePlugin(content, ["preact"], babelConfig);
+
+  if (!changed) {
+    console.log(pc.yellow("TreeLocatorJS already configured in vite.config"));
+    return;
   }
 
   fs.writeFileSync(configFile, content);
@@ -426,47 +630,35 @@ function updateNextConfig(configFile: string): void {
   },`;
 
   // Try to insert webpack config
-  if (content.includes("const nextConfig = {")) {
-    content = content.replace(
-      "const nextConfig = {",
-      `const nextConfig = {${webpackConfig}`
+  const configObjectPatterns = [
+    /const nextConfig(?::\s*NextConfig)?\s*=\s*\{/,
+    /module\.exports\s*=\s*\{/,
+    /export default\s*\{/,
+  ];
+
+  let updated = false;
+  for (const pattern of configObjectPatterns) {
+    if (pattern.test(content)) {
+      content = content.replace(pattern, (match) => `${match}${webpackConfig}`);
+      updated = true;
+      break;
+    }
+  }
+
+  if (!updated) {
+    console.log(
+      pc.yellow(
+        `Could not auto-update ${configFile}. Add the webpack loader manually — see https://github.com/wende/treelocatorjs/blob/main/docs/NEXTJS-SETUP.md`
+      )
     );
-  } else if (content.includes("module.exports = {")) {
-    content = content.replace(
-      "module.exports = {",
-      `module.exports = {${webpackConfig}`
-    );
-  } else if (content.includes("export default {")) {
-    content = content.replace(
-      "export default {",
-      `export default {${webpackConfig}`
-    );
+    return;
   }
 
   fs.writeFileSync(configFile, content);
   console.log(pc.green(`Updated ${configFile}`));
 }
 
-function addRuntimeImport(entryFile: string, isNextApp: boolean): void {
-  let content = fs.readFileSync(entryFile, "utf-8");
-
-  // Check if already configured
-  if (content.includes("@treelocator/runtime")) {
-    console.log(pc.yellow("TreeLocatorJS runtime already imported"));
-    return;
-  }
-
-  const importLine = `import setupLocatorUI from "@treelocator/runtime";\n`;
-  const setupCall = isNextApp
-    ? "" // For Next.js, we need a different approach
-    : `\nif (import.meta.env.DEV) {\n  setupLocatorUI();\n}\n`;
-
-  if (isNextApp) {
-    // For Next.js app router, suggest creating a provider
-    console.log(pc.yellow("\nFor Next.js App Router, create a client component:"));
-    console.log(pc.cyan(`
-// app/LocatorProvider.tsx
-"use client";
+const LOCATOR_PROVIDER_SOURCE = `"use client";
 import { useEffect } from "react";
 import setupLocatorUI from "@treelocator/runtime";
 
@@ -478,17 +670,57 @@ export function LocatorProvider({ children }: { children: React.ReactNode }) {
   }, []);
   return <>{children}</>;
 }
+`;
 
-// Then wrap your app in app/layout.tsx:
-// <LocatorProvider>{children}</LocatorProvider>
-`));
+function setupNextAppRouter(): void {
+  const appDir = fs.existsSync("src/app") ? "src/app" : fs.existsSync("app") ? "app" : null;
+  if (!appDir) return;
+
+  const providerPath = path.join(appDir, "LocatorProvider.tsx");
+  if (!fs.existsSync(providerPath)) {
+    fs.writeFileSync(providerPath, LOCATOR_PROVIDER_SOURCE);
+    console.log(pc.green(`Created ${providerPath}`));
+  }
+
+  const layoutCandidates = ["layout.tsx", "layout.js", "layout.jsx"].map((file) =>
+    path.join(appDir, file)
+  );
+  const layoutPath = layoutCandidates.find((file) => fs.existsSync(file));
+  if (!layoutPath) return;
+
+  let content = fs.readFileSync(layoutPath, "utf-8");
+  if (content.includes("LocatorProvider")) {
+    console.log(pc.yellow("LocatorProvider already wired in layout"));
     return;
   }
 
-  // Add import at the top
+  const importLine = `import { LocatorProvider } from "./LocatorProvider";\n`;
+  const importMatches = content.match(/^import .+;?\s*$/gm);
+  if (importMatches?.length) {
+    const lastImport = importMatches[importMatches.length - 1];
+    content = content.replace(lastImport, `${lastImport}\n${importLine.trim()}`);
+  } else {
+    content = importLine + content;
+  }
+
+  content = content.replace(/\{children\}/g, "<LocatorProvider>{children}</LocatorProvider>");
+  fs.writeFileSync(layoutPath, content);
+  console.log(pc.green(`Updated ${layoutPath}`));
+}
+
+function addPagesRouterRuntimeImport(entryFile: string): void {
+  let content = fs.readFileSync(entryFile, "utf-8");
+
+  if (content.includes("@treelocator/runtime")) {
+    console.log(pc.yellow("TreeLocatorJS runtime already imported"));
+    return;
+  }
+
+  const importLine = `import setupLocatorUI from "@treelocator/runtime";\n`;
+  const setupCall = `\nif (process.env.NODE_ENV === "development") {\n  setupLocatorUI();\n}\n`;
+
   content = importLine + content;
 
-  // Add setup call after imports
   const lastImportIndex = content.lastIndexOf("import ");
   if (lastImportIndex !== -1) {
     const lineEnd = content.indexOf("\n", lastImportIndex);
@@ -521,7 +753,7 @@ async function runCheck(info: ProjectInfo): Promise<void> {
   process.exit(isOk ? 0 : 1);
 }
 
-async function runSetup(info: ProjectInfo, skipConfirm = false): Promise<void> {
+async function runSetup(info: ProjectInfo, skipConfirm = false, useLocal = false): Promise<void> {
   console.log(pc.bold(pc.cyan("\n  TreeLocatorJS Setup Wizard\n")));
 
   console.log(pc.dim("Detected:"));
@@ -558,9 +790,13 @@ async function runSetup(info: ProjectInfo, skipConfirm = false): Promise<void> {
   // Determine packages to install
   const packages = ["@treelocator/runtime"];
   if (info.buildTool === "vite") {
+    packages.push("@treelocator/vite");
     // Vue and Svelte don't need babel-jsx - they use built-in source tracking
     if (info.framework !== "vue" && info.framework !== "svelte") {
       packages.push("@locator/babel-jsx");
+      if (info.framework === "react" && usesReactPluginV6()) {
+        packages.push("@rolldown/plugin-babel", "@babel/core");
+      }
     }
   } else if (info.buildTool === "next") {
     packages.push("@locator/webpack-loader");
@@ -568,36 +804,32 @@ async function runSetup(info: ProjectInfo, skipConfirm = false): Promise<void> {
 
   // Install packages
   console.log(pc.dim(`\nInstalling ${packages.join(", ")}...`));
-  const installCmd = getInstallCommand(info.packageManager, packages);
+  const installCmd = getInstallCommand(info.packageManager, packages, useLocal);
   try {
     execSync(installCmd, { stdio: "inherit" });
   } catch {
     exitWithError("Failed to install packages.");
   }
 
-  // Update config (only for frameworks that need babel plugin)
   if (info.configFile) {
-    const needsConfigUpdate =
-      info.buildTool === "next" ||
-      (info.buildTool === "vite" && info.framework !== "vue" && info.framework !== "svelte");
-
-    if (needsConfigUpdate) {
-      console.log(pc.dim(`\nUpdating ${info.configFile}...`));
-      if (info.buildTool === "vite") {
-        updateViteConfig(info.configFile, info.framework);
-      } else if (info.buildTool === "next") {
-        updateNextConfig(info.configFile);
-      }
-    } else {
-      console.log(pc.dim(`\nNo config update needed for ${info.framework} (uses built-in source tracking)`));
+    console.log(pc.dim(`\nUpdating ${info.configFile}...`));
+    if (info.buildTool === "vite") {
+      updateViteConfig(info.configFile, info.framework);
+    } else if (info.buildTool === "next") {
+      updateNextConfig(info.configFile);
     }
   }
 
-  // Add runtime import
-  if (info.entryFile) {
-    console.log(pc.dim(`\nUpdating ${info.entryFile}...`));
-    const isNextApp = info.entryFile.startsWith("app/");
-    addRuntimeImport(info.entryFile, isNextApp);
+  if (info.buildTool === "next") {
+    console.log(pc.dim("\nSetting up Next.js runtime..."));
+    if (info.entryFile?.includes("layout.")) {
+      setupNextAppRouter();
+    } else if (info.entryFile?.includes("_app.")) {
+      console.log(pc.dim(`\nUpdating ${info.entryFile}...`));
+      addPagesRouterRuntimeImport(info.entryFile);
+    } else {
+      setupNextAppRouter();
+    }
   }
 
   console.log(pc.bold(pc.green("\nTreeLocatorJS installed successfully!")));
@@ -609,19 +841,23 @@ async function main() {
   const isCheck = args.includes("--check") || args.includes("-c") || args.includes("check");
   const isHelp = args.includes("--help") || args.includes("-h") || args.includes("help");
   const isYes = args.includes("--yes") || args.includes("-y") || process.env.TREELOCATOR_AUTO_CONFIRM === "1";
+  const useLocal = args.includes("--local") || process.env.TREELOCATOR_USE_LOCAL === "1";
 
   if (isHelp) {
     console.log(`
 ${pc.bold(pc.cyan("TreeLocatorJS Setup"))}
 
 ${pc.bold("Usage:")}
-  npx @treelocator/init          Install and configure TreeLocatorJS
-  npx @treelocator/init check    Check if configuration is correct
-  npx @treelocator/init --help   Show this help message
+  npx @treelocator/init            Install and configure TreeLocatorJS
+  npx treelocatorjs                Same as above (shorter alias)
+  npx @treelocator/init check      Check if configuration is correct
+  npx @treelocator/init --yes      Non-interactive install (CI-friendly)
+  npx @treelocator/init --help     Show this help message
 
 ${pc.bold("Options:")}
   --check, -c, check    Verify existing configuration without making changes
   --yes, -y             Skip confirmation prompt (non-interactive mode)
+  --local               Install workspace packages from monorepo (development only)
   --help, -h, help      Show this help message
 
 ${pc.bold("Environment Variables:")}
@@ -631,7 +867,8 @@ ${pc.bold("What it checks:")}
   • @treelocator/runtime package is installed
   • @locator/babel-jsx (Vite) or @locator/webpack-loader (Next.js) is installed
   • Build config has the babel plugin / webpack loader configured
-  • Entry file imports the runtime (optional)
+  • Vite plugin configured (or runtime imported in entry file)
+  • Next.js LocatorProvider created (App Router)
 `);
     process.exit(0);
   }
@@ -641,7 +878,7 @@ ${pc.bold("What it checks:")}
   if (isCheck) {
     await runCheck(info);
   } else {
-    await runSetup(info, isYes);
+    await runSetup(info, isYes, useLocal);
   }
 }
 
@@ -653,6 +890,9 @@ export {
   checkConfiguration,
   readPackageJson,
   injectBabelPluginIntoVitePlugin,
+  addTreelocatorVitePlugin,
+  addRolldownBabelPlugin,
+  usesReactPluginV6,
   exitWithError,
 };
 

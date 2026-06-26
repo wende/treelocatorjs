@@ -1,0 +1,54 @@
+{
+  "name": "@treelocator/vite",
+  "version": "0.6.0",
+  "description": "Vite plugin for TreeLocatorJS - auto-injects runtime in dev mode",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --watch",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vite": ">=3.0.0"
+  },
+  "dependencies": {
+    "@treelocator/runtime": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wende/treelocatorjs.git",
+    "directory": "packages/vite"
+  },
+  "keywords": [
+    "treelocatorjs",
+    "locatorjs",
+    "vite",
+    "vite-plugin",
+    "devtools"
+  ],
+  "license": "MIT"
+}
