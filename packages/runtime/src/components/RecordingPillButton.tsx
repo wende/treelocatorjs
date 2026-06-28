@@ -114,6 +114,7 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
           const interactive = () =>
             circle.kind === "record" || circle.kind === "settings";
           const isHovered = () => interactive() && hoveredKind() === circle.kind;
+          const hidden = () => circle.kind === "stub1";
           return (
           <div
             data-treelocator-settings-toggle={
@@ -133,14 +134,16 @@ export function RecordingPillButton(props: RecordingPillButtonProps) {
               display: "flex",
               "align-items": "center",
               "justify-content": "center",
-              cursor: interactive() ? "pointer" : "default",
+              cursor: interactive() && !hidden() ? "pointer" : "default",
               "box-shadow": "0 4px 14px rgba(0, 0, 0, 0.25)",
               transform: open()
                 ? isHovered()
                   ? "scale(1.12)"
                   : "scale(1)"
                 : "scale(0)",
-              opacity: open() ? "1" : "0",
+              opacity: open() && !hidden() ? "1" : "0",
+              visibility: hidden() ? "hidden" : "visible",
+              "pointer-events": hidden() ? "none" : interactive() ? "auto" : "none",
               transition:
                 "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease-out, box-shadow 0.15s ease-out, background 0.15s ease-out",
               "transition-delay": open()

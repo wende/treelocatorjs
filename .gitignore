@@ -39,3 +39,4 @@ vite.config.js.timestamp-*.mjs
 
 # playwright screenshots and artifacts
 .playwright-mcp/
+.vercel

@@ -137,7 +137,11 @@ const TextDisplay = ({ heading, subtext, shiftedUp, animKey, elementPath, showGi
   </div>
 );
 
-export const TreeLocatorDemo = () => {
+type TreeLocatorDemoProps = {
+  onExploreMore?: () => void;
+};
+
+export const TreeLocatorDemo = ({ onExploreMore }: TreeLocatorDemoProps) => {
   const [step, setStep] = useState(0);
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
   const [locatorActive, setLocatorActive] = useState(false);
@@ -374,6 +378,19 @@ export const TreeLocatorDemo = () => {
         ))}
       </div>
       <Arrow visible={step === 1} />
+      {onExploreMore && (
+        <button
+          type="button"
+          id="explore-more-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExploreMore();
+          }}
+          className="fixed left-5 bottom-5 z-[90] px-4 py-2.5 text-xs tracking-widest uppercase border border-white/25 rounded-lg bg-black/60 backdrop-blur-sm text-white/80 hover:text-white hover:border-white/50 hover:bg-white/10 transition-all pointer-events-auto"
+        >
+          Explore more
+        </button>
+      )}
     </div>
   );
 };

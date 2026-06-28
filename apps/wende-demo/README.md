@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# TreeLocatorJS Demo
 
-# Run and deploy your AI Studio app
+Interactive demo for [TreeLocatorJS](https://github.com/wende/treelocatorjs): Alt+click component discovery, dejitter recording, and anomaly detection.
 
-This contains everything you need to run your app locally.
+## Local development
 
-View your app in AI Studio: https://ai.studio/apps/drive/1LMyrDvFE91b5Xgpp4RWyMnRFYM7t41PX
+From the monorepo root:
 
-## Run Locally
+```bash
+pnpm install
+pnpm dev --filter wende-demo
+```
 
-**Prerequisites:**  Node.js
+## Deploy to Vercel
 
+Set the Vercel project root directory to `apps/wende-demo`. The included `vercel.json` runs install and build from the monorepo root so workspace packages resolve correctly.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+cd apps/wende-demo
+vercel deploy -y
+```
+
+## Demo flow
+
+1. **Intro** — guided walkthrough: activate the tree icon, pick an element, copy ancestry.
+2. **Explore more** — always-visible button opens the anomaly playground with jitter, jump, flicker, and layout-shift elements. Use the record button on the tree pill to capture and analyze them.
