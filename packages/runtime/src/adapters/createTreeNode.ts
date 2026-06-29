@@ -24,9 +24,11 @@ export function createTreeNode(
   adapterId?: string
 ): TreeNode | null {
   // Use the explicit adapter id when it names a known framework, otherwise
-  // fall back to auto-detection (matching the original behavior).
+  // fall back to auto-detection (matching the original behavior). Use
+  // hasOwnProperty so inherited keys (e.g. "toString") can't match.
   const explicit =
-    adapterId && adapterId in TREE_NODE_BY_FRAMEWORK
+    adapterId &&
+    Object.prototype.hasOwnProperty.call(TREE_NODE_BY_FRAMEWORK, adapterId)
       ? (adapterId as NonNullable<FrameworkId>)
       : undefined;
   const framework = explicit ?? detectFramework(element);
