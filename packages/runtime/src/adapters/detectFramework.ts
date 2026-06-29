@@ -1,16 +1,8 @@
 import { detectJSX, detectReact, detectSvelte, detectVue } from "@locator/shared";
 import { detectPhoenix } from "./phoenix/detectPhoenix";
+import { hasReactFiber } from "./react/reactFiberUtils";
 
 export type FrameworkId = "svelte" | "vue" | "react" | "jsx" | null;
-
-/**
- * Check if a DOM element has __reactFiber$ keys.
- * Works without React DevTools extension.
- */
-function hasReactFiberKeys(element?: HTMLElement): boolean {
-  if (!element) return false;
-  return Object.keys(element).some((k) => k.startsWith("__reactFiber$"));
-}
 
 /**
  * Detect the active framework, optionally considering element-level hints.
@@ -21,7 +13,7 @@ function hasReactFiberKeys(element?: HTMLElement): boolean {
 export function detectFramework(element?: HTMLElement): FrameworkId {
   if (detectSvelte()) return "svelte";
   if (detectVue()) return "vue";
-  if (detectReact() || hasReactFiberKeys(element)) return "react";
+  if (detectReact() || hasReactFiber(element)) return "react";
   if (detectJSX() || (element && element.dataset.locatorjsId)) return "jsx";
   if (detectPhoenix()) return "jsx";
   return null;

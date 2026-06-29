@@ -115,7 +115,3 @@ export function takeSnapshot(
 
   return out;
 }
-
-export function __resetSnapshotWarningForTests(): void {
-  warnedOverflow = false;
-}

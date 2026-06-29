@@ -563,7 +563,7 @@ importers:
   packages/vite:
     dependencies:
       '@treelocator/runtime':
-        specifier: workspace:^
+        specifier: ^0.6.0
         version: link:../runtime
     devDependencies:
       '@types/node':

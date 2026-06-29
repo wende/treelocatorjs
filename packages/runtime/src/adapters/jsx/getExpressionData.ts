@@ -1,13 +1,14 @@
 import type { ExpressionInfo, FileStorage } from "@locator/shared";
 import { parseDataId, parseDataPath } from "../../functions/parseDataId";
+import { LOCATORJS_ID_ATTR, LOCATORJS_PATH_ATTR } from "../../consts";
 
 export function getExpressionData(
   target: Element,
   fileData: FileStorage | null
 ): ExpressionInfo | null {
   // Use getAttribute instead of dataset to support both HTML and SVG elements
-  const dataLocatorjs = target.getAttribute("data-locatorjs");
-  const dataLocatorjsId = target.getAttribute("data-locatorjs-id");
+  const dataLocatorjs = target.getAttribute(LOCATORJS_PATH_ATTR);
+  const dataLocatorjsId = target.getAttribute(LOCATORJS_ID_ATTR);
 
   // First check for data-locatorjs (path-based, for server components)
   if (dataLocatorjs) {

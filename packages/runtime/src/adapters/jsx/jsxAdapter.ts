@@ -4,16 +4,15 @@ import {
   parseDataPath,
   splitFullPath,
 } from "../../functions/parseDataId";
-import type { TreeNode, TreeNodeComponent } from "../../types/TreeNode";
+import type { TreeNodeComponent } from "../../types/TreeNode";
 import type { Source } from "../../types/types";
-import type {
-  AdapterObject,
-  FullElementInfo,
-  ParentPathItem,
-  TreeState,
-} from "../adapterApi";
-import { goUpByTheTree } from "../goUpByTheTree";
+import type { AdapterObject, FullElementInfo } from "../adapterApi";
 import { HtmlElementTreeNode } from "../HtmlElementTreeNode";
+import {
+  LOCATORJS_ID_ATTR,
+  LOCATORJS_PATH_ATTR,
+  LOCATORJS_SELECTOR,
+} from "../../consts";
 import { getExpressionData } from "./getExpressionData";
 import { getJSXComponentBoundingBox } from "./getJSXComponentBoundingBox";
 
@@ -25,8 +24,8 @@ type JSXLocatorData = {
 };
 
 function resolveJSXLocatorData(element: Element): JSXLocatorData | null {
-  const dataId = element.getAttribute("data-locatorjs-id");
-  const dataPath = element.getAttribute("data-locatorjs");
+  const dataId = element.getAttribute(LOCATORJS_ID_ATTR);
+  const dataPath = element.getAttribute(LOCATORJS_PATH_ATTR);
 
   if (!dataId && !dataPath) return null;
 
@@ -59,20 +58,14 @@ function resolveJSXLocatorData(element: Element): JSXLocatorData | null {
 }
 
 export function getElementInfo(target: HTMLElement): FullElementInfo | null {
-  const found = target.closest("[data-locatorjs-id], [data-locatorjs]");
+  const found = target.closest(LOCATORJS_SELECTOR);
 
   // Support both HTMLElement and SVGElement
-  // SVG elements don't have dataset, so use getAttribute instead
-  const styledDataId = found?.getAttribute("data-locatorjs-styled");
-
   if (
     found &&
     (found instanceof HTMLElement || found instanceof SVGElement)
   ) {
     const resolved = resolveJSXLocatorData(found);
-    if (!resolved && !styledDataId) {
-      return null;
-    }
     if (!resolved) {
       return null;
     }
@@ -178,46 +171,8 @@ export class JSXTreeNodeElement extends HtmlElementTreeNode {
   }
 }
 
-function getTree(element: HTMLElement): TreeState | null {
-  const originalRoot: TreeNode = new JSXTreeNodeElement(element);
-
-  return goUpByTheTree(originalRoot);
-}
-
-function getParentsPaths(element: HTMLElement): ParentPathItem[] {
-  const path: ParentPathItem[] = [];
-  let currentElement: HTMLElement | null = element;
-  let previousElementKey: string | null = null;
-
-  do {
-    if (currentElement) {
-      const info = getElementInfo(currentElement);
-      const currentElementKey = JSON.stringify(info?.thisElement.link);
-      if (info && currentElementKey !== previousElementKey) {
-        previousElementKey = currentElementKey;
-
-        const link = info.thisElement.link;
-        const label = info.thisElement.label;
-
-        if (link) {
-          path.push({
-            title: label,
-            link: link,
-          });
-        }
-      }
-    }
-
-    currentElement = currentElement.parentElement;
-  } while (currentElement);
-
-  return path;
-}
-
 const jsxAdapter: AdapterObject = {
   getElementInfo,
-  getTree,
-  getParentsPaths,
 };
 
 export default jsxAdapter;
