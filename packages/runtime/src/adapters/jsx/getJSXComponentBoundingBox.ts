@@ -3,6 +3,7 @@ import { mergeRects } from "../../functions/mergeRects";
 import { parseDataId, parseDataPath } from "../../functions/parseDataId";
 import type { SimpleDOMRect } from "../../types/types";
 import { getExpressionData } from "./getExpressionData";
+import { LOCATORJS_ID_ATTR, LOCATORJS_PATH_ATTR } from "../../consts";
 
 export function getJSXComponentBoundingBox(
   found: Element,
@@ -20,8 +21,8 @@ export function getJSXComponentBoundingBox(
     // Support both HTMLElement and SVGElement
     if (parent instanceof HTMLElement || parent instanceof SVGElement) {
       // Use getAttribute instead of dataset to support both HTML and SVG elements
-      const dataLocatorjs = parent.getAttribute("data-locatorjs");
-      const dataLocatorjsId = parent.getAttribute("data-locatorjs-id");
+      const dataLocatorjs = parent.getAttribute(LOCATORJS_PATH_ATTR);
+      const dataLocatorjsId = parent.getAttribute(LOCATORJS_ID_ATTR);
 
       // Check for either data-locatorjs (path-based) or data-locatorjs-id (ID-based)
       if (dataLocatorjs || dataLocatorjsId) {

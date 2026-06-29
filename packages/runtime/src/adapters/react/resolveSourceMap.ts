@@ -299,18 +299,3 @@ export async function resolveSourceLocation(
   // Handle basic source maps
   return resolveInBasicMap(sourceMap as BasicSourceMap, line, column);
 }
-
-/**
- * Given a React 19 fiber's _debugStack, resolve the source location
- * by parsing the stack trace and looking up source maps.
- */
-export async function resolveSourceFromDebugStack(
-  debugStack: { stack?: string }
-): Promise<Source | null> {
-  if (!debugStack?.stack) return null;
-
-  const parsed = parseDebugStack(debugStack.stack);
-  if (!parsed) return null;
-
-  return resolveSourceLocation(parsed.url, parsed.line, parsed.column);
-}

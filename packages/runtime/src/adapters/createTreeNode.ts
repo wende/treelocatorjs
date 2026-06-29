@@ -4,25 +4,36 @@ import { JSXTreeNodeElement } from "./jsx/jsxAdapter";
 import { SvelteTreeNodeElement } from "./svelte/svelteAdapter";
 import { VueTreeNodeElement } from "./vue/vueAdapter";
 import { DOMTreeNodeElement } from "./dom/domAdapter";
-import { detectFramework } from "./detectFramework";
+import { detectFramework, FrameworkId } from "./detectFramework";
+
+type TreeNodeConstructor = new (element: HTMLElement) => TreeNode;
+
+// Single source of truth mapping a framework to its TreeNode implementation.
+const TREE_NODE_BY_FRAMEWORK: Record<
+  NonNullable<FrameworkId>,
+  TreeNodeConstructor
+> = {
+  react: ReactTreeNodeElement,
+  svelte: SvelteTreeNodeElement,
+  vue: VueTreeNodeElement,
+  jsx: JSXTreeNodeElement,
+};
 
 export function createTreeNode(
   element: HTMLElement,
   adapterId?: string
 ): TreeNode | null {
-  // Check for explicit adapter ID first
-  if (adapterId === "react") return new ReactTreeNodeElement(element);
-  if (adapterId === "svelte") return new SvelteTreeNodeElement(element);
-  if (adapterId === "vue") return new VueTreeNodeElement(element);
-  if (adapterId === "jsx") return new JSXTreeNodeElement(element);
+  // Use the explicit adapter id when it names a known framework, otherwise
+  // fall back to auto-detection (matching the original behavior).
+  const explicit =
+    adapterId && adapterId in TREE_NODE_BY_FRAMEWORK
+      ? (adapterId as NonNullable<FrameworkId>)
+      : undefined;
+  const framework = explicit ?? detectFramework(element);
+  const TreeNodeForFramework = framework
+    ? TREE_NODE_BY_FRAMEWORK[framework]
+    : undefined;
 
-  // Auto-detect framework
-  const framework = detectFramework(element);
-  switch (framework) {
-    case "svelte": return new SvelteTreeNodeElement(element);
-    case "vue": return new VueTreeNodeElement(element);
-    case "react": return new ReactTreeNodeElement(element);
-    case "jsx": return new JSXTreeNodeElement(element);
-    default: return new DOMTreeNodeElement(element);  // Fallback to DOM adapter
-  }
+  // Fall back to the DOM adapter when the framework is unknown.
+  return new (TreeNodeForFramework ?? DOMTreeNodeElement)(element);
 }

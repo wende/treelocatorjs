@@ -1,7 +1,7 @@
 import { Targets } from "@locator/shared";
 import { createEffect, createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { AdapterId } from "../consts";
+import { AdapterId, LOCATORJS_SELECTOR } from "../consts";
 import { isCombinationModifiersPressed } from "../functions/isCombinationModifiersPressed";
 import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
@@ -77,9 +77,7 @@ function Runtime(props: RuntimeProps) {
     for (const el of elementsAtPoint) {
       if (isLocatorsOwnElement(el as HTMLElement)) continue;
       if (el instanceof HTMLElement || el instanceof SVGElement) {
-        const withLocator = el.closest(
-          "[data-locatorjs-id], [data-locatorjs]"
-        );
+        const withLocator = el.closest(LOCATORJS_SELECTOR);
         if (withLocator) return withLocator as HTMLElement;
       }
     }
@@ -90,9 +88,7 @@ function Runtime(props: RuntimeProps) {
     ) {
       const el =
         target instanceof SVGElement
-          ? ((target.closest(
-              "[data-locatorjs-id], [data-locatorjs]"
-            ) as HTMLElement | null) ??
+          ? ((target.closest(LOCATORJS_SELECTOR) as HTMLElement | null) ??
             (target.closest("svg") as HTMLElement | null) ??
             (target as unknown as HTMLElement))
           : target;

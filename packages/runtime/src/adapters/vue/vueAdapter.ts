@@ -1,13 +1,7 @@
 import { Source } from "@locator/shared";
 import type { ComponentInternalInstance } from "vue";
-import { TreeNode, TreeNodeComponent } from "../../types/TreeNode";
-import {
-  AdapterObject,
-  FullElementInfo,
-  ParentPathItem,
-  TreeState,
-} from "../adapterApi";
-import { goUpByTheTree } from "../goUpByTheTree";
+import { TreeNodeComponent } from "../../types/TreeNode";
+import { AdapterObject, FullElementInfo } from "../adapterApi";
 import { HtmlElementTreeNode } from "../HtmlElementTreeNode";
 import { getVueComponentBoundingBox } from "./getVNodeBoundingBox";
 
@@ -78,48 +72,8 @@ export class VueTreeNodeElement extends HtmlElementTreeNode {
   }
 }
 
-function getTree(element: HTMLElement): TreeState | null {
-  const originalRoot: TreeNode = new VueTreeNodeElement(element);
-
-  return goUpByTheTree(originalRoot);
-}
-
-function getParentsPaths(element: HTMLElement): ParentPathItem[] {
-  const path: ParentPathItem[] = [];
-  let currentElement: HTMLElement | null = element;
-  let previousComponentKey: string | null = null;
-
-  do {
-    if (currentElement) {
-      const info = getElementInfo(currentElement);
-
-      const currentComponentKey = JSON.stringify(info?.componentsLabels);
-
-      if (info && currentComponentKey !== previousComponentKey) {
-        previousComponentKey = currentComponentKey;
-
-        const link = info.thisElement.link;
-        const label = info.thisElement.label;
-
-        if (link) {
-          path.push({
-            title: label,
-            link: link,
-          });
-        }
-      }
-    }
-
-    currentElement = currentElement.parentElement;
-  } while (currentElement);
-
-  return path;
-}
-
 const vueAdapter: AdapterObject = {
   getElementInfo,
-  getTree,
-  getParentsPaths,
 };
 
 export default vueAdapter;

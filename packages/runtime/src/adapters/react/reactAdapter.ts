@@ -7,15 +7,9 @@ import { LabelData } from "../../types/LabelData";
 import { getFiberOwnBoundingBox } from "./getFiberOwnBoundingBox";
 import { getAllParentsElementsAndRootComponent } from "./getAllParentsElementsAndRootComponent";
 import { isStyledElement } from "./isStyled";
-import {
-  AdapterObject,
-  FullElementInfo,
-  ParentPathItem,
-  TreeState,
-} from "../adapterApi";
+import { AdapterObject, FullElementInfo } from "../adapterApi";
 import { Fiber, Source } from "@locator/shared";
-import { TreeNode, TreeNodeComponent } from "../../types/TreeNode";
-import { goUpByTheTree } from "../goUpByTheTree";
+import { TreeNodeComponent } from "../../types/TreeNode";
 import { HtmlElementTreeNode } from "../HtmlElementTreeNode";
 
 export function getElementInfo(found: HTMLElement): FullElementInfo | null {
@@ -141,42 +135,8 @@ export class ReactTreeNodeElement extends HtmlElementTreeNode {
   }
 }
 
-function getTree(element: HTMLElement): TreeState | null {
-  const originalRoot: TreeNode = new ReactTreeNodeElement(element);
-
-  return goUpByTheTree(originalRoot);
-}
-
-function fiberToPathItem(fiber: Fiber): ParentPathItem {
-  const label = getFiberLabel(fiber, findDebugSource(fiber)?.source);
-
-  return {
-    title: label.label,
-    link: label.link,
-  };
-}
-
-function getParentsPaths(element: HTMLElement) {
-  const fiber = findFiberByHtmlElement(element, false);
-  if (fiber) {
-    const pathItems: ParentPathItem[] = [];
-    let currentFiber = fiber;
-    pathItems.push(fiberToPathItem(currentFiber));
-
-    while (currentFiber._debugOwner) {
-      currentFiber = currentFiber._debugOwner;
-      pathItems.push(fiberToPathItem(currentFiber));
-    }
-
-    return pathItems;
-  }
-  return [];
-}
-
 const reactAdapter: AdapterObject = {
   getElementInfo,
-  getTree,
-  getParentsPaths,
 };
 
 export default reactAdapter;
