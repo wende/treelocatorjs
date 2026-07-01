@@ -11,12 +11,12 @@
 // Force-pushes/rebases (before not an ancestor of head) fall back to a full review.
 //
 // Resolved points: on an incremental run with an existing comment ("revise
-// mode"), the model is handed its prior base review and asked to reproduce it
-// verbatim except that any actionable point the new commits now address is
-// struck through (~~...~~ ✅ addressed in <sha>). Prior dated ### Update
-// sections are left untouched (append-only). A guardrail keeps the prior base
-// unchanged if the model's reproduction looks unreliable, so a bad response can
-// never wipe existing review content.
+// mode"), the model is handed its prior base review and returns only (1) a short
+// list of the earlier points the new commits now address and (2) a review of the
+// new commits. The script itself strikes the matching lines in the stored base
+// (~~...~~ — ✅ addressed in <sha>), so prior text stays byte-exact and a bad
+// response can never wipe existing content. Prior dated ### Update sections are
+// left untouched (append-only).
 
 import { execFileSync } from "node:child_process";
 
@@ -282,6 +282,46 @@ function trimToLimit(text, limit = 62000) {
   return result;
 }
 
+// Normalize text for fuzzy line matching (case- and whitespace-insensitive).
+const normalize = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+// Wrap a single base-review line in strikethrough, preserving any list marker,
+// and append the "addressed in <sha>" note.
+function strikeLine(line, sha) {
+  const suffix = ` — ✅ addressed in ${sha}`;
+  const listMatch = line.match(/^(\s*(?:[-*+]|\d+\.)\s+)(.*)$/);
+  if (listMatch) return `${listMatch[1]}~~${listMatch[2]}~~${suffix}`;
+  const indentMatch = line.match(/^(\s*)(.*)$/);
+  return `${indentMatch[1]}~~${indentMatch[2]}~~${suffix}`;
+}
+
+// Strike each base line matched by a model-supplied resolved-point snippet.
+// Each snippet strikes at most one not-yet-struck line; short/ambiguous
+// snippets are skipped to avoid false positives.
+function applyStrikes(base, snippets, sha) {
+  const lines = base.split("\n");
+  const used = new Set();
+  let count = 0;
+  for (const raw of snippets) {
+    const snip = raw
+      .replace(/^[-*+]\s+/, "") // drop a leading list marker
+      .replace(/^["'`]+|["'`]+$/g, "") // drop wrapping quotes/backticks
+      .trim();
+    const needle = normalize(snip);
+    if (needle.length < 12) continue; // too short to match safely
+    for (let i = 0; i < lines.length; i++) {
+      if (used.has(i) || lines[i].includes("~~")) continue; // skip already struck
+      if (normalize(lines[i]).includes(needle)) {
+        lines[i] = strikeLine(lines[i], sha);
+        used.add(i);
+        count++;
+        break;
+      }
+    }
+  }
+  return { base: lines.join("\n"), count };
+}
+
 const existing = await findExistingComment();
 
 // Revise mode: we have a prior comment and only new commits to review, so the
@@ -315,12 +355,10 @@ if (reviseMode) {
     "You previously reviewed this pull request. Two inputs follow: (A) the base " +
     "review you posted, and (B) the diff of the NEW commits pushed since then.\n\n" +
     `Respond with two parts separated by a line containing exactly \`${REVISE_SEPARATOR}\`:\n\n` +
-    "PART 1 — Reproduce input (A) VERBATIM as raw markdown (no surrounding code " +
-    "fence, no preamble), with ONE exception: for each actionable point that the " +
-    "new commits now fully address, wrap that point's text in `~~...~~` " +
-    `(strikethrough) and append \` — ✅ addressed in ${shortSha}\`. Do not add, ` +
-    "remove, reword, or reorder anything else; points already struck through must " +
-    "stay struck through.\n\n" +
+    "PART 1 — List each earlier actionable point from (A) that the NEW commits now " +
+    "FULLY address. Put each on its own line, quoting enough of that point's original " +
+    "wording copied VERBATIM from (A) to identify it uniquely (do not paraphrase). " +
+    "If none are addressed, write exactly: NONE\n\n" +
     `PART 2 — Review ONLY the new commits in (B). ${newCommitsNote}\n\n` +
     "=== (A) BASE REVIEW ===\n" +
     priorBase +
@@ -403,29 +441,27 @@ try {
 
 let body;
 if (reviseMode) {
+  // Split the response: PART 1 = resolved-point snippets, PART 2 = new review.
   const idx = review.indexOf(REVISE_SEPARATOR);
-  let revisedBase = "";
+  let resolvedPart = "";
   let newReview = review;
   if (idx !== -1) {
-    revisedBase = review.slice(0, idx).trim();
+    resolvedPart = review.slice(0, idx);
     newReview = review.slice(idx + REVISE_SEPARATOR.length).trim();
   }
-  // Guardrail: only accept the revised base if the separator was present and
-  // the reproduction is not suspiciously short — otherwise keep the prior base
-  // untouched so a bad response can never wipe existing review content.
-  const reproducedOk =
-    idx !== -1 && revisedBase.length >= Math.floor(priorBase.length * 0.6);
-  const finalBase = reproducedOk ? revisedBase : priorBase;
-  if (!reproducedOk) {
-    console.warn(
-      `[${PROVIDER_NAME}] Revise output unusable (separator ${idx !== -1 ? "present" : "missing"}, ` +
-      `base ${revisedBase.length}/${priorBase.length} chars); keeping prior base unchanged.`
-    );
-    if (idx === -1) newReview = review; // no split → treat whole output as the new review
-  }
+  const snippets = resolvedPart
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s && s.toUpperCase() !== "NONE" && !/^part\b/i.test(s));
+
+  // Strike the resolved points in the stored base (byte-exact; only matched
+  // lines change), then append this push's review as a new dated section.
+  const { base: struckBase, count } = applyStrikes(priorBase, snippets, shortSha);
+  if (!newReview) newReview = "No notable changes.";
   const date = new Date().toISOString().slice(0, 16).replace("T", " ");
   const newSection = `${SECTION_SENTINEL}### Update ${shortSha} — ${date} UTC\n\n${newReview}${truncNote}`;
-  body = trimToLimit(`${header}\n\n${finalBase}${priorUpdates}${newSection}`);
+  body = trimToLimit(`${header}\n\n${struckBase}${priorUpdates}${newSection}`);
+  console.log(`[${PROVIDER_NAME}] Struck ${count} resolved point(s) from the base review.`);
 } else {
   // First run (or incremental with no prior comment): a full review sets the base.
   const opener = incremental
