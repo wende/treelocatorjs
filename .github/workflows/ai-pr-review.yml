@@ -25,19 +25,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Kimi
-            provider: Kimi
-            api_key_secret: KIMI_API_KEY
-            api_base_var: KIMI_BASE_URL
-            api_base_default: 'https://api.kimi.com/coding/v1'
-            model_var: KIMI_MODEL
-            model_default: 'kimi-for-coding'
-            max_tokens: '16000'
-            system_prompt: >-
-              You are a bug- and security-focused code reviewer. Review the PR
-              diff for logic errors, security risks, edge cases, and incorrect
-              behavior. Skip formatting and style nitpicks. Be concise; use
-              markdown with short bullet points and reference file paths.
+          # Kimi reviewer temporarily disabled — re-enable by uncommenting.
+          # - name: Kimi
+          #   provider: Kimi
+          #   api_key_secret: KIMI_API_KEY
+          #   api_base_var: KIMI_BASE_URL
+          #   api_base_default: 'https://api.kimi.com/coding/v1'
+          #   model_var: KIMI_MODEL
+          #   model_default: 'kimi-for-coding'
+          #   max_tokens: '16000'
+          #   system_prompt: >-
+          #     You are a bug- and security-focused code reviewer. Review the PR
+          #     diff for logic errors, security risks, edge cases, and incorrect
+          #     behavior. Skip formatting and style nitpicks. Be concise; use
+          #     markdown with short bullet points and reference file paths.
           - name: GLM
             provider: GLM
             api_key_secret: ZAI_API_KEY
