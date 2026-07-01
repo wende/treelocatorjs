@@ -19,6 +19,7 @@ import {
   loadFromStorage,
   saveToStorage,
   clearStorage,
+  type SavedRecording,
 } from "./useLocatorStorage";
 import { settings } from "./useSettings";
 import { takeSnapshot } from "../visualDiff/snapshot";
@@ -26,6 +27,16 @@ import { computeDiff, formatReport } from "../visualDiff/diff";
 import type { DeltaReport, ElementSnapshot } from "../visualDiff/types";
 
 export type RecordingState = "idle" | "selecting" | "recording" | "results";
+
+/** Result of a completed recording session (also returned by replayWithRecord). */
+export interface RecordingResult {
+  path: string;
+  findings: DejitterFinding[];
+  summary: DejitterSummary | null;
+  data: any;
+  interactions: InteractionEvent[];
+  visualDiff: DeltaReport | null;
+}
 
 function buildDejitterConfig(): Partial<DejitterConfig> {
   const s = settings();
@@ -62,14 +73,7 @@ export interface RecordingStateAPI {
   stopReplay: () => void;
   replayWithRecord: (
     elementOrSelector: HTMLElement | string
-  ) => Promise<{
-    path: string;
-    findings: DejitterFinding[];
-    summary: DejitterSummary | null;
-    data: any;
-    interactions: InteractionEvent[];
-    visualDiff: DeltaReport | null;
-  } | null>;
+  ) => Promise<RecordingResult | null>;
   dismissResults: () => void;
   hasPreviousRecording: () => boolean;
   loadPreviousRecording: () => void;
@@ -177,6 +181,83 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
 
   // --- Recording lifecycle ---
 
+  /**
+   * Mark the element, capture the visual-diff baseline, and start the
+   * dejitter recorder. Shared by user-initiated recording and replayWithRecord.
+   */
+  function beginSession(element: HTMLElement): void {
+    element.setAttribute("data-treelocator-recording", "true");
+    setRecordedElement(element);
+
+    recordingStartPerf = performance.now();
+    if (settings().visualDiff) {
+      const beforeElements = new Map<string, HTMLElement | SVGElement>();
+      visualDiffContext = {
+        before: takeSnapshot(element, beforeElements),
+        beforeElements,
+        root: element,
+      };
+    } else {
+      visualDiffContext = null;
+    }
+
+    dejitterInstance = createDejitterRecorder();
+    dejitterInstance.configure(buildDejitterConfig());
+    dejitterInstance.start();
+    setRecordingState("recording");
+  }
+
+  /**
+   * Stop the dejitter recorder, collect findings/summary/visual diff, publish
+   * everything to the signals + storage, and move to the results state.
+   * Returns null when no recording session is active.
+   */
+  function finalizeSession(events: InteractionEvent[]): RecordingResult | null {
+    const instance = dejitterInstance;
+    if (!instance) return null;
+    dejitterInstance = null;
+    instance.stop();
+
+    const anomalyEnabled = settings().anomalyTracking;
+    const findings = anomalyEnabled
+      ? (instance.findings(true) as DejitterFinding[])
+      : [];
+    const summary = instance.summary(true) as DejitterSummary;
+    const data = anomalyEnabled ? instance.getData() : null;
+
+    const el = recordedElement();
+    const elementPath = el ? collectElementPath(el) : "";
+    const diffReport = finalizeVisualDiff();
+
+    setRecordingFindings(findings);
+    setRecordingSummary(summary);
+    setRecordingData(data);
+    setRecordingElementPath(elementPath);
+    setInteractionLog(events);
+    setVisualDiff(diffReport);
+
+    saveToStorage({
+      findings,
+      summary,
+      data,
+      elementPath,
+      interactions: events,
+      visualDiff: diffReport,
+    });
+
+    el?.removeAttribute("data-treelocator-recording");
+    setRecordingState("results");
+
+    return {
+      path: elementPath,
+      findings,
+      summary,
+      data,
+      interactions: events,
+      visualDiff: diffReport,
+    };
+  }
+
   function handleRecordClick() {
     switch (recordingState()) {
       case "idle":
@@ -196,77 +277,37 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
   }
 
   function startRecording(element: HTMLElement) {
-    element.setAttribute("data-treelocator-recording", "true");
-    setRecordedElement(element);
-
-    recordingStartPerf = performance.now();
-    if (settings().visualDiff) {
-      const beforeElements = new Map<string, HTMLElement | SVGElement>();
-      visualDiffContext = {
-        before: takeSnapshot(element, beforeElements),
-        beforeElements,
-        root: element,
-      };
-    } else {
-      visualDiffContext = null;
-    }
-
-    dejitterInstance = createDejitterRecorder();
-    dejitterInstance.configure(buildDejitterConfig());
-    dejitterInstance.start();
+    beginSession(element);
     startInteractionTracker();
-    setRecordingState("recording");
   }
 
   async function stopRecording() {
-    const instance = dejitterInstance;
-    if (!instance) return;
-    dejitterInstance = null;
-    instance.stop();
-    const anomalyEnabled = settings().anomalyTracking;
-    const findings = anomalyEnabled
-      ? (instance.findings(true) as DejitterFinding[])
-      : [];
-    const summary = instance.summary(true) as DejitterSummary;
-    const data = anomalyEnabled ? instance.getData() : null;
-
-    const el = recordedElement();
-    const elementPath = el ? collectElementPath(el) : "";
-
+    const events = interactionLog();
     stopInteractionTracker();
-    const diffReport = finalizeVisualDiff();
-
-    setRecordingFindings(findings);
-    setRecordingSummary(summary);
-    setRecordingData(data);
-    setRecordingElementPath(elementPath);
-    setVisualDiff(diffReport);
-
-    saveToStorage({
-      findings,
-      summary,
-      data,
-      elementPath,
-      interactions: interactionLog(),
-      visualDiff: diffReport,
-    });
-
-    el?.removeAttribute("data-treelocator-recording");
-    setRecordingState("results");
+    finalizeSession(events);
   }
 
-  function replayRecording() {
-    const events = interactionLog();
-    if (events.length === 0) return;
+  // --- Replay ---
 
-    stopReplay();
-    setReplaying(true);
-
+  /**
+   * Dispatch the recorded clicks at their original positions and timing,
+   * showing the pulse indicator for each. Calls onDone after the last event
+   * (delayed by doneDelayMs so trailing animations are still captured).
+   */
+  function playEvents(
+    events: InteractionEvent[],
+    onDone: () => void,
+    doneDelayMs = 0
+  ): void {
     let eventIdx = 0;
 
     function scheduleNext() {
       if (eventIdx >= events.length) {
-        stopReplay();
+        if (doneDelayMs > 0) {
+          replayTimerId = window.setTimeout(onDone, doneDelayMs);
+        } else {
+          onDone();
+        }
         return;
       }
 
@@ -299,6 +340,15 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     scheduleNext();
   }
 
+  function replayRecording() {
+    const events = interactionLog();
+    if (events.length === 0) return;
+
+    stopReplay();
+    setReplaying(true);
+    playEvents(events, stopReplay);
+  }
+
   function stopReplay() {
     if (replayTimerId) {
       clearTimeout(replayTimerId);
@@ -310,14 +360,7 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
 
   function replayWithRecord(
     elementOrSelector: HTMLElement | string
-  ): Promise<{
-    path: string;
-    findings: DejitterFinding[];
-    summary: DejitterSummary | null;
-    data: any;
-    interactions: InteractionEvent[];
-    visualDiff: DeltaReport | null;
-  } | null> {
+  ): Promise<RecordingResult | null> {
     let element: HTMLElement | null;
     if (typeof elementOrSelector === "string") {
       const found = document.querySelector(elementOrSelector);
@@ -332,114 +375,20 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     if (events.length === 0) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      element!.setAttribute("data-treelocator-recording", "true");
-      setRecordedElement(element);
-
-      recordingStartPerf = performance.now();
-      if (settings().visualDiff) {
-        const beforeElements = new Map<string, HTMLElement | SVGElement>();
-        visualDiffContext = {
-          before: takeSnapshot(element!, beforeElements),
-          beforeElements,
-          root: element!,
-        };
-      } else {
-        visualDiffContext = null;
-      }
-
-      dejitterInstance = createDejitterRecorder();
-      dejitterInstance.configure(buildDejitterConfig());
-      dejitterInstance.start();
-      setRecordingState("recording");
+      beginSession(element!);
       setReplaying(true);
 
-      let eventIdx = 0;
-
-      async function finishRecording() {
-        setReplaying(false);
-        setReplayBox(null);
-
-        const instance = dejitterInstance;
-        if (!instance) {
-          resolve(null);
-          return;
-        }
-        dejitterInstance = null;
-        instance.stop();
-        const anomalyEnabled = settings().anomalyTracking;
-        const findings = anomalyEnabled
-          ? (instance.findings(true) as DejitterFinding[])
-          : [];
-        const summary = instance.summary(true) as DejitterSummary;
-        const data = anomalyEnabled ? instance.getData() : null;
-
-        const el = recordedElement();
-        const elementPath = el ? collectElementPath(el) : "";
-
-        const diffReport = finalizeVisualDiff();
-
-        setRecordingFindings(findings);
-        setRecordingSummary(summary);
-        setRecordingData(data);
-        setRecordingElementPath(elementPath);
-        setInteractionLog(events);
-        setVisualDiff(diffReport);
-
-        saveToStorage({
-          findings,
-          summary,
-          data,
-          elementPath,
-          interactions: events,
-          visualDiff: diffReport,
-        });
-
-        el?.removeAttribute("data-treelocator-recording");
-        setRecordingState("results");
-
-        resolve({
-          path: elementPath,
-          findings,
-          summary,
-          data,
-          interactions: events,
-          visualDiff: diffReport,
-        });
-      }
-
-      function scheduleNext() {
-        if (eventIdx >= events.length) {
-          replayTimerId = window.setTimeout(finishRecording, 500);
-          return;
-        }
-
-        const evt = events[eventIdx]!;
-        const delay = eventIdx === 0 ? 100 : evt.t - events[eventIdx - 1]!.t;
-
-        replayTimerId = window.setTimeout(() => {
-          setReplayBox({ x: evt.x - 12, y: evt.y - 12, w: 24, h: 24 });
-
-          const target = document.elementFromPoint(evt.x, evt.y);
-          if (target) {
-            target.dispatchEvent(
-              new MouseEvent("click", {
-                bubbles: true,
-                cancelable: true,
-                clientX: evt.x,
-                clientY: evt.y,
-                view: window,
-              })
-            );
-          }
-
-          window.setTimeout(() => setReplayBox(null), 200);
-
-          eventIdx++;
-          scheduleNext();
-        }, Math.max(delay, 50));
-      }
-
-      scheduleNext();
+      // Wait 500ms after the last replayed click so trailing animations are
+      // captured before the recording is finalized.
+      playEvents(
+        events,
+        () => {
+          setReplaying(false);
+          setReplayBox(null);
+          resolve(finalizeSession(events));
+        },
+        500
+      );
     });
   }
 
@@ -457,36 +406,34 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     clearStorage();
   }
 
+  // --- Stored recordings ---
+
+  function applyStoredRecording(
+    stored: SavedRecording,
+    isPrevious: boolean
+  ): void {
+    setRecordingFindings(stored.findings);
+    setRecordingSummary(stored.summary);
+    setRecordingData(stored.data);
+    setRecordingElementPath(stored.elementPath);
+    setInteractionLog(stored.interactions);
+    setVisualDiff(stored.visualDiff ?? null);
+    setViewingPrevious(isPrevious);
+    setRecordingState("results");
+  }
+
   function hasPreviousRecording(): boolean {
     return loadFromStorage().previous !== null;
   }
 
   function loadPreviousRecording() {
     const stored = loadFromStorage();
-    if (!stored.previous) return;
-    const prev = stored.previous;
-    setRecordingFindings(prev.findings);
-    setRecordingSummary(prev.summary);
-    setRecordingData(prev.data);
-    setRecordingElementPath(prev.elementPath);
-    setInteractionLog(prev.interactions);
-    setVisualDiff(prev.visualDiff ?? null);
-    setViewingPrevious(true);
-    setRecordingState("results");
+    if (stored.previous) applyStoredRecording(stored.previous, true);
   }
 
   function loadLatestRecording() {
     const stored = loadFromStorage();
-    if (!stored.last) return;
-    const last = stored.last;
-    setRecordingFindings(last.findings);
-    setRecordingSummary(last.summary);
-    setRecordingData(last.data);
-    setRecordingElementPath(last.elementPath);
-    setInteractionLog(last.interactions);
-    setVisualDiff(last.visualDiff ?? null);
-    setViewingPrevious(false);
-    setRecordingState("results");
+    if (stored.last) applyStoredRecording(stored.last, false);
   }
 
   // --- Interaction tracking ---
