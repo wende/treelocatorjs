@@ -262,6 +262,30 @@ describe("browserApi", () => {
       expect(result).toBeNull();
     });
 
+    test("uses label/placeholder for inputs and never leaks typed values", async () => {
+      document.body.innerHTML = `
+        <main>
+          <label for="email">Email address</label>
+          <input id="email" type="email" value="secret@example.com" />
+          <input type="search" placeholder="Search products" value="running shoes" />
+          <input type="submit" value="Place order" />
+        </main>
+      `;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+      const inputs = result?.root.children[0]?.children.filter(
+        (child) => child.tag === "input"
+      );
+
+      expect(inputs?.[0]?.name).toBe("Email address");
+      expect(inputs?.[1]?.name).toBe("Search products");
+      expect(inputs?.[2]?.name).toBe("Place order");
+      // The typed-in values must never surface as accessible names.
+      expect(JSON.stringify(result)).not.toContain("secret@example.com");
+      expect(JSON.stringify(result)).not.toContain("running shoes");
+    });
+
     test("respects maxDepth", async () => {
       document.body.innerHTML = `<main><section><button>Save</button></section></main>`;
 

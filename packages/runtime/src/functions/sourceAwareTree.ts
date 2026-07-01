@@ -104,10 +104,7 @@ function getDirectText(element: Element): string | undefined {
     }
   });
 
-  const direct = truncate(parts.join(" "));
-  if (direct) return direct;
-  if (element.children.length === 0) return truncate(element.textContent);
-  return undefined;
+  return truncate(parts.join(" "));
 }
 
 function getLabelledByText(element: Element): string | undefined {
@@ -116,7 +113,7 @@ function getLabelledByText(element: Element): string | undefined {
 
   const parts = labelledBy
     .split(/\s+/)
-    .map((id) => element.ownerDocument.getElementById(id)?.textContent || "")
+    .map((id) => element.ownerDocument?.getElementById(id)?.textContent || "")
     .filter(Boolean);
 
   return truncate(parts.join(" "));
@@ -193,11 +190,31 @@ function getAccessibleName(element: Element): string | undefined {
     element instanceof HTMLTextAreaElement ||
     element instanceof HTMLSelectElement
   ) {
-    if (element instanceof HTMLInputElement && element.type === "password") {
-      return undefined;
+    // For button-like inputs the value attribute IS the accessible name.
+    if (
+      element instanceof HTMLInputElement &&
+      (element.type === "submit" ||
+        element.type === "button" ||
+        element.type === "reset")
+    ) {
+      const value = truncate(element.value);
+      if (value) return value;
     }
-    const value = truncate(element.value);
-    if (value) return value;
+
+    // Never surface typed-in values (emails, search queries, secrets) as the
+    // accessible name — prefer the associated <label> or placeholder instead.
+    const labels = element.labels;
+    if (labels && labels.length > 0) {
+      const labelText = truncate(
+        Array.from(labels)
+          .map((label) => label.textContent || "")
+          .join(" ")
+      );
+      if (labelText) return labelText;
+    }
+
+    const placeholder = truncate(element.getAttribute("placeholder"));
+    if (placeholder) return placeholder;
   }
 
   const directText = getDirectText(element);
@@ -217,8 +234,7 @@ function getClasses(element: Element): string[] | undefined {
   return classes.length > 0 ? classes : undefined;
 }
 
-function getRect(element: Element): SourceAwareTreeRect {
-  const rect = element.getBoundingClientRect();
+function toRect(rect: DOMRect): SourceAwareTreeRect {
   return {
     x: rect.x,
     y: rect.y,
@@ -231,7 +247,7 @@ function getRect(element: Element): SourceAwareTreeRect {
   };
 }
 
-function isVisibleElement(element: Element): boolean {
+function isVisibleElement(element: Element, rect: DOMRect): boolean {
   if (element instanceof HTMLElement && element.hidden) return false;
   if (element.getAttribute("aria-hidden") === "true") return false;
 
@@ -239,7 +255,6 @@ function isVisibleElement(element: Element): boolean {
   if (style.display === "none" || style.visibility === "hidden") return false;
   if (Number.parseFloat(style.opacity || "1") <= 0) return false;
 
-  const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
 
@@ -292,7 +307,7 @@ export async function buildSourceAwareTree(
   root: HTMLElement,
   rawOptions: SourceAwareTreeOptions | undefined,
   resolveAncestry: AncestryResolver
-): Promise<SourceAwareTreeResult> {
+): Promise<SourceAwareTreeResult | null> {
   const options = normalizeOptions(rawOptions);
   let nodeCount = 0;
   let truncated = false;
@@ -315,7 +330,8 @@ export async function buildSourceAwareTree(
       return null;
     }
 
-    const visible = isVisibleElement(element);
+    const rect = element.getBoundingClientRect();
+    const visible = isVisibleElement(element, rect);
     if (!options.includeHidden && !visible && !isRoot) {
       return null;
     }
@@ -350,7 +366,7 @@ export async function buildSourceAwareTree(
       text,
       id: element.id || undefined,
       classes: getClasses(element),
-      rect: getRect(element),
+      rect: toRect(rect),
       visible,
       component: source.component,
       file: source.file,
@@ -362,7 +378,7 @@ export async function buildSourceAwareTree(
 
   const treeRoot = await visit(root, 0, true);
   if (!treeRoot) {
-    throw new Error("Failed to build source-aware tree for root element");
+    return null;
   }
 
   return {
