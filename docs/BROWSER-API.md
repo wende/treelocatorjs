@@ -63,6 +63,30 @@ Returns both formatted path and raw ancestry data in a single call.
 **Returns:**
 - Object with `path` (string) and `ancestry` (array), or `null` if element not found/unsupported
 
+### `getTree(selectorOrOptions?: string | GetTreeOptions, options?: GetTreeOptions): Promise<SourceAwareTreeResult | null>`
+
+Returns a bounded source-aware page tree for AI agents. This is not a full browser accessibility tree; it is a compact DOM-derived tree annotated with semantic labels and TreeLocator source/component ancestry.
+
+**Parameters:**
+- `selectorOrOptions` - Optional CSS selector root, or an options object
+- `options.selector` - Optional CSS selector root when calling with an options object
+- `options.maxDepth` - Optional depth bound. Default `8`
+- `options.maxNodes` - Optional node bound. Default `500`
+- `options.includeHidden` - Include hidden or zero-size nodes. Default `false`
+- `options.includeText` - Include compact text snippets. Default `true`
+
+**Returns:**
+- Object with `root`, `nodeCount`, `truncated`, and resolved `options`, or `null` if selector/root is not found
+
+**Example:**
+```javascript
+const tree = await window.__treelocator__.getTree("main", {
+  maxDepth: 4,
+  maxNodes: 100,
+});
+console.log(tree.root.children);
+```
+
 ### `getStyles(elementOrSelector: HTMLElement | string, options?: { includeDefaults?: boolean }): { formatted: string; snapshot: object } | null`
 
 Returns a formatted computed-style summary for the element plus a raw snapshot object.

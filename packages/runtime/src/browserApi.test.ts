@@ -28,6 +28,7 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("getPath");
       expect(api).toHaveProperty("getAncestry");
       expect(api).toHaveProperty("getPathData");
+      expect(api).toHaveProperty("getTree");
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");
@@ -39,6 +40,7 @@ describe("browserApi", () => {
       expect(typeof api.getPath).toBe("function");
       expect(typeof api.getAncestry).toBe("function");
       expect(typeof api.getPathData).toBe("function");
+      expect(typeof api.getTree).toBe("function");
       expect(typeof api.help).toBe("function");
       expect(typeof api.replay).toBe("function");
       expect(typeof api.replayWithRecord).toBe("function");
@@ -239,6 +241,81 @@ describe("browserApi", () => {
     });
   });
 
+  describe("getTree()", () => {
+    test("returns source-aware tree result rooted at document.body by default", async () => {
+      document.body.innerHTML = `<main><button aria-label="Save changes">Save</button></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+
+      expect(result).not.toBeNull();
+      expect(result?.root.tag).toBe("body");
+      expect(result?.root.children[0]?.tag).toBe("main");
+      expect(result?.root.children[0]?.children[0]?.role).toBe("button");
+      expect(result?.root.children[0]?.children[0]?.name).toBe("Save changes");
+      expect(result?.nodeCount).toBe(3);
+    });
+
+    test("returns null when selector is invalid", async () => {
+      const api = createBrowserAPI();
+      const result = await api.getTree("div > > div");
+      expect(result).toBeNull();
+    });
+
+    test("respects maxDepth", async () => {
+      document.body.innerHTML = `<main><section><button>Save</button></section></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({
+        includeHidden: true,
+        maxDepth: 1,
+      });
+
+      expect(result?.root.children[0]?.tag).toBe("main");
+      expect(result?.root.children[0]?.children).toHaveLength(0);
+      expect(result?.truncated).toBe(true);
+    });
+
+    test("respects maxNodes", async () => {
+      document.body.innerHTML = `<main><section></section><aside></aside></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({
+        includeHidden: true,
+        maxNodes: 2,
+      });
+
+      expect(result?.nodeCount).toBe(2);
+      expect(result?.truncated).toBe(true);
+    });
+
+    test("includeHidden controls hidden descendants", async () => {
+      document.body.innerHTML = `<main><button style="display: none">Hidden</button></main>`;
+
+      const api = createBrowserAPI();
+      const visibleOnly = await api.getTree();
+      const withHidden = await api.getTree({ includeHidden: true });
+
+      expect(visibleOnly?.root.children).toHaveLength(0);
+      expect(withHidden?.root.children[0]?.children[0]?.text).toBe("Hidden");
+    });
+
+    test("skips TreeLocator-owned elements", async () => {
+      document.body.innerHTML = `
+        <div id="locatorjs-wrapper"><button>TreeLocator UI</button></div>
+        <main><button>App UI</button></main>
+      `;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+
+      expect(result?.root.children.map((child) => child.id)).not.toContain(
+        "locatorjs-wrapper"
+      );
+      expect(result?.root.children[0]?.tag).toBe("main");
+    });
+  });
+
   describe("installBrowserAPI()", () => {
     test("sets window.__treelocator__ to the created API object", () => {
       expect((window as any).__treelocator__).toBeUndefined();
@@ -253,6 +330,7 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("getPath");
       expect(api).toHaveProperty("getAncestry");
       expect(api).toHaveProperty("getPathData");
+      expect(api).toHaveProperty("getTree");
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");
