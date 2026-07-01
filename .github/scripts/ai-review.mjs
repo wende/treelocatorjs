@@ -9,6 +9,14 @@
 // (before..head) and lets the model reply "No notable changes" for trivial
 // updates, appending each incremental review as a dated section to the comment.
 // Force-pushes/rebases (before not an ancestor of head) fall back to a full review.
+//
+// Resolved points: on an incremental run with an existing comment ("revise
+// mode"), the model is handed its prior base review and asked to reproduce it
+// verbatim except that any actionable point the new commits now address is
+// struck through (~~...~~ ✅ addressed in <sha>). Prior dated ### Update
+// sections are left untouched (append-only). A guardrail keeps the prior base
+// unchanged if the model's reproduction looks unreliable, so a bad response can
+// never wipe existing review content.
 
 import { execFileSync } from "node:child_process";
 
@@ -136,23 +144,9 @@ if (diff.length > maxDiffChars) {
   }
 }
 
-const scopeNote = incremental
-  ? "This is an UPDATE to a pull request you have already reviewed. Below is only " +
-    "the diff of the new commits pushed since your last review. Focus on these " +
-    "changes. If they are trivial (docs, comments, formatting, minor tweaks) and " +
-    "introduce no issues, reply with exactly: No notable changes. Otherwise review " +
-    "them concisely, and note if a change appears to affect other parts of the PR."
-  : "Review this pull request diff.";
-
 const truncationNote = truncated
   ? ` (Diff was truncated to fit the context limit. Below is a summary of all changed files for context, followed by the truncated diff.)\n\n**Changed files:**\n\`\`\`\n${diffStat.trim()}\n\`\`\``
   : "";
-
-const userContent =
-  `${scopeNote}${truncationNote}\n\n` +
-  "```diff\n" +
-  diff +
-  "\n```";
 
 // --- Fetch helpers -------------------------------------------------------
 
@@ -191,7 +185,161 @@ async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
   }
 }
 
-// Call the OpenAI-compatible chat-completions endpoint.
+// --- GitHub context ------------------------------------------------------
+
+const [owner, repo] = GITHUB_REPOSITORY.split("/");
+const marker = `<!-- ai-review:${PROVIDER_NAME} -->`;
+const header = `${marker}\n## 🤖 ${PROVIDER_NAME} review — \`${MODEL}\``;
+const truncNote = truncated
+  ? "\n\n> ⚠️ The diff was truncated; some changes were not reviewed."
+  : "";
+
+// Unique HTML-comment sentinel separating the base review from each dated
+// update section, so model-generated "### Update " text can't corrupt splits.
+const SECTION_SENTINEL = "\n<!-- ai-review-section -->\n";
+
+const apiBase = "https://api.github.com";
+const ghHeaders = {
+  Authorization: `Bearer ${GITHUB_TOKEN}`,
+  Accept: "application/vnd.github+json",
+  "Content-Type": "application/json",
+};
+
+// Find an existing comment from this reviewer, paginating through all pages
+// so the marker is found even on PRs with >100 comments.
+async function findExistingComment() {
+  let page = 1;
+  while (true) {
+    const listRes = await fetchWithRetry(
+      `${apiBase}/repos/${owner}/${repo}/issues/${PR_NUMBER}/comments?per_page=100&page=${page}`,
+      { headers: ghHeaders }
+    );
+    if (!listRes.ok) {
+      // Log the status so permission/rate-limit issues are discoverable, but
+      // don't fail — fall through to creating a new comment.
+      console.error(
+        `[${PROVIDER_NAME}] Failed to list PR comments (page ${page}): ` +
+        `${listRes.status} ${listRes.statusText}. Will create a new comment.`
+      );
+      return null;
+    }
+    const comments = await listRes.json();
+    if (!Array.isArray(comments) || comments.length === 0) return null;
+    const found = comments.find(
+      (c) => typeof c.body === "string" && c.body.includes(marker)
+    );
+    if (found) return found;
+    if (comments.length < 100) return null; // last page
+    page++;
+  }
+}
+
+// Strip the leading marker + "## 🤖 …" header line from a stored comment body,
+// leaving just the review content (base review + any update sections).
+function stripHeader(fullBody) {
+  const lines = fullBody.split("\n");
+  let i = 0;
+  if (lines[i] !== undefined && lines[i].trim() === marker) i++;
+  if (lines[i] !== undefined && lines[i].startsWith("## ")) i++;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  return lines.slice(i).join("\n");
+}
+
+// Keep the comment under GitHub's 65536-char cap by dropping the oldest
+// update sections first (the base review and newest updates are kept).
+function trimToLimit(text, limit = 62000) {
+  if (text.length <= limit) return text;
+
+  // Split on the sentinel; if there are no sections, hard-slice the base.
+  const parts = text.split(SECTION_SENTINEL);
+  if (parts.length <= 1) return text.slice(0, limit);
+
+  const head = parts[0];
+  const kept = parts.slice(1); // each is an update section
+  let dropped = 0;
+
+  const trimmedNotice =
+    "\n\n> _Older review updates were trimmed to fit GitHub's comment size limit._";
+
+  // Drop oldest sections until we fit or only one section remains.
+  while (
+    kept.length > 1 &&
+    (head + trimmedNotice + SECTION_SENTINEL + kept.join(SECTION_SENTINEL)).length > limit
+  ) {
+    kept.shift();
+    dropped++;
+  }
+
+  let result =
+    dropped === 0
+      ? head + kept.map((s) => SECTION_SENTINEL + s).join("")
+      : head + trimmedNotice + kept.map((s) => SECTION_SENTINEL + s).join("");
+
+  // If the base review itself is oversized (even with all sections dropped),
+  // or if we still exceed the limit, hard-slice as a last resort.
+  if (result.length > limit) result = result.slice(0, limit);
+
+  return result;
+}
+
+const existing = await findExistingComment();
+
+// Revise mode: we have a prior comment and only new commits to review, so the
+// model reproduces its prior base review with resolved points struck through,
+// then reviews the new commits separately. The two parts are split by a line
+// containing exactly REVISE_SEPARATOR.
+const REVISE_SEPARATOR = "---NEW-REVIEW---";
+const reviseMode = incremental && !!existing;
+
+let priorBase = "";
+let priorUpdates = "";
+if (reviseMode) {
+  const content = stripHeader(existing.body);
+  const parts = content.split(SECTION_SENTINEL);
+  priorBase = parts[0];
+  priorUpdates =
+    parts.length > 1 ? SECTION_SENTINEL + parts.slice(1).join(SECTION_SENTINEL) : "";
+}
+
+// --- Build the prompt ----------------------------------------------------
+
+const shortSha = HEAD_SHA.slice(0, 7);
+const newCommitsNote =
+  "If the new commits are trivial (docs, comments, formatting, minor tweaks) and " +
+  "introduce no issues, output exactly: No notable changes. Otherwise review them " +
+  "concisely, and note if a change appears to affect other parts of the PR.";
+
+let userContent;
+if (reviseMode) {
+  userContent =
+    "You previously reviewed this pull request. Two inputs follow: (A) the base " +
+    "review you posted, and (B) the diff of the NEW commits pushed since then.\n\n" +
+    `Respond with two parts separated by a line containing exactly \`${REVISE_SEPARATOR}\`:\n\n` +
+    "PART 1 — Reproduce input (A) VERBATIM as raw markdown (no surrounding code " +
+    "fence, no preamble), with ONE exception: for each actionable point that the " +
+    "new commits now fully address, wrap that point's text in `~~...~~` " +
+    `(strikethrough) and append \` — ✅ addressed in ${shortSha}\`. Do not add, ` +
+    "remove, reword, or reorder anything else; points already struck through must " +
+    "stay struck through.\n\n" +
+    `PART 2 — Review ONLY the new commits in (B). ${newCommitsNote}\n\n` +
+    "=== (A) BASE REVIEW ===\n" +
+    priorBase +
+    `\n\n=== (B) NEW COMMITS DIFF ===${truncationNote}\n\n` +
+    "```diff\n" +
+    diff +
+    "\n```";
+} else {
+  const scopeNote = incremental
+    ? "This is an UPDATE to a pull request you have already reviewed. Below is only " +
+      "the diff of the new commits pushed since your last review. Focus on these " +
+      `changes. ${newCommitsNote}`
+    : "Review this pull request diff.";
+  userContent =
+    `${scopeNote}${truncationNote}\n\n` + "```diff\n" + diff + "\n```";
+}
+
+// --- Call the OpenAI-compatible chat-completions endpoint -----------------
+
 const endpoint = `${API_BASE.replace(/\/$/, "")}/chat/completions`;
 let review;
 try {
@@ -251,103 +399,33 @@ try {
   );
 }
 
-// Post the review as a PR comment.
-const [owner, repo] = GITHUB_REPOSITORY.split("/");
-const marker = `<!-- ai-review:${PROVIDER_NAME} -->`;
-const header = `${marker}\n## 🤖 ${PROVIDER_NAME} review — \`${MODEL}\``;
-const truncNote = truncated
-  ? "\n\n> ⚠️ The diff was truncated; some changes were not reviewed."
-  : "";
-
-const apiBase = "https://api.github.com";
-const ghHeaders = {
-  Authorization: `Bearer ${GITHUB_TOKEN}`,
-  Accept: "application/vnd.github+json",
-  "Content-Type": "application/json",
-};
-
-// Find an existing comment from this reviewer, paginating through all pages
-// so the marker is found even on PRs with >100 comments.
-async function findExistingComment() {
-  let page = 1;
-  while (true) {
-    const listRes = await fetchWithRetry(
-      `${apiBase}/repos/${owner}/${repo}/issues/${PR_NUMBER}/comments?per_page=100&page=${page}`,
-      { headers: ghHeaders }
-    );
-    if (!listRes.ok) {
-      // Log the status so permission/rate-limit issues are discoverable, but
-      // don't fail — fall through to creating a new comment.
-      console.error(
-        `[${PROVIDER_NAME}] Failed to list PR comments (page ${page}): ` +
-        `${listRes.status} ${listRes.statusText}. Will create a new comment.`
-      );
-      return null;
-    }
-    const comments = await listRes.json();
-    if (!Array.isArray(comments) || comments.length === 0) return null;
-    const found = comments.find(
-      (c) => typeof c.body === "string" && c.body.includes(marker)
-    );
-    if (found) return found;
-    if (comments.length < 100) return null; // last page
-    page++;
-  }
-}
-
-const existing = await findExistingComment();
-
-// Keep the comment under GitHub's 65536-char cap by dropping the oldest
-// update sections first (the base review and newest updates are kept).
-// Uses a unique HTML-comment sentinel so model-generated "### Update " text
-// in the review body can't corrupt the split.
-const SECTION_SENTINEL = "\n<!-- ai-review-section -->\n";
-
-function trimToLimit(text, limit = 62000) {
-  if (text.length <= limit) return text;
-
-  // Split on the sentinel; if there are no sections, hard-slice the base.
-  const parts = text.split(SECTION_SENTINEL);
-  if (parts.length <= 1) return text.slice(0, limit);
-
-  const head = parts[0];
-  const kept = parts.slice(1); // each is an update section
-  let dropped = 0;
-
-  const trimmedNotice =
-    "\n\n> _Older review updates were trimmed to fit GitHub's comment size limit._";
-
-  // Drop oldest sections until we fit or only one section remains.
-  while (
-    kept.length > 1 &&
-    (head + trimmedNotice + SECTION_SENTINEL + kept.join(SECTION_SENTINEL)).length > limit
-  ) {
-    kept.shift();
-    dropped++;
-  }
-
-  let result = head + trimmedNotice + kept.map((s) => SECTION_SENTINEL + s).join("");
-
-  // Only include the notice if we actually dropped something.
-  if (dropped === 0) {
-    result = head + kept.map((s) => SECTION_SENTINEL + s).join("");
-  }
-
-  // If the base review itself is oversized (even with all sections dropped),
-  // or if we still exceed the limit, hard-slice as a last resort.
-  if (result.length > limit) {
-    result = result.slice(0, limit);
-  }
-
-  return result;
-}
+// --- Assemble and post the comment body ----------------------------------
 
 let body;
-if (incremental && existing) {
-  // Append a dated section for this push, preserving prior review history.
+if (reviseMode) {
+  const idx = review.indexOf(REVISE_SEPARATOR);
+  let revisedBase = "";
+  let newReview = review;
+  if (idx !== -1) {
+    revisedBase = review.slice(0, idx).trim();
+    newReview = review.slice(idx + REVISE_SEPARATOR.length).trim();
+  }
+  // Guardrail: only accept the revised base if the separator was present and
+  // the reproduction is not suspiciously short — otherwise keep the prior base
+  // untouched so a bad response can never wipe existing review content.
+  const reproducedOk =
+    idx !== -1 && revisedBase.length >= Math.floor(priorBase.length * 0.6);
+  const finalBase = reproducedOk ? revisedBase : priorBase;
+  if (!reproducedOk) {
+    console.warn(
+      `[${PROVIDER_NAME}] Revise output unusable (separator ${idx !== -1 ? "present" : "missing"}, ` +
+      `base ${revisedBase.length}/${priorBase.length} chars); keeping prior base unchanged.`
+    );
+    if (idx === -1) newReview = review; // no split → treat whole output as the new review
+  }
   const date = new Date().toISOString().slice(0, 16).replace("T", " ");
-  const section = `${SECTION_SENTINEL}### Update ${HEAD_SHA.slice(0, 7)} — ${date} UTC\n\n${review}${truncNote}`;
-  body = trimToLimit(existing.body + section);
+  const newSection = `${SECTION_SENTINEL}### Update ${shortSha} — ${date} UTC\n\n${newReview}${truncNote}`;
+  body = trimToLimit(`${header}\n\n${finalBase}${priorUpdates}${newSection}`);
 } else {
   // First run (or incremental with no prior comment): a full review sets the base.
   const opener = incremental
@@ -370,7 +448,7 @@ if (!postRes.ok) {
   fail(`Failed to post comment: ${postRes.status} ${postRes.statusText}`);
 }
 
-const verb = existing ? (incremental ? "appended update to" : "reset") : "posted";
+const verb = existing ? (reviseMode ? "revised + appended update to" : "reset") : "posted";
 console.log(
   `[${PROVIDER_NAME}] Review ${verb} on PR #${PR_NUMBER} (${incremental ? "incremental" : "full"}).`
 );
