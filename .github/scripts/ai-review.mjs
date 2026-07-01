@@ -285,19 +285,40 @@ function trimToLimit(text, limit = 62000) {
 // Normalize text for fuzzy line matching (case- and whitespace-insensitive).
 const normalize = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
-// Wrap a single base-review line in strikethrough, preserving any list marker,
-// and append the "addressed in <sha>" note.
-function strikeLine(line, sha) {
-  const suffix = ` — ✅ addressed in ${sha}`;
+// Appended to a struck point; also used to detect our own prior strikes. This
+// is more precise than looking for "~~", which can appear legitimately in a base
+// line (e.g. inside a code snippet) and would otherwise make it unstrikeable.
+const STRIKE_MARK = "✅ addressed in";
+
+// Wrap a line's content in strikethrough, preserving any list marker/indent.
+function wrapStrike(line) {
   const listMatch = line.match(/^(\s*(?:[-*+]|\d+\.)\s+)(.*)$/);
-  if (listMatch) return `${listMatch[1]}~~${listMatch[2]}~~${suffix}`;
+  if (listMatch) return `${listMatch[1]}~~${listMatch[2]}~~`;
   const indentMatch = line.match(/^(\s*)(.*)$/);
-  return `${indentMatch[1]}~~${indentMatch[2]}~~${suffix}`;
+  return `${indentMatch[1]}~~${indentMatch[2]}~~`;
 }
 
-// Strike each base line matched by a model-supplied resolved-point snippet.
-// Each snippet strikes at most one not-yet-struck line; short/ambiguous
-// snippets are skipped to avoid false positives.
+// Given the first line of a matched point, return the index of its last line,
+// extending across continuation/sub-lines (wrapped text, sub-bullets, code) but
+// stopping at a blank line, a heading, or a sibling/parent list item.
+function pointExtent(lines, i) {
+  const startIndent = lines[i].match(/^\s*/)[0].length;
+  let j = i;
+  while (j + 1 < lines.length) {
+    const next = lines[j + 1];
+    if (next.trim() === "") break; // blank line ends the point
+    if (/^\s*#{1,6}\s/.test(next)) break; // heading
+    const nextIndent = next.match(/^\s*/)[0].length;
+    const nextIsItem = /^\s*(?:[-*+]|\d+\.)\s/.test(next);
+    if (nextIsItem && nextIndent <= startIndent) break; // sibling/parent item
+    j++;
+  }
+  return j;
+}
+
+// Strike each base point matched by a model-supplied resolved-point snippet.
+// Each snippet strikes at most one not-yet-struck point (which may span several
+// lines); short/ambiguous snippets are skipped to avoid false positives.
 function applyStrikes(base, snippets, sha) {
   const lines = base.split("\n");
   const used = new Set();
@@ -310,13 +331,18 @@ function applyStrikes(base, snippets, sha) {
     const needle = normalize(snip);
     if (needle.length < 12) continue; // too short to match safely
     for (let i = 0; i < lines.length; i++) {
-      if (used.has(i) || lines[i].includes("~~")) continue; // skip already struck
-      if (normalize(lines[i]).includes(needle)) {
-        lines[i] = strikeLine(lines[i], sha);
-        used.add(i);
-        count++;
-        break;
+      if (used.has(i) || lines[i].includes(STRIKE_MARK)) continue; // already resolved
+      if (!normalize(lines[i]).includes(needle)) continue;
+      const end = pointExtent(lines, i);
+      for (let k = i; k <= end; k++) {
+        if (lines[k].trim() !== "" && !lines[k].includes(STRIKE_MARK)) {
+          lines[k] = wrapStrike(lines[k]);
+        }
+        used.add(k);
       }
+      lines[end] += ` — ${STRIKE_MARK} ${sha}`;
+      count++;
+      break;
     }
   }
   return { base: lines.join("\n"), count };
