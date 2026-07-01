@@ -1,7 +1,6 @@
 import Image, { StaticImageData } from "next/image";
 import React from "react";
 import articlePreview from "../public/article-preview.png";
-import medium from "../public/medium.png";
 
 function ReadMore() {
   return (
@@ -10,29 +9,21 @@ function ReadMore() {
         <h3 className="mb-4 text-2xl font-medium text-center text-gray-900 font-display sm:text-5xl title-font dark:text-white">
           Read more
         </h3>
-        <p className="text-center">Get more info on other sites.</p>
+        <p className="text-center">Documentation and source code.</p>
         <div className="flex flex-col items-center justify-center gap-4 p-4 mt-4 sm:flex-row">
           <ArticleCard
-            link="https://dev.to/michael_vp/introducing-locatorjs-click-on-react-component-to-get-to-its-code-2oj0"
+            link="https://github.com/wende/treelocatorjs"
             imageSrc={articlePreview}
-            title="Introducing LocatorJS: Click on React Component to get to its code."
-            by="by Michael Musil on Dev.to"
-            description={`
-            LocatorJS is a Chrome Extension that lets me click on a component that
-            I see on my locally running app and open its code in my VSCode. With
-            just one simple click.
-            `}
+            title="TreeLocatorJS on GitHub"
+            by="Source, docs, and issue tracker"
+            description="Alt+click component discovery, browser automation API, MCP bridge, visual diff snapshots, and framework adapters."
           />
           <ArticleCard
-            link="https://medium.com/@infi.cz/how-i-increased-my-react-development-productivity-by-8-6420c42f4022"
-            imageSrc={medium}
-            title="How I increased my React development productivity by “8%?”"
-            by="by Michael Musil on Medium"
-            description={`
-            I am a full-stack/React dev, and I like to explore and build
-            various dev tooling to improve my productivity. Recently, I was
-            trying to solve one simple problem
-            `}
+            link="https://github.com/wende/treelocatorjs/blob/main/docs/BROWSER-API.md"
+            imageSrc={articlePreview}
+            title="Browser automation API"
+            by="For Playwright, Puppeteer, and Cypress"
+            description="Use window.__treelocator__ to read component ancestry, computed styles, CSS rules, and snapshot diffs from your tests."
           />
         </div>
       </div>

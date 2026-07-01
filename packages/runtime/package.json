@@ -4,7 +4,6 @@
   "description": "TreeLocatorJS runtime for component ancestry tracking. Alt+click any element to copy its component tree to clipboard. Exposes window.__treelocator__ API for browser automation (Playwright, Puppeteer, Selenium, Cypress).",
   "keywords": [
     "locator",
-    "locatorjs",
     "component",
     "ancestry",
     "debugging",

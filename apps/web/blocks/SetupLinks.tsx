@@ -8,14 +8,14 @@ export default function SetupLinks() {
   const [copied, setCopied] = useState(false);
 
   const handleCopyPrompt = () => {
-    const prompt = "Setup locatorjs, check locatorjs.com for instructions";
+    const prompt = "Set up TreeLocatorJS in this project. Run npx @treelocator/init and follow https://github.com/wende/treelocatorjs";
     navigator.clipboard.writeText(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCursorImplement = () => {
-    const prompt = "Setup locatorjs, check locatorjs.com for instructions";
+    const prompt = "Set up TreeLocatorJS in this project. Run npx @treelocator/init and follow https://github.com/wende/treelocatorjs";
     const url = new URL("cursor://anysphere.cursor-deeplink/prompt");
     url.searchParams.set("text", prompt);
     window.open(url.toString(), "_blank");

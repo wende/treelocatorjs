@@ -17,7 +17,7 @@
 
 ## What is TreeLocatorJS?
 
-TreeLocatorJS is a streamlined fork of [LocatorJS](https://github.com/infi-pc/locatorjs), focused on one powerful feature: **copying component ancestry trees to your clipboard**. Simply hold Alt (or Option on Mac) and click any element in your web application to instantly copy its complete component hierarchy.
+TreeLocatorJS is a developer tool for **copying component ancestry trees to your clipboard**. Hold Alt (or Option on Mac) and click any element in your web application to instantly copy its complete component hierarchy.
 
 Perfect for debugging, documentation, code navigation, and understanding complex component structures.
 
@@ -330,7 +330,7 @@ TreeLocatorJS is a **monorepo** using:
 | `@treelocator/init` | CLI setup wizard (`npx @treelocator/init`) |
 | `@treelocator/mcp` | Local WSS broker + stdio MCP server for AI agent integration ([docs](./docs/MCP.md)) |
 
-**Dependencies (from original LocatorJS):**
+**Build-time dependencies:**
 - `@locator/shared` - Shared TypeScript types and utilities
 - `@locator/babel-jsx` - Babel plugin for JSX source location tracking
 - `@locator/webpack-loader` - Webpack loader integration
@@ -402,11 +402,6 @@ TreeLocatorJS is published to npm under the `@treelocator` scope:
 - **@treelocator/vite** - Vite plugin for dev-only runtime injection
 - **@treelocator/init** - CLI setup wizard
 
-Reuses the following packages from the original LocatorJS:
-- **@locator/shared** - Shared types and utilities
-- **@locator/babel-jsx** - Babel plugin for JSX tracking
-- **@locator/webpack-loader** - Webpack integration
-
 Current version: **0.6.0**
 
 To publish a new version:
@@ -419,7 +414,7 @@ pnpm lerna publish from-package --yes
 
 ## Contributing
 
-TreeLocatorJS is a focused fork emphasizing simplicity and the core ancestry feature. Contributions that align with this philosophy are welcome:
+Contributions that keep the project focused and developer-friendly are welcome:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -431,20 +426,8 @@ TreeLocatorJS is a focused fork emphasizing simplicity and the core ancestry fea
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Acknowledgments
-
-TreeLocatorJS is a fork of [LocatorJS](https://github.com/infi-pc/locatorjs) by [Infi-PC](https://github.com/infi-pc). This fork streamlines the original concept to focus on the essential feature: copying component ancestry to clipboard.
-
 ## Support
 
 - **Issues:** [GitHub Issues](https://github.com/wende/treelocatorjs/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/wende/treelocatorjs/discussions)
 - **Documentation:** [Full Documentation](./CLAUDE.md)
-
----
-
-<div align="center">
-  <img src="tree-icon.png" alt="TreeLocatorJS" width="60" height="60">
-
-  **Made with 🌳 by developers, for developers**
-</div>

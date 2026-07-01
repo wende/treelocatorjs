@@ -8,7 +8,7 @@ export type FrameworkId = "svelte" | "vue" | "react" | "jsx" | null;
  * Detect the active framework, optionally considering element-level hints.
  *
  * Priority order: Svelte > Vue > React > JSX > Phoenix (uses JSX adapter)
- * JSX must be last because global data can leak from the LocatorJS extension.
+ * JSX must be last because global data can leak from browser extensions.
  */
 export function detectFramework(element?: HTMLElement): FrameworkId {
   if (detectSvelte()) return "svelte";

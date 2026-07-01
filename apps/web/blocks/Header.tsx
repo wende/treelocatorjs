@@ -17,7 +17,7 @@ function Header() {
               src={logo}
               height={50}
               width={207}
-              alt="LocatorJS logo"
+              alt="TreeLocatorJS logo"
             />
           </div>
         </Link>
@@ -39,7 +39,7 @@ function Header() {
           </a>
 
           <a
-            href="https://github.com/infi-pc/locatorjs"
+            href="https://github.com/wende/treelocatorjs"
             className="flex items-center gap-1 px-3 py-1 text-base border-0 rounded bg-slate-100 focus:outline-none hover:bg-slate-200"
           >
             <FaGithub></FaGithub> GitHub

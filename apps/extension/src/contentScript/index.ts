@@ -42,7 +42,7 @@ function initBridgeMetadata(): { hookUrl: string; clientUrl: string } | null {
   const hookUrl = chrome.runtime.getURL("hook.bundle.js");
   const clientUrl = chrome.runtime.getURL("client.bundle.js");
 
-  // Compatibility field for existing LocatorJS hook bridge conventions.
+  // Compatibility field for existing hook bridge conventions.
   root.dataset.locatorClientUrl = clientUrl;
 
   // TreeLocator-specific bridge metadata.
