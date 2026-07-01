@@ -28,6 +28,7 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("getPath");
       expect(api).toHaveProperty("getAncestry");
       expect(api).toHaveProperty("getPathData");
+      expect(api).toHaveProperty("getTree");
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");
@@ -39,6 +40,7 @@ describe("browserApi", () => {
       expect(typeof api.getPath).toBe("function");
       expect(typeof api.getAncestry).toBe("function");
       expect(typeof api.getPathData).toBe("function");
+      expect(typeof api.getTree).toBe("function");
       expect(typeof api.help).toBe("function");
       expect(typeof api.replay).toBe("function");
       expect(typeof api.replayWithRecord).toBe("function");
@@ -239,6 +241,125 @@ describe("browserApi", () => {
     });
   });
 
+  describe("getTree()", () => {
+    test("returns source-aware tree result rooted at document.body by default", async () => {
+      document.body.innerHTML = `<main><button aria-label="Save changes">Save</button></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+
+      expect(result).not.toBeNull();
+      expect(result?.root.tag).toBe("body");
+      expect(result?.root.children[0]?.tag).toBe("main");
+      expect(result?.root.children[0]?.children[0]?.role).toBe("button");
+      expect(result?.root.children[0]?.children[0]?.name).toBe("Save changes");
+      expect(result?.nodeCount).toBe(3);
+    });
+
+    test("returns null when selector is invalid", async () => {
+      const api = createBrowserAPI();
+      const result = await api.getTree("div > > div");
+      expect(result).toBeNull();
+    });
+
+    test("uses label/placeholder for inputs and never leaks typed values", async () => {
+      document.body.innerHTML = `
+        <main>
+          <label for="email">Email address</label>
+          <input id="email" type="email" value="secret@example.com" />
+          <input type="search" placeholder="Search products" value="running shoes" />
+          <input type="submit" value="Place order" />
+          <input type="password" value="hunter2" />
+        </main>
+      `;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+      const inputs = result?.root.children[0]?.children.filter(
+        (child) => child.tag === "input"
+      );
+
+      expect(inputs?.[0]?.name).toBe("Email address");
+      expect(inputs?.[1]?.name).toBe("Search products");
+      expect(inputs?.[2]?.name).toBe("Place order");
+      // A bare password field has no label/placeholder and must expose no name.
+      expect(inputs?.[3]?.name).toBeUndefined();
+      // The typed-in values must never surface as accessible names.
+      expect(JSON.stringify(result)).not.toContain("secret@example.com");
+      expect(JSON.stringify(result)).not.toContain("running shoes");
+      expect(JSON.stringify(result)).not.toContain("hunter2");
+    });
+
+    test("includeText: false omits text snippets", async () => {
+      document.body.innerHTML = `<main><p>Hello world</p></main>`;
+
+      const api = createBrowserAPI();
+      const withText = await api.getTree({ includeHidden: true });
+      const withoutText = await api.getTree({
+        includeHidden: true,
+        includeText: false,
+      });
+
+      const paragraphWith = withText?.root.children[0]?.children[0];
+      const paragraphWithout = withoutText?.root.children[0]?.children[0];
+      expect(paragraphWith?.text).toBe("Hello world");
+      expect(paragraphWithout?.text).toBeUndefined();
+    });
+
+    test("respects maxDepth", async () => {
+      document.body.innerHTML = `<main><section><button>Save</button></section></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({
+        includeHidden: true,
+        maxDepth: 1,
+      });
+
+      expect(result?.root.children[0]?.tag).toBe("main");
+      expect(result?.root.children[0]?.children).toHaveLength(0);
+      expect(result?.truncated).toBe(true);
+    });
+
+    test("respects maxNodes", async () => {
+      document.body.innerHTML = `<main><section></section><aside></aside></main>`;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({
+        includeHidden: true,
+        maxNodes: 2,
+      });
+
+      expect(result?.nodeCount).toBe(2);
+      expect(result?.truncated).toBe(true);
+    });
+
+    test("includeHidden controls hidden descendants", async () => {
+      document.body.innerHTML = `<main><button style="display: none">Hidden</button></main>`;
+
+      const api = createBrowserAPI();
+      const visibleOnly = await api.getTree();
+      const withHidden = await api.getTree({ includeHidden: true });
+
+      expect(visibleOnly?.root.children).toHaveLength(0);
+      expect(withHidden?.root.children[0]?.children[0]?.text).toBe("Hidden");
+    });
+
+    test("skips TreeLocator-owned elements", async () => {
+      document.body.innerHTML = `
+        <div id="locatorjs-wrapper"><button>TreeLocator UI</button></div>
+        <main><button>App UI</button></main>
+      `;
+
+      const api = createBrowserAPI();
+      const result = await api.getTree({ includeHidden: true });
+
+      expect(result?.root.children.map((child) => child.id)).not.toContain(
+        "locatorjs-wrapper"
+      );
+      expect(result?.root.children[0]?.tag).toBe("main");
+    });
+  });
+
   describe("installBrowserAPI()", () => {
     test("sets window.__treelocator__ to the created API object", () => {
       expect((window as any).__treelocator__).toBeUndefined();
@@ -253,6 +374,7 @@ describe("browserApi", () => {
       expect(api).toHaveProperty("getPath");
       expect(api).toHaveProperty("getAncestry");
       expect(api).toHaveProperty("getPathData");
+      expect(api).toHaveProperty("getTree");
       expect(api).toHaveProperty("help");
       expect(api).toHaveProperty("replay");
       expect(api).toHaveProperty("replayWithRecord");

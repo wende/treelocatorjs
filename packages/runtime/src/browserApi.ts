@@ -30,6 +30,11 @@ import { takeSnapshot } from "./visualDiff/snapshot";
 import { computeDiff, formatReport } from "./visualDiff/diff";
 import { waitForSettle } from "./visualDiff/settle";
 import type { DeltaReport, ElementSnapshot } from "./visualDiff/types";
+import {
+  buildSourceAwareTree,
+  SourceAwareTreeOptions,
+  SourceAwareTreeResult,
+} from "./functions/sourceAwareTree";
 
 export interface LocatorJSAPI {
   /**
@@ -116,6 +121,22 @@ export interface LocatorJSAPI {
   ): Promise<{ path: string; ancestry: AncestryItem[] } | null>;
 
   /**
+   * Get a bounded source-aware page tree for AI agents.
+   * Each node includes lightweight semantic labels, visibility, bounds,
+   * component/source attribution, and the existing enriched ancestry path.
+   *
+   * @param selectorOrOptions - Optional CSS selector root, or options object
+   * @param options - Optional bounds/filtering options when a selector is used
+   * @returns Source-aware tree result, or null if selector/root is not found
+   */
+  getTree(): Promise<SourceAwareTreeResult | null>;
+  getTree(options: SourceAwareTreeOptions): Promise<SourceAwareTreeResult | null>;
+  getTree(
+    selector: string,
+    options?: SourceAwareTreeOptions
+  ): Promise<SourceAwareTreeResult | null>;
+
+  /**
    * Get computed styles for an element, formatted for AI consumption.
    * Extracts layout, visual, typography, and interaction styles filtered against browser defaults.
    * Clicking the same element twice within 30s returns a diff of changed properties.
@@ -150,7 +171,7 @@ export interface LocatorJSAPI {
   ): ComputedStylesResult | null;
 
   /**
-   * Display help information about the LocatorJS API.
+   * Display help information about the TreeLocatorJS API.
    * Shows usage examples and method descriptions for browser automation tools.
    *
    * @returns Help text as a string
@@ -420,7 +441,21 @@ METHODS:
      console.log(data.path)      // formatted string
      console.log(data.ancestry)  // structured array
 
-4. getStyles(elementOrSelector, options?)
+4. getTree(selectorOrOptions?, options?)
+   Returns a bounded source-aware page tree for AI agents.
+   Each node includes tag, role, name, text, rect, visibility,
+   component/source attribution, ancestry, and children.
+
+   Usage:
+     const tree = await window.__treelocator__.getTree()
+     const subtree = await window.__treelocator__.getTree('.checkout', {
+       maxDepth: 4,
+       maxNodes: 100,
+       includeHidden: false,
+       includeText: true,
+     })
+
+5. getStyles(elementOrSelector, options?)
    Returns computed styles for an element, optimized for AI consumption.
    Filters out browser defaults and groups by category (Layout, Visual, Typography).
    Pass { includeDefaults: true } for a fuller dump closer to DevTools.
@@ -432,7 +467,7 @@ METHODS:
      console.log(result.snapshot)   // raw property values + bounding rect
      const full = window.__treelocator__.getStyles('h1', { includeDefaults: true })
 
-5. getCSSRules(elementOrSelector)
+6. getCSSRules(elementOrSelector)
    Returns structured CSS rule data for the element.
    Shows all matching rules grouped by property with specificity and source.
 
@@ -443,7 +478,7 @@ METHODS:
        p.rules.forEach(r => console.log('  ' + (r.winning ? 'WIN' : '   ') + ' ' + r.selector))
      })
 
-6. getCSSReport(elementOrSelector, options?)
+7. getCSSReport(elementOrSelector, options?)
    Returns a formatted string showing all CSS rules and which wins per property.
    Pass { properties: ['color', 'font-size'] } to filter to specific properties.
 
@@ -459,13 +494,13 @@ METHODS:
         ✗ .button          (0,1,0) — base.css
         ✗ button           (0,0,1) — reset.css"
 
-7. replay()
+8. replay()
    Replays the last recorded interaction sequence as a macro.
 
    Usage:
      window.__treelocator__.replay()
 
-8. replayWithRecord(elementOrSelector)
+9. replayWithRecord(elementOrSelector)
    Replays stored interactions while recording element changes.
    Returns dejitter analysis when replay completes.
 
@@ -474,7 +509,7 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-9. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
+10. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
    Visual diff engine. Captures viewport element state and returns a compact
    delta showing what appeared, disappeared, moved, or changed.
 
@@ -484,7 +519,7 @@ METHODS:
      });
      console.log(report.text);
 
-10. help()
+11. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -590,6 +625,27 @@ export function createBrowserAPI(
 
       return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
         ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
+      );
+    },
+
+    getTree(
+      selectorOrOptions?: string | SourceAwareTreeOptions,
+      options?: SourceAwareTreeOptions
+    ): Promise<SourceAwareTreeResult | null> {
+      const treeOptions: SourceAwareTreeOptions =
+        typeof selectorOrOptions === "string"
+          ? { ...options, selector: selectorOrOptions }
+          : selectorOrOptions || {};
+
+      const root = treeOptions.selector
+        ? resolveElement(treeOptions.selector)
+        : document.body;
+      if (!root) {
+        return Promise.resolve(null);
+      }
+
+      return buildSourceAwareTree(root, treeOptions, (element) =>
+        getEnrichedAncestryForElement(element, adapterId)
       );
     },
 

@@ -67,8 +67,9 @@ Typical agent workflow:
 
 1. `treelocator_list_sessions` — see connected browser tabs
 2. `treelocator_connect_session` — pick `{ "sessionId": "..." }`
-3. `treelocator_get_path` — `{ "selector": "button.submit" }`
-4. Optional: `treelocator_click`, `treelocator_get_styles`, `treelocator_execute_js`, etc.
+3. `treelocator_get_tree` — get a source-aware page tree for the tab
+4. `treelocator_get_path` — `{ "selector": "button.submit" }`
+5. Optional: `treelocator_click`, `treelocator_get_styles`, `treelocator_execute_js`, etc.
 
 `sessionId` can be omitted on later calls after `connect_session`.
 
@@ -105,6 +106,7 @@ setup({ mcp: { enabled: false } });
 | `treelocator_get_path` | `window.__treelocator__.getPath(selector)` |
 | `treelocator_get_ancestry` | `window.__treelocator__.getAncestry(selector)` |
 | `treelocator_get_path_data` | Path + raw ancestry in one call |
+| `treelocator_get_tree` | Source-aware page tree with semantic labels, bounds, component/source attribution, and ancestry |
 | `treelocator_get_styles` | Computed styles summary + snapshot |
 | `treelocator_get_css_rules` | Matched CSS rules with specificity |
 | `treelocator_get_css_report` | Human-readable CSS conflict report |
@@ -137,6 +139,12 @@ Most element tools accept:
 
 ```json
 { "selector": ".hero h1" }
+```
+
+**Get source-aware page tree**
+
+```json
+{ "selector": "main", "maxDepth": 4, "maxNodes": 100 }
 ```
 
 **Execute JS in the page**

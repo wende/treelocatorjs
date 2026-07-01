@@ -13,6 +13,17 @@ function createApiMock() {
     getPathData: vi
       .fn()
       .mockResolvedValue({ path: "path", ancestry: [{ elementName: "button" }] }),
+    getTree: vi.fn().mockResolvedValue({
+      root: { tag: "body", visible: true, rect: {}, ancestry: [], children: [] },
+      nodeCount: 1,
+      truncated: false,
+      options: {
+        maxDepth: 8,
+        maxNodes: 500,
+        includeHidden: false,
+        includeText: true,
+      },
+    }),
     getStyles: vi.fn().mockReturnValue({ formatted: "styles", snapshot: {} }),
     getCSSRules: vi.fn().mockReturnValue({ properties: [] }),
     getCSSReport: vi.fn().mockReturnValue("report"),
@@ -54,6 +65,26 @@ describe("mcpBridge executeBridgeCommand", () => {
 
     expect(api.getPath).toHaveBeenCalledWith("#target");
     expect(result).toBe("path");
+  });
+
+  test("dispatches get_tree to browser API", async () => {
+    const api = createApiMock();
+    const result = await executeBridgeCommand(api, "get_tree", {
+      selector: "main",
+      maxDepth: 4,
+      maxNodes: 100,
+      includeHidden: true,
+      includeText: false,
+    });
+
+    expect(api.getTree).toHaveBeenCalledWith({
+      selector: "main",
+      maxDepth: 4,
+      maxNodes: 100,
+      includeHidden: true,
+      includeText: false,
+    });
+    expect(result).toMatchObject({ nodeCount: 1, truncated: false });
   });
 
   test("click uses selector + index", async () => {

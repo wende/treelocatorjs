@@ -5,6 +5,7 @@ import { BrokerClient } from "./brokerClient";
 import {
   getCssReportSchema,
   getStylesSchema,
+  getTreeSchema,
   selectorSchema,
   sessionIdSchema,
   snapshotIdSchema,
@@ -71,6 +72,23 @@ const TOOL_DESCRIPTORS: ToolDescriptor[] = [
     name: "treelocator_get_path_data",
     description: "Call window.__treelocator__.getPathData(selector).",
     inputSchema: selectorInputSchema(),
+  },
+  {
+    name: "treelocator_get_tree",
+    description:
+      "Call window.__treelocator__.getTree({ selector, maxDepth, maxNodes, includeHidden, includeText }).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        selector: { type: "string" },
+        maxDepth: { type: "integer", minimum: 0, maximum: 50 },
+        maxNodes: { type: "integer", minimum: 1, maximum: 5000 },
+        includeHidden: { type: "boolean" },
+        includeText: { type: "boolean" },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "treelocator_get_styles",
@@ -529,6 +547,14 @@ export class ManualMcpServer {
         return toolError("internal_error", `Unknown selector tool: ${toolName}`);
       }
       return await this.runBridgeTool(command, parsed.data, signal);
+    }
+
+    if (toolName === "treelocator_get_tree") {
+      const parsed = getTreeSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return toolError("invalid_args", parsed.error.message);
+      }
+      return await this.runBridgeTool("get_tree", parsed.data, signal);
     }
 
     if (toolName === "treelocator_get_styles") {

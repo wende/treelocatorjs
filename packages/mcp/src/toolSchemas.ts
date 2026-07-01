@@ -10,6 +10,15 @@ export const selectorSchema = z.object({
   index: z.number().int().min(0).optional(),
 });
 
+export const getTreeSchema = z.object({
+  sessionId: z.string().min(1).optional(),
+  selector: z.string().min(1).optional(),
+  maxDepth: z.number().int().min(0).max(50).optional(),
+  maxNodes: z.number().int().min(1).max(5000).optional(),
+  includeHidden: z.boolean().optional(),
+  includeText: z.boolean().optional(),
+});
+
 export const getStylesSchema = selectorSchema.extend({
   options: z
     .object({

@@ -7,6 +7,7 @@ import {
   getConsoleSchema,
   getCssReportSchema,
   getStylesSchema,
+  getTreeSchema,
   selectorSchema,
   sessionIdSchema,
   snapshotIdSchema,
@@ -218,6 +219,17 @@ export class TreeLocatorMCPServer {
         inputSchema: selectorSchema.shape,
       },
       async (args, extra) => this.runBridgeCommand("get_path_data", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_get_tree",
+      {
+        title: "Get source-aware page tree",
+        description:
+          "Call window.__treelocator__.getTree({ selector, maxDepth, maxNodes, includeHidden, includeText }) on the target page.",
+        inputSchema: getTreeSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("get_tree", args, extra)
     );
 
     this.server.registerTool(
