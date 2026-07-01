@@ -345,8 +345,8 @@ function trimToLimit(text, limit = 62000) {
 let body;
 if (incremental && existing) {
   // Append a dated section for this push, preserving prior review history.
-  const date = new Date().toISOString().slice(0, 10);
-  const section = `${SECTION_SENTINEL}### Update ${HEAD_SHA.slice(0, 7)} — ${date}\n\n${review}${truncNote}`;
+  const date = new Date().toISOString().slice(0, 16).replace("T", " ");
+  const section = `${SECTION_SENTINEL}### Update ${HEAD_SHA.slice(0, 7)} — ${date} UTC\n\n${review}${truncNote}`;
   body = trimToLimit(existing.body + section);
 } else {
   // First run (or incremental with no prior comment): a full review sets the base.
