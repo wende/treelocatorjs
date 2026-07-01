@@ -100,8 +100,19 @@ try {
     fail(`API request failed (${res.status}): ${text.slice(0, 500)}`);
   }
   const data = await res.json();
-  review = data?.choices?.[0]?.message?.content?.trim();
-  if (!review) fail(`Empty response from API: ${JSON.stringify(data).slice(0, 500)}`);
+  const choice = data?.choices?.[0];
+  review = choice?.message?.content?.trim();
+  if (!review) {
+    // Reasoning models spend tokens on reasoning_content; if they hit the cap
+    // first, content comes back empty. Skip cleanly with actionable guidance.
+    if (choice?.finish_reason === "length") {
+      console.log(
+        `[${PROVIDER_NAME}] Output hit the token cap before producing a review; raise MAX_TOKENS. Skipping.`
+      );
+      process.exit(0);
+    }
+    fail(`Empty response from API: ${JSON.stringify(data).slice(0, 500)}`);
+  }
 } catch (e) {
   fail(`API call error: ${e.message}`);
 }
