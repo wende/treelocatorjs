@@ -32,6 +32,8 @@ jobs:
           API_KEY: ${{ secrets.KIMI_API_KEY }}
           API_BASE: ${{ vars.KIMI_BASE_URL || 'https://api.kimi.com/coding/v1' }}
           MODEL: ${{ vars.KIMI_MODEL || 'kimi-for-coding' }}
+          # kimi-for-coding is a reasoning model; give headroom so reasoning tokens don't starve the review.
+          MAX_TOKENS: '6000'
           SYSTEM_PROMPT: >-
             You are a bug- and security-focused code reviewer. Review the PR
             diff for logic errors, security risks, edge cases, and incorrect
