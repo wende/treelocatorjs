@@ -14,13 +14,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  kimi-review:
-    name: Kimi Review
-    # Skip drafts; both jobs run in parallel on real PRs.
+  ai-review:
+    name: ${{ matrix.name }} Review
+    # Skip drafts; both providers run in parallel via the matrix.
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     # Advisory only — a failed/missing key or API outage must not block the PR.
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Kimi
+            provider: Kimi
+            api_key_secret: KIMI_API_KEY
+            api_base_var: KIMI_BASE_URL
+            api_base_default: 'https://api.kimi.com/coding/v1'
+            model_var: KIMI_MODEL
+            model_default: 'kimi-for-coding'
+            max_tokens: '16000'
+            system_prompt: >-
+              You are a bug- and security-focused code reviewer. Review the PR
+              diff for logic errors, security risks, edge cases, and incorrect
+              behavior. Skip formatting and style nitpicks. Be concise; use
+              markdown with short bullet points and reference file paths.
+          - name: GLM
+            provider: GLM
+            api_key_secret: ZAI_API_KEY
+            api_base_var: ZAI_BASE_URL
+            api_base_default: 'https://api.z.ai/api/coding/paas/v4'
+            model_var: ZAI_MODEL
+            model_default: 'glm-5.2'
+            max_tokens: '16000'
+            system_prompt: >-
+              You are an architecture-focused code reviewer. Review the PR diff
+              for API design consistency, performance bottlenecks, data-structure
+              choices, maintainability, and coupling. Skip style nitpicks. Be
+              concise; use markdown with short bullet points and reference file
+              paths.
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,60 +62,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Kimi (Moonshot) review
+      - name: ${{ matrix.name }} review
         run: node .github/scripts/ai-review.mjs
         env:
-          PROVIDER_NAME: Kimi
-          API_KEY: ${{ secrets.KIMI_API_KEY }}
-          API_BASE: ${{ vars.KIMI_BASE_URL || 'https://api.kimi.com/coding/v1' }}
-          MODEL: ${{ vars.KIMI_MODEL || 'kimi-for-coding' }}
-          # kimi-for-coding is a reasoning model; give headroom so reasoning tokens don't starve the review.
-          MAX_TOKENS: '16000'
-          SYSTEM_PROMPT: >-
-            You are a bug- and security-focused code reviewer. Review the PR
-            diff for logic errors, security risks, edge cases, and incorrect
-            behavior. Skip formatting and style nitpicks. Be concise; use
-            markdown with short bullet points and reference file paths.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # Enable incremental review of just the new commits on synchronize.
-          ACTION: ${{ github.event.action }}
-          BEFORE_SHA: ${{ github.event.before }}
-
-  glm-review:
-    name: GLM (z.ai) Review
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    # Advisory only — a failed/missing key or API outage must not block the PR.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: GLM (z.ai) review
-        run: node .github/scripts/ai-review.mjs
-        env:
-          PROVIDER_NAME: GLM
-          API_KEY: ${{ secrets.ZAI_API_KEY }}
-          # Coding-plan endpoint (subscription) — the plain paas/v4 endpoint needs a pay-as-you-go balance.
-          API_BASE: ${{ vars.ZAI_BASE_URL || 'https://api.z.ai/api/coding/paas/v4' }}
-          MODEL: ${{ vars.ZAI_MODEL || 'glm-5.2' }}
-          # glm-5.2 is a reasoning model; give headroom so reasoning tokens don't starve the review.
-          MAX_TOKENS: '16000'
-          SYSTEM_PROMPT: >-
-            You are an architecture-focused code reviewer. Review the PR diff
-            for API design consistency, performance bottlenecks, data-structure
-            choices, maintainability, and coupling. Skip style nitpicks. Be
-            concise; use markdown with short bullet points and reference file
-            paths.
+          PROVIDER_NAME: ${{ matrix.provider }}
+          API_KEY: ${{ secrets[matrix.api_key_secret] }}
+          API_BASE: ${{ vars[matrix.api_base_var] || matrix.api_base_default }}
+          MODEL: ${{ vars[matrix.model_var] || matrix.model_default }}
+          MAX_TOKENS: ${{ matrix.max_tokens }}
+          SYSTEM_PROMPT: ${{ matrix.system_prompt }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
