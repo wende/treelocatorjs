@@ -19,6 +19,7 @@ const {
   HEAD_SHA,
   MAX_DIFF_CHARS = "60000",
   MAX_TOKENS = "2000",
+  TEMPERATURE = "", // omit unless set; some models (e.g. kimi-for-coding) only accept 1
 } = process.env;
 
 function fail(msg) {
@@ -86,8 +87,8 @@ try {
     },
     body: JSON.stringify({
       model: MODEL,
-      temperature: 0.2,
       max_tokens: parseInt(MAX_TOKENS, 10),
+      ...(TEMPERATURE !== "" ? { temperature: parseFloat(TEMPERATURE) } : {}),
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },

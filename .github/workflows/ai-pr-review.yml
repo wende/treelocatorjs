@@ -63,8 +63,11 @@ jobs:
         env:
           PROVIDER_NAME: GLM
           API_KEY: ${{ secrets.ZAI_API_KEY }}
-          API_BASE: ${{ vars.ZAI_BASE_URL || 'https://api.z.ai/api/paas/v4' }}
+          # Coding-plan endpoint (subscription) — the plain paas/v4 endpoint needs a pay-as-you-go balance.
+          API_BASE: ${{ vars.ZAI_BASE_URL || 'https://api.z.ai/api/coding/paas/v4' }}
           MODEL: ${{ vars.ZAI_MODEL || 'glm-5.2' }}
+          # glm-5.2 is a reasoning model; give headroom so reasoning tokens don't starve the review.
+          MAX_TOKENS: '6000'
           SYSTEM_PROMPT: >-
             You are an architecture-focused code reviewer. Review the PR diff
             for API design consistency, performance bottlenecks, data-structure
