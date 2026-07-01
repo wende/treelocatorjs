@@ -1,0 +1,78 @@
+name: AI PR Review — Kimi + GLM
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  kimi-review:
+    name: Kimi Review
+    # Skip drafts; both jobs run in parallel on real PRs.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # Advisory only — a failed/missing key or API outage must not block the PR.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Kimi (Moonshot) review
+        run: node .github/scripts/ai-review.mjs
+        env:
+          PROVIDER_NAME: Kimi
+          API_KEY: ${{ secrets.KIMI_API_KEY }}
+          API_BASE: ${{ vars.KIMI_BASE_URL || 'https://api.kimi.com/coding/v1' }}
+          MODEL: ${{ vars.KIMI_MODEL || 'kimi-for-coding' }}
+          SYSTEM_PROMPT: >-
+            You are a bug- and security-focused code reviewer. Review the PR
+            diff for logic errors, security risks, edge cases, and incorrect
+            behavior. Skip formatting and style nitpicks. Be concise; use
+            markdown with short bullet points and reference file paths.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  glm-review:
+    name: GLM (z.ai) Review
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # Advisory only — a failed/missing key or API outage must not block the PR.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: GLM (z.ai) review
+        run: node .github/scripts/ai-review.mjs
+        env:
+          PROVIDER_NAME: GLM
+          API_KEY: ${{ secrets.ZAI_API_KEY }}
+          API_BASE: ${{ vars.ZAI_BASE_URL || 'https://api.z.ai/api/paas/v4' }}
+          MODEL: ${{ vars.ZAI_MODEL || 'glm-5.2' }}
+          SYSTEM_PROMPT: >-
+            You are an architecture-focused code reviewer. Review the PR diff
+            for API design consistency, performance bottlenecks, data-structure
+            choices, maintainability, and coupling. Skip style nitpicks. Be
+            concise; use markdown with short bullet points and reference file
+            paths.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
