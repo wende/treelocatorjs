@@ -269,6 +269,7 @@ describe("browserApi", () => {
           <input id="email" type="email" value="secret@example.com" />
           <input type="search" placeholder="Search products" value="running shoes" />
           <input type="submit" value="Place order" />
+          <input type="password" value="hunter2" />
         </main>
       `;
 
@@ -281,9 +282,28 @@ describe("browserApi", () => {
       expect(inputs?.[0]?.name).toBe("Email address");
       expect(inputs?.[1]?.name).toBe("Search products");
       expect(inputs?.[2]?.name).toBe("Place order");
+      // A bare password field has no label/placeholder and must expose no name.
+      expect(inputs?.[3]?.name).toBeUndefined();
       // The typed-in values must never surface as accessible names.
       expect(JSON.stringify(result)).not.toContain("secret@example.com");
       expect(JSON.stringify(result)).not.toContain("running shoes");
+      expect(JSON.stringify(result)).not.toContain("hunter2");
+    });
+
+    test("includeText: false omits text snippets", async () => {
+      document.body.innerHTML = `<main><p>Hello world</p></main>`;
+
+      const api = createBrowserAPI();
+      const withText = await api.getTree({ includeHidden: true });
+      const withoutText = await api.getTree({
+        includeHidden: true,
+        includeText: false,
+      });
+
+      const paragraphWith = withText?.root.children[0]?.children[0];
+      const paragraphWithout = withoutText?.root.children[0]?.children[0];
+      expect(paragraphWith?.text).toBe("Hello world");
+      expect(paragraphWithout?.text).toBeUndefined();
     });
 
     test("respects maxDepth", async () => {

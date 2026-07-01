@@ -251,11 +251,13 @@ function isVisibleElement(element: Element, rect: DOMRect): boolean {
   if (element instanceof HTMLElement && element.hidden) return false;
   if (element.getAttribute("aria-hidden") === "true") return false;
 
+  // Cheap geometry check first: display:none and detached nodes report a
+  // zero-size rect, so we can skip the costly getComputedStyle for them.
+  if (rect.width <= 0 || rect.height <= 0) return false;
+
   const style = getComputedStyle(element);
   if (style.display === "none" || style.visibility === "hidden") return false;
-  if (Number.parseFloat(style.opacity || "1") <= 0) return false;
-
-  return rect.width > 0 && rect.height > 0;
+  return Number.parseFloat(style.opacity || "1") > 0;
 }
 
 function getPrimarySource(ancestry: AncestryItem[]): {
@@ -336,10 +338,16 @@ export async function buildSourceAwareTree(
       return null;
     }
 
-    const ancestry =
-      element instanceof HTMLElement
-        ? (await resolveAncestry(element)) || []
-        : [];
+    // A single failing source-map lookup must not abort the whole tree build;
+    // degrade to an empty ancestry (no component/source attribution) instead.
+    let ancestry: AncestryItem[] = [];
+    if (element instanceof HTMLElement) {
+      try {
+        ancestry = (await resolveAncestry(element)) || [];
+      } catch {
+        ancestry = [];
+      }
+    }
     const source = getPrimarySource(ancestry);
     const text = options.includeText ? getDirectText(element) : undefined;
     const children: SourceAwareTreeNode[] = [];
