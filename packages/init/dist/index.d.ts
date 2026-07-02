@@ -17,6 +17,7 @@ declare function getInstallCommand(pm: ProjectInfo["packageManager"], packages: 
  * All functions are pure string→string where possible; file IO lives in the
  * update* wrappers.
  */
+
 declare function addRolldownBabelPlugin(content: string): string;
 declare function addTreelocatorVitePlugin(content: string): string;
 declare function injectBabelPluginIntoVitePlugin(content: string, pluginNames: string[], babelConfig: string): string;

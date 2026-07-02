@@ -62,10 +62,37 @@ function Runtime(props: RuntimeProps) {
 
   // Clipboard access can reject (permissions policy, unfocused document) —
   // surface the failure as a toast instead of an unhandled rejection.
+  // navigator.clipboard is undefined in insecure (non-HTTPS, non-localhost)
+  // contexts, where accessing it would throw synchronously; fall back to the
+  // legacy execCommand path so Alt+click still works on LAN/HTTP testing.
   function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).then(
-      () => setToastMessage("Copied to clipboard"),
-      () => setToastMessage("Copy failed — check clipboard permissions")
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => setToastMessage("Copied to clipboard"),
+        () => setToastMessage("Copy failed — check clipboard permissions")
+      );
+      return;
+    }
+    let successful = false;
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+    } catch {
+      successful = false;
+    }
+    setToastMessage(
+      successful
+        ? "Copied to clipboard"
+        : "Copy failed — check clipboard permissions"
     );
   }
 

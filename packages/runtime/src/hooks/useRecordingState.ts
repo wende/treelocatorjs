@@ -375,6 +375,9 @@ export function useRecordingState(adapterId?: AdapterId): RecordingStateAPI {
     if (events.length === 0) return Promise.resolve(null);
 
     return new Promise((resolve) => {
+      // Clear any in-flight playback so the two loops can't run concurrently
+      // and corrupt recording state.
+      stopReplay();
       beginSession(element!);
       setReplaying(true);
 

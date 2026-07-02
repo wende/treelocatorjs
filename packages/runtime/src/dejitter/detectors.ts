@@ -55,10 +55,13 @@ function detectOutliers(ctx: AnalysisContext): any[] {
       if (p.raw <= 1) continue;
       const ratio = median! > 0 ? p.raw / median! : p.raw;
       const rt = ctx.thresholds.outlier.ratioThreshold;
+      // With ≤2 props there is no meaningful median, so never treat the
+      // extremes as outliers. With 3+ props, the single biggest-changer is
+      // usually the outlier we're looking for — allow it to be flagged.
       const isOutlier =
         (ratio > rt || ratio < 1 / rt) &&
-        p.raw !== counts[counts.length - 1] &&
-        p.raw !== counts[0];
+        (counts.length > 2 ||
+          (p.raw !== counts[counts.length - 1] && p.raw !== counts[0]));
       if (isOutlier) {
         outliers.push({ ...p, median, ratio: Math.round(ratio * 10) / 10 });
       }

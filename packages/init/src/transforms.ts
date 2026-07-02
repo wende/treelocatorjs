@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 import pc from "picocolors";
-import { frameworkNeedsBabelJsx, usesReactPluginV6 } from "./detect.js";
+import { frameworkNeedsBabelJsx, usesReactPluginV6, type ProjectInfo } from "./detect.js";
 
 /**
  * Insert an import statement after the last existing import (or a preferred
@@ -127,7 +127,7 @@ const VITE_PLUGIN_NAMES: Record<string, string[]> = {
   preact: ["preact"],
 };
 
-export function updateViteConfig(configFile: string, framework: string): void {
+export function updateViteConfig(configFile: string, framework: ProjectInfo["framework"]): void {
   let content = fs.readFileSync(configFile, "utf-8");
   let changed = false;
 
@@ -136,7 +136,7 @@ export function updateViteConfig(configFile: string, framework: string): void {
     changed = true;
   }
 
-  const needsBabel = frameworkNeedsBabelJsx(framework as any);
+  const needsBabel = frameworkNeedsBabelJsx(framework);
   if (needsBabel && !content.includes("@locator/babel-jsx")) {
     if (framework === "react" && usesReactPluginV6()) {
       content = addRolldownBabelPlugin(content);
@@ -258,7 +258,7 @@ export function setupNextAppRouter(): void {
     `import { LocatorProvider } from "./LocatorProvider";`
   );
 
-  content = content.replace(/\{children\}/g, "<LocatorProvider>{children}</LocatorProvider>");
+  content = content.replace(/\{\s*children\s*\}/g, "<LocatorProvider>{children}</LocatorProvider>");
   fs.writeFileSync(layoutPath, content);
   console.log(pc.green(`Updated ${layoutPath}`));
 }

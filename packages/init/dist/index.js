@@ -363,7 +363,7 @@ function setupNextAppRouter() {
     content,
     `import { LocatorProvider } from "./LocatorProvider";`
   );
-  content = content.replace(/\{children\}/g, "<LocatorProvider>{children}</LocatorProvider>");
+  content = content.replace(/\{\s*children\s*\}/g, "<LocatorProvider>{children}</LocatorProvider>");
   fs3.writeFileSync(layoutPath, content);
   console.log(pc2.green(`Updated ${layoutPath}`));
 }
