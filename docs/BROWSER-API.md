@@ -67,6 +67,8 @@ Returns both formatted path and raw ancestry data in a single call.
 
 Returns a bounded source-aware page tree for AI agents. This is not a full browser accessibility tree; it is a compact DOM-derived tree annotated with semantic labels and TreeLocator source/component ancestry.
 
+Note: `name` is computed heuristically (aria-label → aria-labelledby → alt → title → labels → placeholder → direct text) and not a spec-compliant accessible-name computation. Typed values for password / text / email / search inputs are never surfaced as the accessible name; their associated `<label>` or placeholder is used instead.
+
 **Parameters:**
 - `selectorOrOptions` - Optional CSS selector root, or an options object
 - `options.selector` - Optional CSS selector root when calling with an options object

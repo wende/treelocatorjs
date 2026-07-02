@@ -78,18 +78,7 @@ const TOOL_DESCRIPTORS: ToolDescriptor[] = [
     name: "treelocator_get_tree",
     description:
       "Call window.__treelocator__.getTree({ selector, maxDepth, maxNodes, includeHidden, includeText }).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string" },
-        selector: { type: "string" },
-        maxDepth: { type: "integer", minimum: 0, maximum: 50 },
-        maxNodes: { type: "integer", minimum: 1, maximum: 5000 },
-        includeHidden: { type: "boolean" },
-        includeText: { type: "boolean" },
-      },
-      additionalProperties: false,
-    },
+    inputSchema: getTreeSchema.shape,
   },
   {
     name: "treelocator_get_styles",
