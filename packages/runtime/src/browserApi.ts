@@ -24,12 +24,20 @@ import {
   clearNamedSnapshot,
   TakeSnapshotResult,
   SnapshotDiffResult,
+  TreeSnapshotOptions,
+  TakeTreeSnapshotResult,
+  TreeSnapshotDiffResult,
 } from "./functions/namedSnapshots";
 import type { RecordingResult } from "./hooks/useRecordingState";
 import { takeSnapshot } from "./visualDiff/snapshot";
 import { computeDiff, formatReport } from "./visualDiff/diff";
 import { waitForSettle } from "./visualDiff/settle";
 import type { DeltaReport, ElementSnapshot } from "./visualDiff/types";
+import {
+  buildSourceAwareTree,
+  SourceAwareTreeOptions,
+  SourceAwareTreeResult,
+} from "./functions/sourceAwareTree";
 
 export interface LocatorJSAPI {
   /**
@@ -116,6 +124,22 @@ export interface LocatorJSAPI {
   ): Promise<{ path: string; ancestry: AncestryItem[] } | null>;
 
   /**
+   * Get a bounded source-aware page tree for AI agents.
+   * Each node includes lightweight semantic labels, visibility, bounds,
+   * component/source attribution, and the existing enriched ancestry path.
+   *
+   * @param selectorOrOptions - Optional CSS selector root, or options object
+   * @param options - Optional bounds/filtering options when a selector is used
+   * @returns Source-aware tree result, or null if selector/root is not found
+   */
+  getTree(): Promise<SourceAwareTreeResult | null>;
+  getTree(options: SourceAwareTreeOptions): Promise<SourceAwareTreeResult | null>;
+  getTree(
+    selector: string,
+    options?: SourceAwareTreeOptions
+  ): Promise<SourceAwareTreeResult | null>;
+
+  /**
    * Get computed styles for an element, formatted for AI consumption.
    * Extracts layout, visual, typography, and interaction styles filtered against browser defaults.
    * Clicking the same element twice within 30s returns a diff of changed properties.
@@ -150,7 +174,7 @@ export interface LocatorJSAPI {
   ): ComputedStylesResult | null;
 
   /**
-   * Display help information about the LocatorJS API.
+   * Display help information about the TreeLocatorJS API.
    * Shows usage examples and method descriptions for browser automation tools.
    *
    * @returns Help text as a string
@@ -232,26 +256,34 @@ export interface LocatorJSAPI {
   ): string | null;
 
   /**
-   * Capture a baseline snapshot of an element's computed styles and persist
-   * it in localStorage under `snapshotId`. The baseline survives page reloads
-   * and is never mutated until you call `takeSnapshot` again with the same id.
+   * Capture a reload-safe baseline under `snapshotId`.
+   * With no tree options, snapshots the selected element's computed styles.
+   * Passing getTree-style options such as `maxDepth` snapshots the
+   * source-aware tree rooted at the selected element instead.
    *
-   * @param selector - CSS selector for the element to snapshot
+   * @param selector - CSS selector for the element/tree root to snapshot
    * @param snapshotId - caller-chosen id used to retrieve the diff later
-   * @param options - optional `{ index, label }` (index picks among matches)
+   * @param options - optional `{ index, label }` plus tree options
    */
   takeSnapshot(
     selector: string,
     snapshotId: string,
     options?: { index?: number; label?: string }
   ): TakeSnapshotResult;
+  takeSnapshot(
+    selector: string,
+    snapshotId: string,
+    options: TreeSnapshotOptions
+  ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult>;
 
   /**
-   * Diff the current computed styles of the element against the baseline
+   * Diff the current element styles or source-aware tree against the baseline
    * stored under `snapshotId`. Does not overwrite the baseline — safe to call
    * repeatedly while iterating on a change.
    */
-  getSnapshotDiff(snapshotId: string): SnapshotDiffResult;
+  getSnapshotDiff(
+    snapshotId: string
+  ): SnapshotDiffResult | Promise<TreeSnapshotDiffResult>;
 
   /**
    * Remove a stored baseline snapshot.
@@ -354,6 +386,13 @@ function resolveElement(
   return elementOrSelector;
 }
 
+function hasTreeSnapshotOptions(options?: TreeSnapshotOptions): boolean {
+  if (!options) return false;
+  return ["maxDepth", "maxNodes", "includeHidden", "includeText"].some((key) =>
+    Object.prototype.hasOwnProperty.call(options, key)
+  );
+}
+
 /**
  * The browser API is consumed by automation tools and host pages that can't
  * recover from exceptions thrown deep inside adapter internals. Query methods
@@ -399,6 +438,16 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
     return enrichAncestryWithSourceMaps(ancestry, element);
   }
 
+  // Per-element enriched ancestry for the source-aware tree builder and tree
+  // snapshots, which walk already-resolved elements (no selector to resolve).
+  function getEnrichedAncestryForElement(
+    element: HTMLElement
+  ): Promise<AncestryItem[] | null> {
+    const ancestry = getAncestry(element);
+    if (!ancestry) return Promise.resolve(null);
+    return enrichAncestryWithSourceMaps(ancestry, element);
+  }
+
   return {
     getPath(elementOrSelector) {
       return safeAsync("getPath", null, async () => {
@@ -432,6 +481,29 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
       });
     },
 
+    getTree(
+      selectorOrOptions?: string | SourceAwareTreeOptions,
+      options?: SourceAwareTreeOptions
+    ): Promise<SourceAwareTreeResult | null> {
+      return safeAsync("getTree", null, async () => {
+        const treeOptions: SourceAwareTreeOptions =
+          typeof selectorOrOptions === "string"
+            ? { ...options, selector: selectorOrOptions }
+            : selectorOrOptions || {};
+
+        const root = treeOptions.selector
+          ? resolveElement(treeOptions.selector)
+          : document.body;
+        if (!root) {
+          return null;
+        }
+
+        return buildSourceAwareTree(root, treeOptions, (element) =>
+          getEnrichedAncestryForElement(element)
+        );
+      });
+    },
+
     getCSSRules(elementOrSelector) {
       return safeSync("getCSSRules", null, () => {
         const element = resolveElement(elementOrSelector);
@@ -458,12 +530,30 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
       });
     },
 
-    takeSnapshot(selector, snapshotId, options) {
+    takeSnapshot: ((
+      selector: string,
+      snapshotId: string,
+      options?: TreeSnapshotOptions
+    ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult> => {
+      // Tree snapshots (maxDepth/maxNodes/includeHidden/includeText) need an
+      // ancestry resolver; plain style snapshots don't. Snapshot methods are
+      // intentionally NOT wrapped in safeSync — they throw typed
+      // NamedSnapshotErrors as their documented error channel.
+      if (hasTreeSnapshotOptions(options)) {
+        return takeNamedSnapshot(
+          selector,
+          snapshotId,
+          options || {},
+          (element) => getEnrichedAncestryForElement(element)
+        );
+      }
       return takeNamedSnapshot(selector, snapshotId, options);
-    },
+    }) as LocatorJSAPI["takeSnapshot"],
 
     getSnapshotDiff(snapshotId) {
-      return getNamedSnapshotDiff(snapshotId);
+      return getNamedSnapshotDiff(snapshotId, (element) =>
+        getEnrichedAncestryForElement(element)
+      );
     },
 
     clearSnapshot(snapshotId) {

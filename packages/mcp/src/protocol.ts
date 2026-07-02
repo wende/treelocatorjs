@@ -7,6 +7,7 @@ export const BRIDGE_COMMANDS = [
   "get_path",
   "get_ancestry",
   "get_path_data",
+  "get_tree",
   "get_styles",
   "get_css_rules",
   "get_css_report",

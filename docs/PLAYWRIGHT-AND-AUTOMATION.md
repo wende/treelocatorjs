@@ -168,7 +168,7 @@ Typical flow:
 2. Register the MCP server in your editor (see [MCP.md](./MCP.md)).
 3. Call `treelocator_list_sessions` → `treelocator_connect_session` → `treelocator_get_path`, etc.
 
-MCP tools include path/ancestry/styles/CSS inspection, snapshots, click/hover/type, `treelocator_execute_js`, and `treelocator_get_console`.
+MCP tools include source-aware tree, path/ancestry/styles/CSS inspection, snapshots, click/hover/type, `treelocator_execute_js`, and `treelocator_get_console`.
 
 **MCP does not replace Playwright injection** — it is a separate channel for AI tooling once runtime is already in the browser.
 

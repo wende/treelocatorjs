@@ -1,5 +1,6 @@
 import type { LocatorJSAPI } from "./browserApi";
 import { getConsoleEntries, installConsoleCapture } from "./consoleCapture";
+import type { SourceAwareTreeOptions } from "./functions/sourceAwareTree";
 
 export const MCP_BRIDGE_DEFAULT_URL = "wss://127.0.0.1:7463/treelocator";
 export const MCP_BRIDGE_FALLBACK_URL = "wss://localhost:7463/treelocator";
@@ -13,6 +14,7 @@ export type BridgeCommandName =
   | "get_path"
   | "get_ancestry"
   | "get_path_data"
+  | "get_tree"
   | "get_styles"
   | "get_css_rules"
   | "get_css_report"
@@ -191,6 +193,18 @@ function getTargetArgs(args?: Record<string, unknown>): {
   };
 }
 
+function getTreeOptions(args?: Record<string, unknown>): SourceAwareTreeOptions {
+  return {
+    selector: typeof args?.selector === "string" ? args.selector : undefined,
+    maxDepth: typeof args?.maxDepth === "number" ? args.maxDepth : undefined,
+    maxNodes: typeof args?.maxNodes === "number" ? args.maxNodes : undefined,
+    includeHidden:
+      typeof args?.includeHidden === "boolean" ? args.includeHidden : undefined,
+    includeText:
+      typeof args?.includeText === "boolean" ? args.includeText : undefined,
+  };
+}
+
 function dispatchHover(element: HTMLElement): void {
   const eventWindow = element.ownerDocument.defaultView;
   const MouseEventCtor = eventWindow?.MouseEvent || MouseEvent;
@@ -324,6 +338,9 @@ export async function executeBridgeCommand(
       const { selector } = getTargetArgs(args);
       return await api.getPathData(selector);
     }
+    case "get_tree": {
+      return await api.getTree(getTreeOptions(args));
+    }
     case "get_styles": {
       const { selector } = getTargetArgs(args);
       const options =
@@ -353,7 +370,19 @@ export async function executeBridgeCommand(
       const snapshotId = requireStringArg(args, "snapshotId");
       const index = readIndexArg(args);
       const label = typeof args?.label === "string" ? args.label : undefined;
-      return api.takeSnapshot(selector, snapshotId, { index, label });
+      const options: { index: number; label?: string } & SourceAwareTreeOptions = {
+        index,
+      };
+      if (label !== undefined) options.label = label;
+      if (typeof args?.maxDepth === "number") options.maxDepth = args.maxDepth;
+      if (typeof args?.maxNodes === "number") options.maxNodes = args.maxNodes;
+      if (typeof args?.includeHidden === "boolean") {
+        options.includeHidden = args.includeHidden;
+      }
+      if (typeof args?.includeText === "boolean") {
+        options.includeText = args.includeText;
+      }
+      return await api.takeSnapshot(selector, snapshotId, options);
     }
     case "get_snapshot_diff": {
       return api.getSnapshotDiff(requireStringArg(args, "snapshotId"));
@@ -528,6 +557,7 @@ export class TreeLocatorMCPBridgeClient {
         "get_path",
         "get_ancestry",
         "get_path_data",
+        "get_tree",
         "get_styles",
         "get_css_rules",
         "get_css_report",

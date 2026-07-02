@@ -63,6 +63,71 @@ Returns both formatted path and raw ancestry data in a single call.
 **Returns:**
 - Object with `path` (string) and `ancestry` (array), or `null` if element not found/unsupported
 
+### `getTree(selectorOrOptions?: string | GetTreeOptions, options?: GetTreeOptions): Promise<SourceAwareTreeResult | null>`
+
+Returns a bounded source-aware page tree for AI agents. This is not a full browser accessibility tree; it is a compact DOM-derived tree annotated with semantic labels and TreeLocator source/component ancestry.
+
+Note: `name` is computed heuristically (aria-label → aria-labelledby → alt → title → labels → placeholder → direct text) and not a spec-compliant accessible-name computation. Typed values for password / text / email / search inputs are never surfaced as the accessible name; their associated `<label>` or placeholder is used instead.
+
+**Parameters:**
+- `selectorOrOptions` - Optional CSS selector root, or an options object
+- `options.selector` - Optional CSS selector root when calling with an options object
+- `options.maxDepth` - Optional depth bound. Default `8`
+- `options.maxNodes` - Optional node bound. Default `500`
+- `options.includeHidden` - Include hidden or zero-size nodes. Default `false`
+- `options.includeText` - Include compact text snippets. Default `true`
+
+**Returns:**
+- Object with `root`, `nodeCount`, `truncated`, and resolved `options`, or `null` if selector/root is not found
+
+**Example:**
+```javascript
+const tree = await window.__treelocator__.getTree("main", {
+  maxDepth: 4,
+  maxNodes: 100,
+});
+console.log(tree.root.children);
+```
+
+### `takeSnapshot(selector: string, snapshotId: string, options?: SnapshotOptions): SnapshotResult | Promise<SnapshotResult>`
+
+Persists a reload-safe baseline under `snapshotId`.
+
+With no tree options, this keeps the existing behavior: it snapshots the selected element's computed styles and bounding rect.
+
+When `options` includes a `getTree` option such as `maxDepth`, it snapshots the source-aware tree rooted at the selected element instead.
+
+**Tree snapshot options:**
+- `options.maxDepth` - Depth bound. `0` captures only the selected root, `1` includes direct children
+- `options.maxNodes` - Node bound
+- `options.includeHidden` - Include hidden or zero-size nodes
+- `options.includeText` - Include compact text snippets
+- `options.index` - Pick among multiple selector matches
+- `options.label` - Optional label for formatted reports
+
+**Examples:**
+```javascript
+// Computed-style snapshot, unchanged behavior
+window.__treelocator__.takeSnapshot(".hero", "hero-style");
+
+// Source-aware tree snapshot rooted at .hero
+await window.__treelocator__.takeSnapshot(".hero", "hero-tree", {
+  maxDepth: 3,
+  maxNodes: 500,
+  includeHidden: false,
+  includeText: true,
+});
+```
+
+### `getSnapshotDiff(snapshotId: string): SnapshotDiff | Promise<SnapshotDiff>`
+
+Diffs the current page against the stored baseline. The stored snapshot decides which diff engine runs: style snapshots compare computed styles, while tree snapshots compare structure, semantic labels, source/component metadata, visibility, and rect changes.
+
+```javascript
+const diff = await window.__treelocator__.getSnapshotDiff("hero-tree");
+console.log(diff.formatted);
+```
+
 ### `getStyles(elementOrSelector: HTMLElement | string, options?: { includeDefaults?: boolean }): { formatted: string; snapshot: object } | null`
 
 Returns a formatted computed-style summary for the element plus a raw snapshot object.
