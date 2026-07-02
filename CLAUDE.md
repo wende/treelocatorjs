@@ -1,4 +1,4 @@
-# LocatorJS
+# TreeLocatorJS
 
 Alt+click on any UI component to copy its component ancestry chain to clipboard.
 
@@ -21,6 +21,20 @@ const ancestry = window.__treelocator__.getAncestry(element);
 ```
 
 See [BROWSER-API.md](./docs/BROWSER-API.md) for full API reference and examples.
+
+### MCP Server (AI Coding Agents)
+
+`@treelocator/mcp` exposes the live browser runtime to AI agents (Cursor, Claude Code, etc.) over the [Model Context Protocol](https://modelcontextprotocol.io/). A stdio MCP server + local WSS broker (`wss://127.0.0.1:7463/treelocator`) relays tool calls to the runtime running in a browser tab. The runtime's browser-side bridge (`packages/runtime/src/mcpBridge.ts`) is **enabled by default**; the MCP server *connects to* an existing session — it does **not** inject runtime onto a page.
+
+Register it in `.mcp.json`:
+
+```json
+{ "mcpServers": { "treelocator": { "command": "npx", "args": ["@treelocator/mcp"] } } }
+```
+
+Tools (16): session (`treelocator_list_sessions`, `treelocator_connect_session`); source mapping (`treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`); CSS (`treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report`); snapshot/verify (`treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot`); interaction (`treelocator_click`, `treelocator_hover`, `treelocator_type`); page (`treelocator_execute_js`, `treelocator_get_console`).
+
+See [MCP.md](./docs/MCP.md) for architecture, TLS certs, and proxy mode.
 
 For Playwright usage, Chrome extension injection, MCP setup, and what is **not** supported (e.g. console bootstrap on arbitrary pages), see [PLAYWRIGHT-AND-AUTOMATION.md](./docs/PLAYWRIGHT-AND-AUTOMATION.md) and [MCP.md](./docs/MCP.md).
 
@@ -86,10 +100,16 @@ Requires: Node.js >=22.0.0, pnpm 8.7.5
 **TreeLocatorJS publishes:**
 | Package | Description |
 |---------|-------------|
-| `@treelocator/runtime` | Core runtime - Alt+click handler, overlay UI (SolidJS), ancestry tree builder |
+| `@treelocator/runtime` | Core runtime - Alt+click handler, overlay UI (SolidJS), ancestry tree builder, MCP browser bridge |
 | `@treelocator/init` | CLI setup wizard - auto-configures TreeLocatorJS in existing projects |
+| `@treelocator/mcp` | MCP server + WSS broker - exposes the live runtime to AI coding agents (see [MCP.md](./docs/MCP.md)) |
+| `@treelocator/vite` | Vite plugin - auto-injects runtime in dev mode |
 
-**Uses from original LocatorJS:**
+**Internal packages (not published):**
+- `@treelocator/dev-config` - shared build/TS config (private)
+- `browser-extension`, `vite-plugin-rescript` - unpublished workspace packages
+
+**Build-time dependencies:**
 - `@locator/shared` - Shared types (React Fiber, messages) and utilities
 - `@locator/babel-jsx` - Babel plugin for JSX source location tracking
 - `@locator/webpack-loader` - Webpack loader integration
@@ -112,6 +132,8 @@ See [CLAUDE-DEMO-APP.md](./docs/CLAUDE-DEMO-APP.md) for how to set up new demo a
 - **Framework adapters**: `packages/runtime/src/adapters/` (react/, vue/, svelte/, jsx/)
 - **Ancestry formatting**: `packages/runtime/src/functions/formatAncestryChain.ts`
 - **CLI setup wizard**: `packages/init/src/index.ts`
+- **MCP server**: `packages/mcp/src/mcpServer.ts` (tool registration), `packages/mcp/src/toolSchemas.ts` (tool defs), `packages/mcp/src/sessionBroker.ts` (WSS broker), `packages/mcp/src/index.ts` (entry)
+- **MCP browser bridge**: `packages/runtime/src/mcpBridge.ts` (runtime-side WSS client; `BridgeCommandName` union lists supported tools)
 
 **From @locator packages:**
 - Shared types: `@locator/shared` types.ts (Fiber types, messages)
@@ -146,24 +168,23 @@ cd packages/runtime && pnpm test:dev  # Watch mode
 
 ## Publishing
 
-TreeLocatorJS publishes 2 packages to npm:
+TreeLocatorJS publishes 4 packages to npm (versioned together at the `lerna.json` version, currently `0.6.0`):
 - `@treelocator/runtime` - Core runtime
 - `@treelocator/init` - CLI setup wizard
-
-Reuses from original LocatorJS:
-- `@locator/shared@^0.5.0`
-- `@locator/babel-jsx@^0.5.1`
-- `@locator/webpack-loader@^0.5.1`
+- `@treelocator/mcp` - MCP server for AI agents
+- `@treelocator/vite` - Vite dev plugin
 
 ### How to publish a new version
 
-1. Update version in `lerna.json`, `packages/runtime/package.json`, and `packages/init/package.json`
-2. Build: `pnpm build` (ignore demo app failures — only `@treelocator/runtime` and `@treelocator/init` need to build)
+1. Update version in `lerna.json` and each published package's `package.json` (`runtime`, `init`, `mcp`, `vite`)
+2. Build: `pnpm build` (ignore demo app failures — only the published packages need to build)
 3. Commit the version bump and tag: `git tag vX.Y.Z`
 4. Publish each package individually (lerna publish doesn't work with our 2FA setup):
 ```bash
 cd packages/runtime && npm publish --access public
 cd packages/init && npm publish --access public
+cd packages/mcp && npm publish --access public
+cd packages/vite && npm publish --access public
 ```
 
 ### npm auth

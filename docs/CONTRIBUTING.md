@@ -4,7 +4,7 @@ Thank you for considering contributing to TreeLocatorJS! This document provides 
 
 ## Philosophy
 
-TreeLocatorJS is a **focused fork** that emphasizes:
+TreeLocatorJS emphasizes:
 - **Simplicity** - Keep the core feature (Alt+click to copy ancestry) simple and reliable
 - **Developer Experience** - Prioritize ease of use and integration
 - **Zero Configuration** - Works out of the box with minimal setup

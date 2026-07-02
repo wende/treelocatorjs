@@ -1,4 +1,5 @@
 import { AdapterId } from "./consts";
+import { HELP_TEXT } from "./browserApiHelp";
 import { createTreeNode } from "./adapters/createTreeNode";
 import {
   collectAncestry,
@@ -27,8 +28,7 @@ import {
   TakeTreeSnapshotResult,
   TreeSnapshotDiffResult,
 } from "./functions/namedSnapshots";
-import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
-import type { InteractionEvent } from "./components/RecordingResults";
+import type { RecordingResult } from "./hooks/useRecordingState";
 import { takeSnapshot } from "./visualDiff/snapshot";
 import { computeDiff, formatReport } from "./visualDiff/diff";
 import { waitForSettle } from "./visualDiff/settle";
@@ -329,14 +329,7 @@ export interface LocatorJSAPI {
    */
   replayWithRecord(
     elementOrSelector: HTMLElement | string
-  ): Promise<{
-    path: string;
-    findings: DejitterFinding[];
-    summary: DejitterSummary | null;
-    data: any;
-    interactions: InteractionEvent[];
-    visualDiff: DeltaReport | null;
-  } | null>;
+  ): Promise<RecordingResult | null>;
 
   /**
    * Visual diff engine — snapshot page state before/after an action and return
@@ -400,334 +393,141 @@ function hasTreeSnapshotOptions(options?: TreeSnapshotOptions): boolean {
   );
 }
 
-function getAncestryForElement(element: HTMLElement, adapterId?: AdapterId): AncestryItem[] | null {
-  const treeNode = createTreeNode(element, adapterId);
-  if (!treeNode) {
-    return null;
+/**
+ * The browser API is consumed by automation tools and host pages that can't
+ * recover from exceptions thrown deep inside adapter internals. Query methods
+ * are documented to return null on failure, so guard them and honor that
+ * contract even for unexpected errors. (Snapshot methods are excluded: they
+ * throw typed NamedSnapshotErrors as their documented error channel.)
+ */
+function safeSync<T>(methodName: string, fallback: T, fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    console.warn(`[treelocator] ${methodName} failed:`, error);
+    return fallback;
   }
-  return collectAncestry(treeNode);
 }
 
-async function getEnrichedAncestryForElement(
-  element: HTMLElement,
-  adapterId?: AdapterId
-): Promise<AncestryItem[] | null> {
-  const ancestry = getAncestryForElement(element, adapterId);
-  if (!ancestry) return null;
-  return enrichAncestryWithSourceMaps(ancestry, element);
+async function safeAsync<T>(
+  methodName: string,
+  fallback: T,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.warn(`[treelocator] ${methodName} failed:`, error);
+    return fallback;
+  }
 }
 
-const HELP_TEXT = `
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                        TreeLocatorJS Browser API                          ║
-║                  Programmatic Component Ancestry Access                   ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
+  function getAncestry(element: HTMLElement): AncestryItem[] | null {
+    const treeNode = createTreeNode(element, adapterId);
+    return treeNode ? collectAncestry(treeNode) : null;
+  }
 
-METHODS:
---------
+  async function getEnrichedAncestry(
+    elementOrSelector: HTMLElement | string
+  ): Promise<AncestryItem[] | null> {
+    const element = resolveElement(elementOrSelector);
+    if (!element) return null;
+    const ancestry = getAncestry(element);
+    if (!ancestry) return null;
+    return enrichAncestryWithSourceMaps(ancestry, element);
+  }
 
-1. getPath(elementOrSelector)
-   Returns a formatted string showing the component hierarchy.
+  // Per-element enriched ancestry for the source-aware tree builder and tree
+  // snapshots, which walk already-resolved elements (no selector to resolve).
+  function getEnrichedAncestryForElement(
+    element: HTMLElement
+  ): Promise<AncestryItem[] | null> {
+    const ancestry = getAncestry(element);
+    if (!ancestry) return Promise.resolve(null);
+    return enrichAncestryWithSourceMaps(ancestry, element);
+  }
 
-   Usage:
-     window.__treelocator__.getPath('button.submit')
-     window.__treelocator__.getPath(document.querySelector('.my-button'))
-
-   Returns:
-     "div in App at src/App.tsx:15
-      └─ button in SubmitButton at src/components/SubmitButton.tsx:12"
-
-2. getAncestry(elementOrSelector)
-   Returns raw ancestry data as an array of objects.
-
-   Usage:
-     window.__treelocator__.getAncestry('button.submit')
-
-   Returns:
-     [
-       { elementName: 'div', componentName: 'App',
-         filePath: 'src/App.tsx', line: 15 },
-       { elementName: 'button', componentName: 'SubmitButton',
-         filePath: 'src/components/SubmitButton.tsx', line: 12 }
-     ]
-
-3. getPathData(elementOrSelector)
-   Returns both formatted path and raw ancestry in one call.
-
-   Usage:
-     const data = window.__treelocator__.getPathData('button.submit')
-     console.log(data.path)      // formatted string
-     console.log(data.ancestry)  // structured array
-
-4. getTree(selectorOrOptions?, options?)
-   Returns a bounded source-aware page tree for AI agents.
-   Each node includes tag, role, name, text, rect, visibility,
-   component/source attribution, ancestry, and children.
-
-   Usage:
-     const tree = await window.__treelocator__.getTree()
-     const subtree = await window.__treelocator__.getTree('.checkout', {
-       maxDepth: 4,
-       maxNodes: 100,
-       includeHidden: false,
-       includeText: true,
-     })
-
-5. getStyles(elementOrSelector, options?)
-   Returns computed styles for an element, optimized for AI consumption.
-   Filters out browser defaults and groups by category (Layout, Visual, Typography).
-   Pass { includeDefaults: true } for a fuller dump closer to DevTools.
-   Calling twice on the same element within 30s returns a diff of changes.
-
-   Usage:
-     const result = window.__treelocator__.getStyles('button.submit')
-     console.log(result.formatted)  // formatted styles string
-     console.log(result.snapshot)   // raw property values + bounding rect
-     const full = window.__treelocator__.getStyles('h1', { includeDefaults: true })
-
-6. getCSSRules(elementOrSelector)
-   Returns structured CSS rule data for the element.
-   Shows all matching rules grouped by property with specificity and source.
-
-   Usage:
-     const result = window.__treelocator__.getCSSRules('button.primary')
-     result.properties.forEach(p => {
-       console.log(p.property + ': ' + p.value)
-       p.rules.forEach(r => console.log('  ' + (r.winning ? 'WIN' : '   ') + ' ' + r.selector))
-     })
-
-7. getCSSReport(elementOrSelector, options?)
-   Returns a formatted string showing all CSS rules and which wins per property.
-   Pass { properties: ['color', 'font-size'] } to filter to specific properties.
-
-   Usage:
-     console.log(window.__treelocator__.getCSSReport('button.primary'))
-     console.log(window.__treelocator__.getCSSReport('.card', { properties: ['color'] }))
-
-   Returns:
-     "CSS Rules for button.primary
-      ════════════════════════════
-     color: #333
-       ✓ .button.primary  (0,2,0) — components.css
-       ✗ .button          (0,1,0) — base.css
-       ✗ button           (0,0,1) — reset.css"
-
-8. takeSnapshot(selector, snapshotId, options?) / getSnapshotDiff(snapshotId)
-   Persists a reload-safe baseline. With no tree options, snapshots computed
-   styles for the selected element. Passing getTree options such as maxDepth
-   snapshots the source-aware tree rooted at the selected element.
-
-   Usage:
-     window.__treelocator__.takeSnapshot('.hero', 'hero-style')
-     await window.__treelocator__.takeSnapshot('.hero', 'hero-tree', { maxDepth: 3 })
-     const diff = await window.__treelocator__.getSnapshotDiff('hero-tree')
-     console.log(diff.formatted)
-
-9. replay()
-   Replays the last recorded interaction sequence as a macro.
-
-   Usage:
-     window.__treelocator__.replay()
-
-10. replayWithRecord(elementOrSelector)
-   Replays stored interactions while recording element changes.
-   Returns dejitter analysis when replay completes.
-
-   Usage:
-     const results = await window.__treelocator__.replayWithRecord('[data-locatorjs-id="SlidingPanel"]')
-     console.log(results.findings)  // anomaly analysis
-     console.log(results.path)      // component ancestry
-
-11. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
-   Visual diff engine. Captures viewport element state and returns a compact
-   delta showing what appeared, disappeared, moved, or changed.
-
-   Usage:
-     const report = await window.__treelocator__.diff.captureDiff(() => {
-       document.querySelector('button.submit').click();
-     });
-     console.log(report.text);
-
-12. help()
-   Displays this help message.
-
-PLAYWRIGHT EXAMPLES:
--------------------
-
-// Get component path for debugging
-const path = await page.evaluate(() => {
-  return window.__treelocator__.getPath('button.submit');
-});
-console.log(path);
-
-// Extract component names
-const components = await page.evaluate(() => {
-  const ancestry = window.__treelocator__.getAncestry('.error-message');
-  return ancestry?.map(item => item.componentName).filter(Boolean);
-});
-
-// Create a test helper
-async function getComponentPath(page, selector) {
-  return await page.evaluate((sel) => {
-    return window.__treelocator__.getPath(sel);
-  }, selector);
-}
-
-// Debug CSS specificity conflicts
-const report = await page.evaluate(() => {
-  return window.__treelocator__.getCSSReport('.my-button', { properties: ['color', 'background'] });
-});
-console.log(report);
-
-// Get structured CSS data for assertions
-const css = await page.evaluate(() => {
-  return window.__treelocator__.getCSSRules('.my-button');
-});
-const colorRules = css?.properties.find(p => p.property === 'color');
-console.log('Winning rule:', colorRules?.rules.find(r => r.winning));
-
-PUPPETEER EXAMPLES:
-------------------
-
-const path = await page.evaluate(() => {
-  return window.__treelocator__.getPath('.my-button');
-});
-
-SELENIUM EXAMPLES:
------------------
-
-const path = await driver.executeScript(() => {
-  return window.__treelocator__.getPath('button.submit');
-});
-
-CYPRESS EXAMPLES:
-----------------
-
-cy.window().then((win) => {
-  const path = win.__treelocator__.getPath('button.submit');
-  cy.log(path);
-});
-
-NOTES:
-------
-• Accepts CSS selectors or HTMLElement objects
-• Returns null if element not found or framework not supported
-• Works with React, Vue, Svelte, Preact, and any JSX framework
-• Automatically installed when TreeLocatorJS runtime initializes
-
-Documentation: https://github.com/wende/treelocatorjs
-`;
-
-export function createBrowserAPI(
-  adapterId?: AdapterId
-): LocatorJSAPI {
   return {
-    getPath(elementOrSelector: HTMLElement | string): Promise<string | null> {
-      const element = resolveElement(elementOrSelector);
-      if (!element) {
-        return Promise.resolve(null);
-      }
+    getPath(elementOrSelector) {
+      return safeAsync("getPath", null, async () => {
+        const ancestry = await getEnrichedAncestry(elementOrSelector);
+        return ancestry ? formatAncestryChain(ancestry) : null;
+      });
+    },
 
-      return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
-        ancestry ? formatAncestryChain(ancestry) : null
+    getAncestry(elementOrSelector) {
+      return safeAsync("getAncestry", null, () =>
+        getEnrichedAncestry(elementOrSelector)
       );
     },
 
-    getAncestry(
-      elementOrSelector: HTMLElement | string
-    ): Promise<AncestryItem[] | null> {
-      const element = resolveElement(elementOrSelector);
-      if (!element) {
-        return Promise.resolve(null);
-      }
-
-      return getEnrichedAncestryForElement(element, adapterId);
+    getPathData(elementOrSelector) {
+      return safeAsync("getPathData", null, async () => {
+        const ancestry = await getEnrichedAncestry(elementOrSelector);
+        return ancestry
+          ? { path: formatAncestryChain(ancestry), ancestry }
+          : null;
+      });
     },
 
-    getPathData(
-      elementOrSelector: HTMLElement | string
-    ): Promise<{ path: string; ancestry: AncestryItem[] } | null> {
-      const element = resolveElement(elementOrSelector);
-      if (!element) {
-        return Promise.resolve(null);
-      }
-
-      return getEnrichedAncestryForElement(element, adapterId).then((ancestry) =>
-        ancestry ? { path: formatAncestryChain(ancestry), ancestry } : null
-      );
+    getStyles(elementOrSelector, options?: ExtractOptions) {
+      return safeSync("getStyles", null, () => {
+        const element = resolveElement(elementOrSelector);
+        if (!element) return null;
+        const ancestry = getAncestry(element);
+        const label = ancestry ? getElementLabel(ancestry) : undefined;
+        return extractComputedStyles(element, label || undefined, options);
+      });
     },
 
     getTree(
       selectorOrOptions?: string | SourceAwareTreeOptions,
       options?: SourceAwareTreeOptions
     ): Promise<SourceAwareTreeResult | null> {
-      const treeOptions: SourceAwareTreeOptions =
-        typeof selectorOrOptions === "string"
-          ? { ...options, selector: selectorOrOptions }
-          : selectorOrOptions || {};
+      return safeAsync("getTree", null, async () => {
+        const treeOptions: SourceAwareTreeOptions =
+          typeof selectorOrOptions === "string"
+            ? { ...options, selector: selectorOrOptions }
+            : selectorOrOptions || {};
 
-      const root = treeOptions.selector
-        ? resolveElement(treeOptions.selector)
-        : document.body;
-      if (!root) {
-        return Promise.resolve(null);
-      }
+        const root = treeOptions.selector
+          ? resolveElement(treeOptions.selector)
+          : document.body;
+        if (!root) {
+          return null;
+        }
 
-      return buildSourceAwareTree(root, treeOptions, (element) =>
-        getEnrichedAncestryForElement(element, adapterId)
-      );
-    },
-
-    getStyles(
-      elementOrSelector: HTMLElement | string,
-      options?: ExtractOptions
-    ): ComputedStylesResult | null {
-      const element = resolveElement(elementOrSelector);
-      if (!element) return null;
-
-      const ancestry = getAncestryForElement(element, adapterId);
-      const label = ancestry ? getElementLabel(ancestry) : undefined;
-
-      return extractComputedStyles(element, label || undefined, options);
-    },
-
-    getCSSRules(
-      elementOrSelector: HTMLElement | string
-    ): CSSInspectionResult | null {
-      let element: HTMLElement | null = null;
-      try {
-        element = resolveElement(elementOrSelector);
-      } catch {
-        return null;
-      }
-      if (!element) return null;
-      return inspectCSSRules(element);
-    },
-
-    getCSSReport(
-      elementOrSelector: HTMLElement | string,
-      options?: { properties?: string[] }
-    ): string | null {
-      let element: HTMLElement | null = null;
-      try {
-        element = resolveElement(elementOrSelector);
-      } catch {
-        return null;
-      }
-      if (!element) return null;
-      const result = inspectCSSRules(element);
-
-      // Filter to requested properties if specified
-      if (options?.properties && options.properties.length > 0) {
-        const filterSet = new Set(
-          options.properties.map((p) => p.toLowerCase())
+        return buildSourceAwareTree(root, treeOptions, (element) =>
+          getEnrichedAncestryForElement(element)
         );
-        result.properties = result.properties.filter((p) =>
-          filterSet.has(p.property.toLowerCase())
-        );
-      }
+      });
+    },
 
-      return formatCSSInspection(result);
+    getCSSRules(elementOrSelector) {
+      return safeSync("getCSSRules", null, () => {
+        const element = resolveElement(elementOrSelector);
+        return element ? inspectCSSRules(element) : null;
+      });
+    },
+
+    getCSSReport(elementOrSelector, options?: { properties?: string[] }) {
+      return safeSync("getCSSReport", null, () => {
+        const element = resolveElement(elementOrSelector);
+        if (!element) return null;
+        const result = inspectCSSRules(element);
+
+        if (options?.properties && options.properties.length > 0) {
+          const filterSet = new Set(
+            options.properties.map((p) => p.toLowerCase())
+          );
+          result.properties = result.properties.filter((p) =>
+            filterSet.has(p.property.toLowerCase())
+          );
+        }
+
+        return formatCSSInspection(result);
+      });
     },
 
     takeSnapshot: ((
@@ -735,27 +535,32 @@ export function createBrowserAPI(
       snapshotId: string,
       options?: TreeSnapshotOptions
     ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult> => {
+      // Tree snapshots (maxDepth/maxNodes/includeHidden/includeText) need an
+      // ancestry resolver; plain style snapshots don't. Snapshot methods are
+      // intentionally NOT wrapped in safeSync — they throw typed
+      // NamedSnapshotErrors as their documented error channel.
       if (hasTreeSnapshotOptions(options)) {
-        return takeNamedSnapshot(selector, snapshotId, options || {}, (element) =>
-          getEnrichedAncestryForElement(element, adapterId)
+        return takeNamedSnapshot(
+          selector,
+          snapshotId,
+          options || {},
+          (element) => getEnrichedAncestryForElement(element)
         );
       }
       return takeNamedSnapshot(selector, snapshotId, options);
     }) as LocatorJSAPI["takeSnapshot"],
 
-    getSnapshotDiff(
-      snapshotId: string
-    ): SnapshotDiffResult | Promise<TreeSnapshotDiffResult> {
+    getSnapshotDiff(snapshotId) {
       return getNamedSnapshotDiff(snapshotId, (element) =>
-        getEnrichedAncestryForElement(element, adapterId)
+        getEnrichedAncestryForElement(element)
       );
     },
 
-    clearSnapshot(snapshotId: string): void {
+    clearSnapshot(snapshotId) {
       clearNamedSnapshot(snapshotId);
     },
 
-    help(): string {
+    help() {
       return HELP_TEXT;
     },
 

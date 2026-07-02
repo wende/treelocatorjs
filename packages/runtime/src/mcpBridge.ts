@@ -163,22 +163,34 @@ function resolveElement(selector: string, index = 0): HTMLElement {
   return element;
 }
 
+/** Read a required non-empty string arg or throw an invalid_args error. */
+function requireStringArg(
+  args: Record<string, unknown> | undefined,
+  key: string
+): string {
+  const value = args?.[key];
+  if (typeof value !== "string" || !value) {
+    throw new BridgeRuntimeError("invalid_args", `${key} is required`);
+  }
+  return value;
+}
+
+/** Read an optional non-negative integer index arg, defaulting to 0. */
+function readIndexArg(args?: Record<string, unknown>): number {
+  const raw = args?.index;
+  return typeof raw === "number" && Number.isInteger(raw) && raw >= 0
+    ? raw
+    : 0;
+}
+
 function getTargetArgs(args?: Record<string, unknown>): {
   selector: string;
   index: number;
 } {
-  const selector = typeof args?.selector === "string" ? args.selector : "";
-  if (!selector) {
-    throw new BridgeRuntimeError("invalid_args", "selector is required");
-  }
-
-  const rawIndex = args?.index;
-  const index =
-    typeof rawIndex === "number" && Number.isInteger(rawIndex) && rawIndex >= 0
-      ? rawIndex
-      : 0;
-
-  return { selector, index };
+  return {
+    selector: requireStringArg(args, "selector"),
+    index: readIndexArg(args),
+  };
 }
 
 function getTreeOptions(args?: Record<string, unknown>): SourceAwareTreeOptions {
@@ -354,19 +366,9 @@ export async function executeBridgeCommand(
       return api.getCSSReport(selector, properties ? { properties } : undefined);
     }
     case "take_snapshot": {
-      const selector = typeof args?.selector === "string" ? args.selector : "";
-      const snapshotId =
-        typeof args?.snapshotId === "string" ? args.snapshotId : "";
-      if (!selector) {
-        throw new BridgeRuntimeError("invalid_args", "selector is required");
-      }
-      if (!snapshotId) {
-        throw new BridgeRuntimeError("invalid_args", "snapshotId is required");
-      }
-      const index =
-        typeof args?.index === "number" && Number.isInteger(args.index) && args.index >= 0
-          ? args.index
-          : 0;
+      const selector = requireStringArg(args, "selector");
+      const snapshotId = requireStringArg(args, "snapshotId");
+      const index = readIndexArg(args);
       const label = typeof args?.label === "string" ? args.label : undefined;
       const options: { index: number; label?: string } & SourceAwareTreeOptions = {
         index,
@@ -383,20 +385,10 @@ export async function executeBridgeCommand(
       return await api.takeSnapshot(selector, snapshotId, options);
     }
     case "get_snapshot_diff": {
-      const snapshotId =
-        typeof args?.snapshotId === "string" ? args.snapshotId : "";
-      if (!snapshotId) {
-        throw new BridgeRuntimeError("invalid_args", "snapshotId is required");
-      }
-      return await api.getSnapshotDiff(snapshotId);
+      return api.getSnapshotDiff(requireStringArg(args, "snapshotId"));
     }
     case "clear_snapshot": {
-      const snapshotId =
-        typeof args?.snapshotId === "string" ? args.snapshotId : "";
-      if (!snapshotId) {
-        throw new BridgeRuntimeError("invalid_args", "snapshotId is required");
-      }
-      api.clearSnapshot(snapshotId);
+      api.clearSnapshot(requireStringArg(args, "snapshotId"));
       return { ok: true };
     }
     case "click": {
@@ -426,18 +418,12 @@ export async function executeBridgeCommand(
     case "type": {
       const { selector, index } = getTargetArgs(args);
       const element = resolveElement(selector, index);
-      const text = typeof args?.text === "string" ? args.text : "";
-      if (!text) {
-        throw new BridgeRuntimeError("invalid_args", "text is required for type");
-      }
+      const text = requireStringArg(args, "text");
       const submit = typeof args?.submit === "boolean" ? args.submit : false;
       return dispatchType(element, text, submit);
     }
     case "execute_js": {
-      const code = typeof args?.code === "string" ? args.code : "";
-      if (!code) {
-        throw new BridgeRuntimeError("invalid_args", "code is required for execute_js");
-      }
+      const code = requireStringArg(args, "code");
       const result = await runUserCode(code);
       return {
         type: result === null ? "null" : typeof result,
