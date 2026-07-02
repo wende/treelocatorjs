@@ -368,7 +368,19 @@ export async function executeBridgeCommand(
           ? args.index
           : 0;
       const label = typeof args?.label === "string" ? args.label : undefined;
-      return api.takeSnapshot(selector, snapshotId, { index, label });
+      const options: { index: number; label?: string } & SourceAwareTreeOptions = {
+        index,
+      };
+      if (label !== undefined) options.label = label;
+      if (typeof args?.maxDepth === "number") options.maxDepth = args.maxDepth;
+      if (typeof args?.maxNodes === "number") options.maxNodes = args.maxNodes;
+      if (typeof args?.includeHidden === "boolean") {
+        options.includeHidden = args.includeHidden;
+      }
+      if (typeof args?.includeText === "boolean") {
+        options.includeText = args.includeText;
+      }
+      return await api.takeSnapshot(selector, snapshotId, options);
     }
     case "get_snapshot_diff": {
       const snapshotId =
@@ -376,7 +388,7 @@ export async function executeBridgeCommand(
       if (!snapshotId) {
         throw new BridgeRuntimeError("invalid_args", "snapshotId is required");
       }
-      return api.getSnapshotDiff(snapshotId);
+      return await api.getSnapshotDiff(snapshotId);
     }
     case "clear_snapshot": {
       const snapshotId =

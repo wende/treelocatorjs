@@ -306,7 +306,7 @@ function getPrimarySource(ancestry: AncestryItem[]): {
 }
 
 export async function buildSourceAwareTree(
-  root: HTMLElement,
+  root: HTMLElement | SVGElement,
   rawOptions: SourceAwareTreeOptions | undefined,
   resolveAncestry: AncestryResolver
 ): Promise<SourceAwareTreeResult | null> {

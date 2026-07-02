@@ -87,6 +87,45 @@ const tree = await window.__treelocator__.getTree("main", {
 console.log(tree.root.children);
 ```
 
+### `takeSnapshot(selector: string, snapshotId: string, options?: SnapshotOptions): SnapshotResult | Promise<SnapshotResult>`
+
+Persists a reload-safe baseline under `snapshotId`.
+
+With no tree options, this keeps the existing behavior: it snapshots the selected element's computed styles and bounding rect.
+
+When `options` includes a `getTree` option such as `maxDepth`, it snapshots the source-aware tree rooted at the selected element instead.
+
+**Tree snapshot options:**
+- `options.maxDepth` - Depth bound. `0` captures only the selected root, `1` includes direct children
+- `options.maxNodes` - Node bound
+- `options.includeHidden` - Include hidden or zero-size nodes
+- `options.includeText` - Include compact text snippets
+- `options.index` - Pick among multiple selector matches
+- `options.label` - Optional label for formatted reports
+
+**Examples:**
+```javascript
+// Computed-style snapshot, unchanged behavior
+window.__treelocator__.takeSnapshot(".hero", "hero-style");
+
+// Source-aware tree snapshot rooted at .hero
+await window.__treelocator__.takeSnapshot(".hero", "hero-tree", {
+  maxDepth: 3,
+  maxNodes: 500,
+  includeHidden: false,
+  includeText: true,
+});
+```
+
+### `getSnapshotDiff(snapshotId: string): SnapshotDiff | Promise<SnapshotDiff>`
+
+Diffs the current page against the stored baseline. The stored snapshot decides which diff engine runs: style snapshots compare computed styles, while tree snapshots compare structure, semantic labels, source/component metadata, visibility, and rect changes.
+
+```javascript
+const diff = await window.__treelocator__.getSnapshotDiff("hero-tree");
+console.log(diff.formatted);
+```
+
 ### `getStyles(elementOrSelector: HTMLElement | string, options?: { includeDefaults?: boolean }): { formatted: string; snapshot: object } | null`
 
 Returns a formatted computed-style summary for the element plus a raw snapshot object.

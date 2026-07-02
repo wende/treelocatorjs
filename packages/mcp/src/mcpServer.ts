@@ -268,7 +268,7 @@ export class TreeLocatorMCPServer {
       {
         title: "Capture element style snapshot",
         description:
-          "Capture the computed styles of an element and persist them under `snapshotId` (survives reloads). Later call treelocator_get_snapshot_diff with the same id to see what changed. The baseline is immutable until you call take_snapshot again with the same id.",
+          "Capture an element snapshot and persist it under `snapshotId` (survives reloads). With no tree options, stores computed styles. With maxDepth/maxNodes/includeHidden/includeText, stores a source-aware getTree snapshot. Later call treelocator_get_snapshot_diff with the same id to see what changed.",
         inputSchema: takeSnapshotSchema.shape,
       },
       async (args, extra) => this.runBridgeCommand("take_snapshot", args, extra)

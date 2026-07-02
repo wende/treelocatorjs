@@ -23,6 +23,9 @@ import {
   clearNamedSnapshot,
   TakeSnapshotResult,
   SnapshotDiffResult,
+  TreeSnapshotOptions,
+  TakeTreeSnapshotResult,
+  TreeSnapshotDiffResult,
 } from "./functions/namedSnapshots";
 import type { DejitterFinding, DejitterSummary } from "./dejitter/recorder";
 import type { InteractionEvent } from "./components/RecordingResults";
@@ -253,26 +256,34 @@ export interface LocatorJSAPI {
   ): string | null;
 
   /**
-   * Capture a baseline snapshot of an element's computed styles and persist
-   * it in localStorage under `snapshotId`. The baseline survives page reloads
-   * and is never mutated until you call `takeSnapshot` again with the same id.
+   * Capture a reload-safe baseline under `snapshotId`.
+   * With no tree options, snapshots the selected element's computed styles.
+   * Passing getTree-style options such as `maxDepth` snapshots the
+   * source-aware tree rooted at the selected element instead.
    *
-   * @param selector - CSS selector for the element to snapshot
+   * @param selector - CSS selector for the element/tree root to snapshot
    * @param snapshotId - caller-chosen id used to retrieve the diff later
-   * @param options - optional `{ index, label }` (index picks among matches)
+   * @param options - optional `{ index, label }` plus tree options
    */
   takeSnapshot(
     selector: string,
     snapshotId: string,
     options?: { index?: number; label?: string }
   ): TakeSnapshotResult;
+  takeSnapshot(
+    selector: string,
+    snapshotId: string,
+    options: TreeSnapshotOptions
+  ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult>;
 
   /**
-   * Diff the current computed styles of the element against the baseline
+   * Diff the current element styles or source-aware tree against the baseline
    * stored under `snapshotId`. Does not overwrite the baseline — safe to call
    * repeatedly while iterating on a change.
    */
-  getSnapshotDiff(snapshotId: string): SnapshotDiffResult;
+  getSnapshotDiff(
+    snapshotId: string
+  ): SnapshotDiffResult | Promise<TreeSnapshotDiffResult>;
 
   /**
    * Remove a stored baseline snapshot.
@@ -382,6 +393,13 @@ function resolveElement(
   return elementOrSelector;
 }
 
+function hasTreeSnapshotOptions(options?: TreeSnapshotOptions): boolean {
+  if (!options) return false;
+  return ["maxDepth", "maxNodes", "includeHidden", "includeText"].some((key) =>
+    Object.prototype.hasOwnProperty.call(options, key)
+  );
+}
+
 function getAncestryForElement(element: HTMLElement, adapterId?: AdapterId): AncestryItem[] | null {
   const treeNode = createTreeNode(element, adapterId);
   if (!treeNode) {
@@ -489,18 +507,29 @@ METHODS:
    Returns:
      "CSS Rules for button.primary
       ════════════════════════════
-      color: #333
-        ✓ .button.primary  (0,2,0) — components.css
-        ✗ .button          (0,1,0) — base.css
-        ✗ button           (0,0,1) — reset.css"
+     color: #333
+       ✓ .button.primary  (0,2,0) — components.css
+       ✗ .button          (0,1,0) — base.css
+       ✗ button           (0,0,1) — reset.css"
 
-8. replay()
+8. takeSnapshot(selector, snapshotId, options?) / getSnapshotDiff(snapshotId)
+   Persists a reload-safe baseline. With no tree options, snapshots computed
+   styles for the selected element. Passing getTree options such as maxDepth
+   snapshots the source-aware tree rooted at the selected element.
+
+   Usage:
+     window.__treelocator__.takeSnapshot('.hero', 'hero-style')
+     await window.__treelocator__.takeSnapshot('.hero', 'hero-tree', { maxDepth: 3 })
+     const diff = await window.__treelocator__.getSnapshotDiff('hero-tree')
+     console.log(diff.formatted)
+
+9. replay()
    Replays the last recorded interaction sequence as a macro.
 
    Usage:
      window.__treelocator__.replay()
 
-9. replayWithRecord(elementOrSelector)
+10. replayWithRecord(elementOrSelector)
    Replays stored interactions while recording element changes.
    Returns dejitter analysis when replay completes.
 
@@ -509,7 +538,7 @@ METHODS:
      console.log(results.findings)  // anomaly analysis
      console.log(results.path)      // component ancestry
 
-10. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
+11. diff.snapshot() / diff.computeDiff(before, after) / diff.captureDiff(action)
    Visual diff engine. Captures viewport element state and returns a compact
    delta showing what appeared, disappeared, moved, or changed.
 
@@ -519,7 +548,7 @@ METHODS:
      });
      console.log(report.text);
 
-11. help()
+12. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:
@@ -701,16 +730,25 @@ export function createBrowserAPI(
       return formatCSSInspection(result);
     },
 
-    takeSnapshot(
+    takeSnapshot: ((
       selector: string,
       snapshotId: string,
-      options?: { index?: number; label?: string }
-    ): TakeSnapshotResult {
+      options?: TreeSnapshotOptions
+    ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult> => {
+      if (hasTreeSnapshotOptions(options)) {
+        return takeNamedSnapshot(selector, snapshotId, options || {}, (element) =>
+          getEnrichedAncestryForElement(element, adapterId)
+        );
+      }
       return takeNamedSnapshot(selector, snapshotId, options);
-    },
+    }) as LocatorJSAPI["takeSnapshot"],
 
-    getSnapshotDiff(snapshotId: string): SnapshotDiffResult {
-      return getNamedSnapshotDiff(snapshotId);
+    getSnapshotDiff(
+      snapshotId: string
+    ): SnapshotDiffResult | Promise<TreeSnapshotDiffResult> {
+      return getNamedSnapshotDiff(snapshotId, (element) =>
+        getEnrichedAncestryForElement(element, adapterId)
+      );
     },
 
     clearSnapshot(snapshotId: string): void {

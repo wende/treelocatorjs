@@ -110,8 +110,8 @@ setup({ mcp: { enabled: false } });
 | `treelocator_get_styles` | Computed styles summary + snapshot |
 | `treelocator_get_css_rules` | Matched CSS rules with specificity |
 | `treelocator_get_css_report` | Human-readable CSS conflict report |
-| `treelocator_take_snapshot` | Persist element styles under `snapshotId` (survives reload) |
-| `treelocator_get_snapshot_diff` | Diff current element against saved snapshot |
+| `treelocator_take_snapshot` | Persist element styles, or a source-aware tree when tree options are passed, under `snapshotId` (survives reload) |
+| `treelocator_get_snapshot_diff` | Diff current element or tree against saved snapshot |
 | `treelocator_clear_snapshot` | Remove a saved snapshot |
 | `treelocator_click` | Click element matching selector |
 | `treelocator_hover` | Hover element |
@@ -157,6 +157,12 @@ Most element tools accept:
 
 ```json
 { "selector": ".hero", "snapshotId": "hero-layout" }
+```
+
+**Take a source-aware tree snapshot**
+
+```json
+{ "selector": ".hero", "snapshotId": "hero-tree", "maxDepth": 3, "maxNodes": 500 }
 ```
 
 Later, after edits/reload:

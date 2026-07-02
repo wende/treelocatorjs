@@ -133,7 +133,7 @@ const TOOL_DESCRIPTORS: ToolDescriptor[] = [
   {
     name: "treelocator_take_snapshot",
     description:
-      "Capture computed styles of an element and persist them under snapshotId (survives reloads). Call treelocator_get_snapshot_diff with the same id to see what changed later.",
+      "Capture an element snapshot and persist it under snapshotId (survives reloads). With no tree options, stores computed styles. With maxDepth/maxNodes/includeHidden/includeText, stores a source-aware getTree snapshot.",
     inputSchema: {
       type: "object",
       properties: {
@@ -142,6 +142,10 @@ const TOOL_DESCRIPTORS: ToolDescriptor[] = [
         snapshotId: { type: "string" },
         index: { type: "integer", minimum: 0 },
         label: { type: "string" },
+        maxDepth: { type: "integer", minimum: 0, maximum: 50 },
+        maxNodes: { type: "integer", minimum: 1, maximum: 5000 },
+        includeHidden: { type: "boolean" },
+        includeText: { type: "boolean" },
       },
       required: ["selector", "snapshotId"],
       additionalProperties: false,

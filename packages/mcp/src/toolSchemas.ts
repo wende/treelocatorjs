@@ -42,6 +42,10 @@ export const takeSnapshotSchema = z.object({
   snapshotId: z.string().min(1),
   index: z.number().int().min(0).optional(),
   label: z.string().optional(),
+  maxDepth: z.number().int().min(0).max(50).optional(),
+  maxNodes: z.number().int().min(1).max(5000).optional(),
+  includeHidden: z.boolean().optional(),
+  includeText: z.boolean().optional(),
 });
 
 export const snapshotIdSchema = z.object({

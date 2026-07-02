@@ -185,16 +185,25 @@ const rules = window.__treelocator__.getCSSRules(".my-class");
 
 ### 📸 Named Snapshot API
 
-Persistent baselines that survive reloads. Take a snapshot before a change, iterate on your fix, then diff against the same origin state as many times as you like:
+Persistent baselines that survive reloads. With no tree options, `takeSnapshot` captures the selected element's computed styles. Add `getTree` options such as `maxDepth` to snapshot the source-aware tree rooted at the same selector:
 
 ```js
+// Computed-style snapshot
 window.__treelocator__.takeSnapshot(".hero", "hero-layout");
 // ...edit, reload, tweak...
 const diff = window.__treelocator__.getSnapshotDiff("hero-layout");
 console.log(diff.formatted);
+
+// Source-aware tree snapshot
+await window.__treelocator__.takeSnapshot(".hero", "hero-tree", {
+  maxDepth: 3,
+  maxNodes: 500,
+});
+const treeDiff = await window.__treelocator__.getSnapshotDiff("hero-tree");
+console.log(treeDiff.formatted);
 ```
 
-Baselines are immutable — `getSnapshotDiff` never overwrites them. Stored in `localStorage` under `treelocator:snapshot:<id>`, so multiple snapshots coexist across sessions. Also exposed as MCP tools.
+Baselines are immutable — `getSnapshotDiff` never overwrites them. Stored in `localStorage` under `treelocator:snapshot:<id>`, so multiple style and tree snapshots coexist across sessions. Also exposed as MCP tools.
 
 ### 🤖 Browser Automation API
 
