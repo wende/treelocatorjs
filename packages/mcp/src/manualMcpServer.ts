@@ -507,7 +507,7 @@ export class ManualMcpServer {
     if (toolName === "treelocator_get_tree") {
       const parsed = getTreeSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("get_tree", parsed.data, signal);
     }
