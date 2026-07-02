@@ -32,7 +32,7 @@ export function getPackageVersion(name: string): string | null {
 export function usesReactPluginV6(): boolean {
   const version = getPackageVersion("@vitejs/plugin-react");
   if (!version) return false;
-  const major = parseInt(version.replace(/[\^~>=<]*/g, "").split(".")[0], 10);
+  const major = parseInt(version.replace(/[\^~>=<]+/g, "").split(".")[0], 10);
   return !Number.isNaN(major) && major >= 6;
 }
 
