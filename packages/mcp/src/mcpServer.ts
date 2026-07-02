@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BridgeCommandName } from "./protocol";
 import { SessionBroker, SessionBrokerError } from "./sessionBroker";
 import { CompatStdioServerTransport } from "./compatStdioTransport";
+import { errorResult, successResult, toErrorPayload } from "./toolResults";
 import {
   executeJsSchema,
   getConsoleSchema,
@@ -14,59 +15,11 @@ import {
   typeSchema,
 } from "./toolSchemas";
 
-type ToolResultPayload = Record<string, unknown>;
-
-function successResult(payload: ToolResultPayload) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
-    structuredContent: payload,
-  };
-}
-
-function errorResult(code: string, message: string, details?: unknown) {
-  const payload = {
-    error: {
-      code,
-      message,
-      details: details ?? null,
-    },
-  };
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
-    structuredContent: payload,
-    isError: true,
-  };
-}
-
 function getAbortSignal(extra: unknown): AbortSignal | undefined {
   if (!extra || typeof extra !== "object") return undefined;
   if (!("signal" in extra)) return undefined;
   const maybeSignal = (extra as { signal?: AbortSignal }).signal;
   return maybeSignal instanceof AbortSignal ? maybeSignal : undefined;
-}
-
-function toErrorPayload(error: unknown): {
-  code: string;
-  message: string;
-  details?: unknown;
-} {
-  if (error instanceof SessionBrokerError) {
-    return {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    };
-  }
-  if (error instanceof Error) {
-    return {
-      code: "internal_error",
-      message: error.message,
-    };
-  }
-  return {
-    code: "internal_error",
-    message: "Unknown error",
-  };
 }
 
 export interface TreeLocatorMCPServerOptions {

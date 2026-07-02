@@ -60,6 +60,42 @@ function Runtime(props: RuntimeProps) {
 
   // --- Event handlers ---
 
+  // Clipboard access can reject (permissions policy, unfocused document) —
+  // surface the failure as a toast instead of an unhandled rejection.
+  // navigator.clipboard is undefined in insecure (non-HTTPS, non-localhost)
+  // contexts, where accessing it would throw synchronously; fall back to the
+  // legacy execCommand path so Alt+click still works on LAN/HTTP testing.
+  function copyToClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => setToastMessage("Copied to clipboard"),
+        () => setToastMessage("Copy failed — check clipboard permissions")
+      );
+      return;
+    }
+    let successful = false;
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+    } catch {
+      successful = false;
+    }
+    setToastMessage(
+      successful
+        ? "Copied to clipboard"
+        : "Copy failed — check clipboard permissions"
+    );
+  }
+
   function eventPathHasAttribute(e: Event, attr: string): boolean {
     const path =
       typeof e.composedPath === "function"
@@ -164,16 +200,14 @@ function Runtime(props: RuntimeProps) {
       const fullOutput = stylesResult
         ? formatted + "\n\n" + stylesResult.formatted
         : formatted;
-      navigator.clipboard.writeText(fullOutput).then(() => {
-        setToastMessage("Copied to clipboard");
-      });
+      copyToClipboard(fullOutput);
 
       // For React 19+: try to enrich with source map file paths and re-copy.
       // If the enriched label differs, re-extract with forceFull:true so the
       // diff-mode fast path doesn't collapse the second extraction (for the
       // same element within the diff window) into "No changes detected".
-      enrichAncestryWithSourceMaps(ancestry, element as HTMLElement).then(
-        (enriched) => {
+      enrichAncestryWithSourceMaps(ancestry, element as HTMLElement)
+        .then((enriched) => {
           const enrichedFormatted = formatAncestryChain(enriched);
           if (enrichedFormatted !== formatted) {
             let enrichedFull = enrichedFormatted;
@@ -188,12 +222,13 @@ function Runtime(props: RuntimeProps) {
                   : stylesResult.formatted;
               enrichedFull = enrichedFormatted + "\n\n" + enrichedStyles;
             }
-            navigator.clipboard.writeText(enrichedFull).then(() => {
-              setToastMessage("Copied to clipboard");
-            });
+            copyToClipboard(enrichedFull);
           }
-        }
-      );
+        })
+        .catch((error) => {
+          // Enrichment is best-effort — the un-enriched copy already landed.
+          console.warn("[treelocator] source map enrichment failed:", error);
+        });
     }
 
     // Deactivate toggle after click

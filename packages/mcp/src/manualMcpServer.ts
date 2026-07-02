@@ -2,6 +2,7 @@ import { BridgeCommandName } from "./protocol";
 import { SessionBrokerError } from "./sessionBroker";
 import { CompatStdioServerTransport } from "./compatStdioTransport";
 import { BrokerClient } from "./brokerClient";
+import { errorResult, successResult, toErrorPayload } from "./toolResults";
 import {
   getCssReportSchema,
   getStylesSchema,
@@ -198,56 +199,6 @@ function selectorInputSchema(): Record<string, unknown> {
 
 function normalizeParams(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
-function toolSuccess(payload: Record<string, unknown>): Record<string, unknown> {
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    structuredContent: payload,
-  };
-}
-
-function toolError(
-  code: string,
-  message: string,
-  details?: unknown
-): Record<string, unknown> {
-  const payload = {
-    error: {
-      code,
-      message,
-      details: details ?? null,
-    },
-  };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    structuredContent: payload,
-    isError: true,
-  };
-}
-
-function toSessionError(error: unknown): {
-  code: string;
-  message: string;
-  details?: unknown;
-} {
-  if (error instanceof SessionBrokerError) {
-    return {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    };
-  }
-  if (error instanceof Error) {
-    return {
-      code: "internal_error",
-      message: error.message,
-    };
-  }
-  return {
-    code: "internal_error",
-    message: "Unknown error",
-  };
 }
 
 export interface ManualMcpServerOptions {
@@ -468,13 +419,13 @@ export class ManualMcpServer {
         timeoutMs: this.toolTimeoutMs,
         signal,
       });
-      return toolSuccess({
+      return successResult({
         sessionId,
         result,
       });
     } catch (error) {
-      const info = toSessionError(error);
-      return toolError(info.code, info.message, info.details);
+      const info = toErrorPayload(error);
+      return errorResult(info.code, info.message, info.details);
     }
   }
 
@@ -485,7 +436,7 @@ export class ManualMcpServer {
   ): Promise<Record<string, unknown>> {
     if (toolName === "treelocator_list_sessions") {
       const sessions = await this.broker.listSessions();
-      return toolSuccess({
+      return successResult({
         selectedSessionId: this.selectedSessionId,
         sessions,
       });
@@ -494,17 +445,17 @@ export class ManualMcpServer {
     if (toolName === "treelocator_connect_session") {
       const parsed = sessionIdSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       const session = await this.broker.getSession(parsed.data.sessionId);
       if (!session) {
-        return toolError(
+        return errorResult(
           "session_not_found",
           `Session \"${parsed.data.sessionId}\" is not connected`
         );
       }
       this.selectedSessionId = parsed.data.sessionId;
-      return toolSuccess({
+      return successResult({
         selectedSessionId: this.selectedSessionId,
         session,
       });
@@ -522,11 +473,11 @@ export class ManualMcpServer {
     if (toolName in selectorTools) {
       const parsed = selectorSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       const command = selectorTools[toolName];
       if (!command) {
-        return toolError("internal_error", `Unknown selector tool: ${toolName}`);
+        return errorResult("internal_error", `Unknown selector tool: ${toolName}`);
       }
       return await this.runBridgeTool(command, parsed.data, signal);
     }
@@ -534,7 +485,7 @@ export class ManualMcpServer {
     if (toolName === "treelocator_get_styles") {
       const parsed = getStylesSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("get_styles", parsed.data, signal);
     }
@@ -542,7 +493,7 @@ export class ManualMcpServer {
     if (toolName === "treelocator_get_css_report") {
       const parsed = getCssReportSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("get_css_report", parsed.data, signal);
     }
@@ -550,7 +501,7 @@ export class ManualMcpServer {
     if (toolName === "treelocator_take_snapshot") {
       const parsed = takeSnapshotSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("take_snapshot", parsed.data, signal);
     }
@@ -561,7 +512,7 @@ export class ManualMcpServer {
     ) {
       const parsed = snapshotIdSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       const command: BridgeCommandName =
         toolName === "treelocator_get_snapshot_diff"
@@ -573,11 +524,11 @@ export class ManualMcpServer {
     if (toolName === "treelocator_type") {
       const parsed = typeSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return toolError("invalid_args", parsed.error.message);
+        return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("type", parsed.data, signal);
     }
 
-    return toolError("tool_not_found", `Unknown tool: ${toolName}`);
+    return errorResult("tool_not_found", `Unknown tool: ${toolName}`);
   }
 }
