@@ -26,7 +26,7 @@ function GetExtension() {
             For other frameworks or custom config get{" "}
             <a
               className="text-indigo-500 hover:underline hover:text-indigo-700"
-              href="https://github.com/infi-pc/locatorjs/blob/master/apps/extension/README.md#requirements"
+              href="https://github.com/wende/treelocatorjs/blob/main/apps/extension/README.md#requirements"
             >
               more info here
             </a>

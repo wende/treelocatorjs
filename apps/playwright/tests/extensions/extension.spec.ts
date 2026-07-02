@@ -51,8 +51,8 @@ test("react", async ({ page }) => {
   const headline = page.locator("text=Vite + React");
   await headline.hover();
 
-  const locatorLogo = page.locator("a[title=LocatorJS]");
-  await expect(locatorLogo).toBeVisible();
+  const treeToggle = page.locator('[title="TreeLocatorJS - Component Ancestry Tracker"]');
+  await expect(treeToggle).toBeVisible();
 
   //   expect(wentToLink).toBe(true);
   //   const initialButton = page.locator("button >> text=Confirm");
@@ -66,8 +66,8 @@ test("svelte", async ({ page }) => {
   const headline = page.locator("text=Vite + Svelte");
   await headline.hover();
 
-  const locatorLogo = page.locator("a[title=LocatorJS]");
-  await expect(locatorLogo).toBeVisible();
+  const treeToggle = page.locator('[title="TreeLocatorJS - Component Ancestry Tracker"]');
+  await expect(treeToggle).toBeVisible();
 
   await locateElement(page, "text=Vite + Svelte");
   const initialButton = page.locator("button >> text=Confirm");

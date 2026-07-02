@@ -1,4 +1,4 @@
-# LocatorJS
+# TreeLocatorJS
 
 Alt+click on any UI component to copy its component ancestry chain to clipboard.
 
@@ -89,7 +89,7 @@ Requires: Node.js >=22.0.0, pnpm 8.7.5
 | `@treelocator/runtime` | Core runtime - Alt+click handler, overlay UI (SolidJS), ancestry tree builder |
 | `@treelocator/init` | CLI setup wizard - auto-configures TreeLocatorJS in existing projects |
 
-**Uses from original LocatorJS:**
+**Build-time dependencies:**
 - `@locator/shared` - Shared types (React Fiber, messages) and utilities
 - `@locator/babel-jsx` - Babel plugin for JSX source location tracking
 - `@locator/webpack-loader` - Webpack loader integration
@@ -149,11 +149,6 @@ cd packages/runtime && pnpm test:dev  # Watch mode
 TreeLocatorJS publishes 2 packages to npm:
 - `@treelocator/runtime@0.1.0` - Core runtime
 - `@treelocator/init@0.1.0` - CLI setup wizard
-
-Reuses from original LocatorJS:
-- `@locator/shared@^0.5.0`
-- `@locator/babel-jsx@^0.5.1`
-- `@locator/webpack-loader@^0.5.1`
 
 To publish a new version:
 ```bash

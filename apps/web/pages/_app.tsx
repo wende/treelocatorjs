@@ -3,11 +3,11 @@ import setupLocatorUI from "@treelocator/runtime";
 import Head from "next/head";
 import { useEffect } from "react";
 
-const branchName = process.env.VERCEL_GIT_COMMIT_REF || "master";
+const branchName = process.env.VERCEL_GIT_COMMIT_REF || "main";
 
 function MyApp({ Component, pageProps }) {
   useEffect(() => {
-    // Setup LocatorJS only on the client side to avoid hydration issues
+    // Setup TreeLocatorJS only on the client side to avoid hydration issues
     setupLocatorUI(
       process.env.NODE_ENV === "production"
         ? {
@@ -15,18 +15,15 @@ function MyApp({ Component, pageProps }) {
             targets: {
               github: {
                 label: "GitHub",
-                url: `https://www.github.com/infi-pc/locatorjs/blob/${branchName}/apps/web\${filePath}#L\${line}`,
-                // target: "_blank",
+                url: `https://www.github.com/wende/treelocatorjs/blob/${branchName}/apps/web\${filePath}#L\${line}`,
               },
               githubDevEditor: {
                 label: "GitHub.dev Editor",
-                url: `https://github.dev/infi-pc/locatorjs/blob/${branchName}/apps/web\${filePath}#L\${line}`,
-                // target: "_blank",
+                url: `https://github.dev/wende/treelocatorjs/blob/${branchName}/apps/web\${filePath}#L\${line}`,
               },
             },
           }
         : {
-            // Show initial setup to all devs in your team so they can choose their editor.
             adapter: "jsx",
           }
     );
@@ -37,24 +34,18 @@ function MyApp({ Component, pageProps }) {
       <Head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <title>LocatorJS - click on any component to go to code.</title>
+        <title>TreeLocatorJS - Alt+click to copy component ancestry</title>
         <meta
           name="description"
-          content="Click on any component and go from your app to component's code."
+          content="Alt+click any UI element to copy its complete component hierarchy to your clipboard."
         ></meta>
         <meta property="og:image" content="/preview.png"></meta>
         <meta name="twitter:card" content="summary_large_image"></meta>
-        <meta name="twitter:site" content="@_michaelmusil"></meta>
-        {/* <meta name="twitter:site" content="@_michaelmusil" />
-        <meta name="twitter:creator" content="@_michaelmusil" />    */}
         <meta
           name="twitter:title"
-          content="LocatorJS - click on any component to go to code."
+          content="TreeLocatorJS - Alt+click to copy component ancestry"
         ></meta>
-        <meta
-          name="twitter:image"
-          content="https://www.locatorjs.com/preview.png"
-        ></meta>
+        <meta name="twitter:image" content="/preview.png"></meta>
         {process.env.NODE_ENV === "production" && (
           <script
             dangerouslySetInnerHTML={{

@@ -768,9 +768,9 @@ const ancestry = window.__treelocator__.getAncestry(document.querySelector('butt
 
 1. **Element-level tracking:** Each element shows only its own server component, not accumulated ancestors. The tree structure itself shows hierarchy.
 
-2. **Relative paths:** Display `app/page.tsx:6` instead of `/Users/wende/projects/locatorjs/apps/next-16/app/page.tsx:6` for better readability.
+2. **Relative paths:** Display `app/page.tsx:6` instead of `/Users/wende/projects/treelocatorjs/apps/next-16/app/page.tsx:6` for better readability.
 
-3. **Reuse original LocatorJS packages:** TreeLocatorJS focuses on the runtime - we reuse the proven build-time tooling from the original LocatorJS project.
+3. **Reuse build-time packages:** TreeLocatorJS focuses on the runtime — build-time instrumentation uses the `@locator/*` npm packages.
 
 4. **Turbopack vs Webpack:** Next.js 13+ uses Turbopack by default in development. The loader configuration differs between the two (see `docs/NEXTJS-SETUP.md`).
 
@@ -871,7 +871,7 @@ div:nth-child(2) [Next.js: Page] at app/page.tsx:6
 
 1. **Server component tracking at element level:** Each element displays only its own server component, with the tree structure showing hierarchy
 2. **Relative paths preferred:** Display `app/page.tsx:6` instead of absolute paths for readability
-3. **Reuse proven tooling:** TreeLocatorJS focuses on runtime; reuses `@locator/*` packages from original LocatorJS for build-time instrumentation
+3. **Reuse proven tooling:** TreeLocatorJS focuses on runtime; build-time instrumentation uses `@locator/*` npm packages
 4. **Pure client-side parsing:** Both implementations work without server-side runtime changes (only build-time configuration needed)
 
 ### Ready For
