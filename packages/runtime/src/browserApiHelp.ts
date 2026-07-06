@@ -109,7 +109,21 @@ METHODS:
      });
      console.log(report.text);
 
-10. help()
+10. queryBySource({ file, line, column?, tolerance?, includeStyles?, maxMatches? })
+   Reverse lookup: file:line -> live DOM element(s) + ancestry. The inverse
+   of getPath. Returns selectors and ancestry so you can follow up with
+   getPath / click / takeSnapshot on the matched element.
+
+   Usage:
+     const result = await window.__treelocator__.queryBySource({
+       file: 'src/Button.tsx', line: 23
+     });
+     if (result.found) {
+       console.log(result.matches[0].selector);
+       console.log(result.matches[0].path);
+     }
+
+11. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:

@@ -62,3 +62,15 @@ export const getConsoleSchema = z.object({
   sessionId: z.string().min(1).optional(),
   last: z.number().int().min(1).max(500).optional(),
 });
+
+export const queryBySourceSchema = z.object({
+  sessionId: z.string().min(1).optional(),
+  file: z.string().min(1),
+  line: z.number().int().min(1),
+  column: z.number().int().min(0).optional(),
+  tolerance: z.number().int().min(0).optional(),
+  includeHidden: z.boolean().optional(),
+  includeStyles: z.boolean().optional(),
+  includeCssReport: z.boolean().optional(),
+  maxMatches: z.number().int().min(1).max(100).optional(),
+});

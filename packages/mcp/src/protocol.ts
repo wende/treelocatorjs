@@ -19,6 +19,7 @@ export const BRIDGE_COMMANDS = [
   "type",
   "execute_js",
   "get_console",
+  "query_by_source",
 ] as const;
 
 export type BridgeCommandName = (typeof BRIDGE_COMMANDS)[number];

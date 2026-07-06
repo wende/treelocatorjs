@@ -28,6 +28,17 @@ import {
   TakeTreeSnapshotResult,
   TreeSnapshotDiffResult,
 } from "./functions/namedSnapshots";
+import {
+  queryBySource as queryBySourceImpl,
+  type QueryBySourceOptions,
+  type QueryBySourceResult,
+} from "./functions/queryBySource";
+import {
+  findBySource as findBySourceImpl,
+  type FindBySourceOptions,
+  type FindBySourceResult,
+} from "./functions/findBySource";
+import { highlightMatches } from "./functions/highlightBySource";
 import type { RecordingResult } from "./hooks/useRecordingState";
 import { takeSnapshot } from "./visualDiff/snapshot";
 import { computeDiff, formatReport } from "./visualDiff/diff";
@@ -275,6 +286,86 @@ export interface LocatorJSAPI {
     snapshotId: string,
     options: TreeSnapshotOptions
   ): TakeSnapshotResult | Promise<TakeTreeSnapshotResult>;
+
+  /**
+   * Reverse lookup: given a source `file:line`, find the live DOM element(s)
+   * rendered from that source. Returns selectors and ancestry for each match
+   * so callers can follow up with `getPath` / `click` / `takeSnapshot`.
+   *
+   * The inverse of `getPath`: if `getPath` reports element X at `file:line`,
+   * `queryBySource(file, line)` will find X. Matching reuses the runtime's
+   * framework adapters (React fiber, Svelte/Vue meta, `data-locatorjs*`
+   * attributes) so the two directions stay in agreement.
+   *
+   * @param options - { file, line, column?, tolerance?, includeHidden?,
+   *                    includeStyles?, includeCssReport?, maxMatches? }
+   * @returns { found, normalizedFile, query, matches, truncated }
+   *
+   * @example
+   * // Confirm the element a line belongs to before editing
+   * const result = await window.__treelocator__.queryBySource({
+   *   file: "src/Button.tsx",
+   *   line: 23,
+   * });
+   * if (result.found) {
+   *   console.log(result.matches[0].selector, result.matches[0].path);
+   * }
+   *
+   * @example
+   * // In Playwright — verify the edit landed on the right element
+   * const matches = await page.evaluate((opts) =>
+   *   window.__treelocator__.queryBySource(opts),
+   *   { file: "src/App.tsx", line: 42 }
+   * );
+   */
+  queryBySource(options: QueryBySourceOptions): Promise<QueryBySourceResult>;
+
+  /**
+   * Reverse lookup by component name or file. Complements `queryBySource`
+   * (which takes a file:line) by letting the agent ask "where does this
+   * component live?" or "what did this file render?" before editing.
+   *
+   * Powered by `buildSourceAwareTree` — every node carries a resolved
+   * `{component, file, line}`, and we filter that tree to the matches.
+   * Per-match selectors snap back to live DOM via tag/id/classes.
+   *
+   * @param options - { component?, file?, includeHidden?, maxMatches? }
+   * @returns { found, matches[], truncated }
+   *
+   * @example
+   * // Where is <SaveButton /> rendered?
+   * const { matches } = await window.__treelocator__.findBySource({
+   *   component: "SaveButton",
+   * });
+   * matches.forEach(m => console.log(m.selector, m.line));
+   *
+   * @example
+   * // What did this file render?
+   * const { matches } = await window.__treelocator__.findBySource({
+   *   file: "src/Sidebar.tsx",
+   * });
+   */
+  findBySource(options: FindBySourceOptions): Promise<FindBySourceResult>;
+
+  /**
+   * Highlight matched `queryBySource` elements with a transient outline.
+   * Useful when an agent wants the user to visually confirm the target
+   * before an edit. Returns `{ count }` (number of elements outlined).
+   *
+   * @param options - Same shape as `queryBySource`
+   * @param durationMs - Outline lifetime in ms (default 3000)
+   * @returns { count, cancel } — cancel() removes the overlay early
+   *
+   * @example
+   * const { count, cancel } = await window.__treelocator__.highlightBySource({
+   *   file: "src/Button.tsx", line: 23,
+   * }, 5000);
+   * console.log(`highlighted ${count} elements for 5s`);
+   */
+  highlightBySource(
+    options: QueryBySourceOptions,
+    durationMs?: number
+  ): Promise<{ count: number; cancel: () => void }>;
 
   /**
    * Diff the current element styles or source-aware tree against the baseline
@@ -558,6 +649,54 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
 
     clearSnapshot(snapshotId) {
       clearNamedSnapshot(snapshotId);
+    },
+
+    queryBySource(options) {
+      return safeAsync(
+        "queryBySource",
+        {
+          found: false,
+          normalizedFile: options?.file ?? "",
+          query: {
+            file: options?.file ?? "",
+            line: options?.line ?? 0,
+            column: options?.column,
+            tolerance: options?.tolerance ?? 0,
+          },
+          matches: [],
+          truncated: false,
+        },
+        () => queryBySourceImpl(options, adapterId)
+      );
+    },
+
+    findBySource(options) {
+      return safeAsync(
+        "findBySource",
+        { found: false, matches: [], truncated: false },
+        async () => {
+          const tree = await buildSourceAwareTree(
+            document.body,
+            { includeHidden: options?.includeHidden !== false },
+            (element) => getEnrichedAncestryForElement(element)
+          );
+          if (!tree) {
+            return { found: false, matches: [], truncated: false };
+          }
+          return findBySourceImpl(options ?? {}, tree);
+        }
+      );
+    },
+
+    highlightBySource(options, durationMs) {
+      return safeAsync(
+        "highlightBySource",
+        { count: 0, cancel: () => undefined },
+        async () => {
+          const result = await queryBySourceImpl(options, adapterId);
+          return highlightMatches(result.matches, durationMs);
+        }
+      );
     },
 
     help() {
