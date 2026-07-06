@@ -123,7 +123,27 @@ METHODS:
        console.log(result.matches[0].path);
      }
 
-11. help()
+11. findBySource({ component?, file?, includeHidden?, maxMatches? })
+   Reverse lookup by component name and/or file. Backed by the source-aware
+   tree. Returns { found, matches[], truncated } with selector + path per match.
+
+   Usage:
+     const { matches } = await window.__treelocator__.findBySource({
+       component: 'SaveButton'
+     });
+     matches.forEach(m => console.log(m.selector, m.line));
+
+12. highlightBySource({ file, line, ... }, durationMs?)
+   Same lookup as queryBySource but draws a transient outline around each
+   matched element in the browser. Returns { count, cancel }.
+
+   Usage:
+     const { count } = await window.__treelocator__.highlightBySource({
+       file: 'src/Button.tsx', line: 23
+     }, 5000);
+     console.log(\`highlighted \${count} elements for 5s\`);
+
+13. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:

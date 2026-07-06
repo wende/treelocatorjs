@@ -26,7 +26,9 @@ export type BridgeCommandName =
   | "type"
   | "execute_js"
   | "get_console"
-  | "query_by_source";
+  | "query_by_source"
+  | "find_by_source"
+  | "highlight_by_source";
 
 export interface HelloMessage {
   type: "hello";
@@ -469,6 +471,44 @@ export async function executeBridgeCommand(
           typeof args?.maxMatches === "number" ? (args.maxMatches as number) : undefined,
       });
     }
+    case "find_by_source": {
+      const component = typeof args?.component === "string" ? args.component : undefined;
+      const file = typeof args?.file === "string" ? args.file : undefined;
+      if (!component && !file) {
+        throw new BridgeRuntimeError(
+          "invalid_args",
+          "at least one of `component` or `file` is required"
+        );
+      }
+      return await api.findBySource({
+        component,
+        file,
+        includeHidden:
+          typeof args?.includeHidden === "boolean"
+            ? (args.includeHidden as boolean)
+            : undefined,
+        maxMatches:
+          typeof args?.maxMatches === "number" ? (args.maxMatches as number) : undefined,
+      });
+    }
+    case "highlight_by_source": {
+      const file = requireStringArg(args, "file");
+      const rawLine = args?.line;
+      if (typeof rawLine !== "number" || !Number.isInteger(rawLine) || rawLine < 1) {
+        throw new BridgeRuntimeError("invalid_args", "line must be a positive integer");
+      }
+      return await api.highlightBySource(
+        {
+          file,
+          line: rawLine,
+          column:
+            typeof args?.column === "number" ? (args.column as number) : undefined,
+          tolerance:
+            typeof args?.tolerance === "number" ? (args.tolerance as number) : undefined,
+        },
+        typeof args?.durationMs === "number" ? (args.durationMs as number) : undefined
+      );
+    }
     default:
       throw new BridgeRuntimeError("unsupported_command", `Unsupported command: ${command}`);
   }
@@ -600,6 +640,8 @@ export class TreeLocatorMCPBridgeClient {
         "execute_js",
         "get_console",
         "query_by_source",
+        "find_by_source",
+        "highlight_by_source",
       ],
       connectedAt: new Date().toISOString(),
     };
