@@ -7,8 +7,9 @@ export function raiseElement(
   level: number
 ): HTMLElement | null {
   if (!base) return null;
+  const steps = Math.max(0, level);
   let el: HTMLElement = base;
-  for (let i = 0; i < level; i++) {
+  for (let i = 0; i < steps; i++) {
     const parent = el.parentElement;
     if (!parent) break;
     if (parent === document.body || parent === document.documentElement) break;

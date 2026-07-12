@@ -289,10 +289,11 @@ function Runtime(props: RuntimeProps) {
       // part of the configured activation modifier (e.g.
       // data-locator-mouse-modifiers="ctrl"), so we don't hijack the activation key.
       if (e.key === "Control" && !e.repeat && !getMouseModifiers().ctrl && isActive()) {
-        const next = raiseElement(baseElement(), liftLevel() + 1);
+        const nextLevel = liftLevel() + 1;
+        const next = raiseElement(baseElement(), nextLevel);
         // Only count the tap if it actually moves up (not already at <body>).
         if (next && next !== currentElement()) {
-          setLiftLevel(liftLevel() + 1);
+          setLiftLevel(nextLevel);
         }
       }
     },

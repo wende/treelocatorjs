@@ -17,6 +17,12 @@ describe("raiseElement", () => {
     expect(raiseElement(inner, 0)).toBe(inner);
   });
 
+  test("negative level is clamped to 0 (returns base)", () => {
+    document.body.innerHTML = `<div id="wrap"><span id="inner">x</span></div>`;
+    const inner = document.getElementById("inner") as HTMLElement;
+    expect(raiseElement(inner, -3)).toBe(inner);
+  });
+
   test("level N walks up N parents", () => {
     document.body.innerHTML = `
       <section id="a"><div id="b"><p id="c"><span id="d">x</span></p></div></section>
