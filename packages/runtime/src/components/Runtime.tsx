@@ -1,8 +1,12 @@
 import { Targets } from "@locator/shared";
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { AdapterId, LOCATORJS_SELECTOR } from "../consts";
-import { isCombinationModifiersPressed } from "../functions/isCombinationModifiersPressed";
+import {
+  isCombinationModifiersPressed,
+  getMouseModifiers,
+} from "../functions/isCombinationModifiersPressed";
+import { raiseElement } from "../functions/raiseElement";
 import { Targets as SetupTargets } from "../types/types";
 import { MaybeOutline } from "./MaybeOutline";
 import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
@@ -27,8 +31,10 @@ type RuntimeProps = {
 function Runtime(props: RuntimeProps) {
   const [holdingModKey, setHoldingModKey] = createSignal<boolean>(false);
   const [holdingShift, setHoldingShift] = createSignal<boolean>(false);
-  const [currentElement, setCurrentElement] = createSignal<HTMLElement | null>(
-    null
+  const [baseElement, setBaseElement] = createSignal<HTMLElement | null>(null);
+  const [liftLevel, setLiftLevel] = createSignal(0);
+  const currentElement = createMemo(() =>
+    raiseElement(baseElement(), liftLevel())
   );
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [locatorActive, setLocatorActive] = createSignal<boolean>(false);
@@ -166,7 +172,12 @@ function Runtime(props: RuntimeProps) {
       return;
     }
 
-    const element = findElementAtPoint(e);
+    // Copy the raised element when a Ctrl-tap lift is in effect; otherwise keep
+    // the exact current behaviour of resolving the element under the cursor.
+    const element =
+      liftLevel() > 0
+        ? (currentElement() ?? findElementAtPoint(e))
+        : findElementAtPoint(e);
 
     if (!element) return;
     if (element instanceof HTMLElement && element.shadowRoot) return;
@@ -244,9 +255,12 @@ function Runtime(props: RuntimeProps) {
     // Don't update hovered element while recording — highlight is sticky
     if (recording.recordingState() === "recording") return;
 
+    // Only reset the base + lift when a genuinely different element is hovered,
+    // so mouse jitter within the same element preserves any Ctrl-tap lift.
     const element = findElementAtPoint(e);
-    if (element) {
-      setCurrentElement(element);
+    if (element && element !== baseElement()) {
+      setBaseElement(element);
+      setLiftLevel(0);
     }
   }
 
@@ -267,7 +281,19 @@ function Runtime(props: RuntimeProps) {
           e.stopPropagation();
           if (wasLocatorActive) setLocatorActive(false);
           if (wasSelecting) recording.handleRecordClick();
-          setCurrentElement(null);
+          setBaseElement(null);
+          setLiftLevel(0);
+        }
+      }
+      // Ctrl-tap raises the highlight one DOM parent. Skip when Ctrl is itself
+      // part of the configured activation modifier (e.g.
+      // data-locator-mouse-modifiers="ctrl"), so we don't hijack the activation key.
+      if (e.key === "Control" && !e.repeat && !getMouseModifiers().ctrl && isActive()) {
+        const nextLevel = liftLevel() + 1;
+        const next = raiseElement(baseElement(), nextLevel);
+        // Only count the tap if it actually moves up (not already at <body>).
+        if (next && next !== currentElement()) {
+          setLiftLevel(nextLevel);
         }
       }
     },
@@ -288,7 +314,8 @@ function Runtime(props: RuntimeProps) {
       }
     },
     scrollListener() {
-      setCurrentElement(null);
+      setBaseElement(null);
+      setLiftLevel(0);
     },
     onCleanup: recording.cleanup,
   });
