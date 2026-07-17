@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vanilla (broken) — TreeLocator demo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <h1>Vanilla, No Component Source</h1>
+        <p class="subtitle">
+          Plain static HTML + imperative JS. There is no framework and no
+          <code>@locator/babel-jsx</code>, so no <code>data-locatorjs-id</code>
+          attributes exist. Alt+click any element below.
+        </p>
+      </header>
+
+      <section class="cards">
+        <article class="card">
+          <h2>Counter</h2>
+          <p class="count" id="count">0</p>
+          <div class="row">
+            <button id="dec" type="button">-</button>
+            <button id="inc" type="button">+</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Form</h2>
+          <label class="field">
+            <span>Name</span>
+            <input id="name" type="text" placeholder="Ada Lovelace" />
+          </label>
+          <label class="field">
+            <span>Mood</span>
+            <select id="mood">
+              <option>Curious</option>
+              <option>Debugging</option>
+              <option>Shipping</option>
+            </select>
+          </label>
+          <button id="greet" type="button" class="primary">Greet</button>
+          <output id="greeting" class="greeting"></output>
+        </article>
+
+        <article class="card">
+          <h2>List</h2>
+          <ul id="list">
+            <li>Alpha</li>
+            <li>Beta</li>
+            <li>Gamma</li>
+          </ul>
+          <button id="add" type="button">Add item</button>
+        </article>
+      </section>
+
+      <footer class="hint">
+        Expected result: Alt+click copies a plain CSS selector and the toast
+        reads <strong>"No component source — copied CSS selector"</strong>.
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
