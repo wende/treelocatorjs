@@ -40,7 +40,7 @@ function getPackageVersion(name) {
 function usesReactPluginV6() {
   const version = getPackageVersion("@vitejs/plugin-react");
   if (!version) return false;
-  const major = parseInt(version.replace(/[\^~>=<]*/g, "").split(".")[0], 10);
+  const major = parseInt(version.replace(/[\^~>=<]+/g, "").split(".")[0], 10);
   return !Number.isNaN(major) && major >= 6;
 }
 function detectPackageManager() {
