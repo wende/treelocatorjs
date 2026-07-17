@@ -17,7 +17,7 @@ The `@treelocator/mcp` package (v0.6.0) ships a stdio MCP server + local WSS bro
 | Area | Tools | Notes |
 |------|-------|-------|
 | Session | `treelocator_list_sessions`, `treelocator_connect_session` | Multi-tab session routing |
-| Source mapping | `treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_tree` | **The moat** — deterministic, multi-framework |
+| Source mapping | `treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_tree`, `treelocator_query_by_source`, `treelocator_find_source`, `treelocator_highlight_source` | **The moat** — deterministic, multi-framework |
 | CSS | `treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report` | Includes specificity/conflict reporting |
 | Snapshot / verify | `treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot` | Style-level by default; source-aware tree snapshots when tree options are passed |
 | Interaction | `treelocator_click`, `treelocator_hover`, `treelocator_type` | |

@@ -299,7 +299,7 @@ export interface LocatorJSAPI {
    *
    * @param options - { file, line, column?, tolerance?, includeHidden?,
    *                    includeStyles?, includeCssReport?, maxMatches? }
-   * @returns { found, normalizedFile, query, matches, truncated }
+   * @returns { found, rendered, browserConnected, normalizedFile, query, matches, truncated }
    *
    * @example
    * // Confirm the element a line belongs to before editing
@@ -656,6 +656,8 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
         "queryBySource",
         {
           found: false,
+          rendered: false,
+          browserConnected: true,
           normalizedFile: options?.file ?? "",
           query: {
             file: options?.file ?? "",
@@ -666,7 +668,12 @@ export function createBrowserAPI(adapterId?: AdapterId): LocatorJSAPI {
           matches: [],
           truncated: false,
         },
-        () => queryBySourceImpl(options, adapterId)
+        () =>
+          queryBySourceImpl(
+            options,
+            adapterId,
+            (element) => getEnrichedAncestryForElement(element)
+          )
       );
     },
 

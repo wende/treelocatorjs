@@ -32,7 +32,7 @@ Register it in `.mcp.json`:
 { "mcpServers": { "treelocator": { "command": "npx", "args": ["@treelocator/mcp"] } } }
 ```
 
-Tools (16): session (`treelocator_list_sessions`, `treelocator_connect_session`); source mapping (`treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`); CSS (`treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report`); snapshot/verify (`treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot`); interaction (`treelocator_click`, `treelocator_hover`, `treelocator_type`); page (`treelocator_execute_js`, `treelocator_get_console`).
+Tools (19): session (`treelocator_list_sessions`, `treelocator_connect_session`); source mapping (`treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_tree`, `treelocator_query_by_source`, `treelocator_find_source`, `treelocator_highlight_source`); CSS (`treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report`); snapshot/verify (`treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot`); interaction (`treelocator_click`, `treelocator_hover`, `treelocator_type`); page (`treelocator_execute_js`, `treelocator_get_console`).
 
 See [MCP.md](./docs/MCP.md) for architecture, TLS certs, and proxy mode.
 

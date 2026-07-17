@@ -6,6 +6,71 @@ Related docs: [Treebrowser.md](./Treebrowser.md) (gap analysis), [BROWSER-API.md
 
 ---
 
+## Implementation status & continuation plan
+
+> Branch: `feat/source-to-dom-rebased`. Snapshot as of the last two commits
+> (`add source→DOM reverse lookup tools`, `complete find/highlight-by-source
+> plumbing`). This section is the live tracker; the phased plan further down is
+> the original design.
+
+### What is already built
+
+The core reverse-lookup feature exists and is unit-tested (34 passing tests
+across `queryBySource`, `findBySource`, `highlightBySource`, `buildSelector`).
+Both `@treelocator/runtime` and `@treelocator/mcp` typecheck.
+
+| Piece | Location | State |
+|-------|----------|-------|
+| `queryBySource` (Strategies A–F: path-attr, `__LOCATOR_DATA__`, fiber, Svelte/Vue meta, server-component, tree-scan) | `packages/runtime/src/functions/queryBySource.ts` | Implemented, **untracked** |
+| `findBySource` (component/file via source-aware tree) | `packages/runtime/src/functions/findBySource.ts` | Implemented, **untracked** |
+| `highlightBySource` (transient Shadow-DOM outlines) | `packages/runtime/src/functions/highlightBySource.ts` | Implemented, **untracked** |
+| `buildSelector` (round-trip CSS selector) | `packages/runtime/src/functions/buildSelector.ts` | Implemented, **untracked** |
+| Unit + demo tests | `*.test.ts`, `queryBySource.demo.test.ts` | Passing, **untracked** |
+| Browser API surface (`queryBySource`/`findBySource`/`highlightBySource`) | `packages/runtime/src/browserApi.ts` | Committed |
+| Bridge commands + schemas + help | `mcpBridge.ts`, `protocol.ts`, `toolSchemas.ts`, `browserApiHelp.ts` | Committed |
+| MCP tools (`treelocator_query_by_source` / `_find_source` / `_highlight_source`) | `mcpServer.ts`, `manualMcpServer.ts` | Committed |
+
+### Critical gap — the branch does not build standalone
+
+The two commits reference the four **untracked** implementation files
+(`browserApi.ts` imports `./functions/queryBySource` etc.). Until those are
+committed, a fresh checkout of this branch fails to compile even though the
+working tree is green.
+
+### Continuation checklist (do in order)
+
+- [x] **Commit the untracked implementation + tests** (`queryBySource.ts`,
+      `findBySource.ts`, `highlightBySource.ts`, `buildSelector.ts` and their
+      `*.test.ts` / `queryBySource.demo.test.ts`). This unblocks everything else.
+- [ ] **Fold in the unrelated working-tree changes deliberately**: the
+      `Runtime.tsx` "no component source → copy CSS selector" fix and the
+      `apps/vite-vanilla-broken` demo are currently uncommitted and out of scope
+      for this feature — split them into their own commit(s).
+- [x] **Add `browserConnected` / `rendered` semantics** to `QueryBySourceResult`.
+      In-browser calls always set `browserConnected: true`; MCP bridge errors
+      when no tab is connected. `rendered` is true when a match selector resolves.
+- [x] **Docs**: add `queryBySource` / `findBySource` / `highlightBySource` to
+      [BROWSER-API.md](./BROWSER-API.md) and the three MCP tools to
+      [MCP.md](./MCP.md). Update the tool count in `CLAUDE.md` / `AGENTS.md` /
+      `MCP.md` (19 tools).
+- [x] **Playwright e2e** (`apps/playwright`): edit a known `file:line` in a
+      demo app → `query_by_source` → assert the returned selector resolves to
+      the same element Alt+click would report. Cover vite-react and next-16.
+- [x] **Strategy F (Phoenix / Next RSC)**: `queryBySource` matches Phoenix HEEx
+      comments and Next.js RSC attrs on element + ancestors via `server-component`.
+- [x] **Confidence scoring pass**: `path-attr`/`locator-data`/`svelte-meta` →
+      `high`; `fiber`/`vue-meta`/`server-component` → `medium`; `tree-scan` and
+      `findBySource` → `low`.
+- [x] **Strategy E (source-aware tree scan)**: fallback via `buildSourceAwareTree`
+      when `resolveAncestry` is provided (browser API wires this automatically).
+
+### Deferred (unchanged from phased plan below)
+
+- Phase 3 (props/state capture) and Phase 4 (on-disk manifest index) remain
+  optional and unstarted — see the corresponding sections.
+
+---
+
 ## Problem
 
 TreeLocatorJS today is strong at **DOM → source**: Alt+click or `getPath()` walks from a rendered element to its component ancestry and file locations. Agents editing frontend code still start blind — they know *which file* they changed but not *what it looks like live*, *which DOM nodes it owns*, or *whether HMR applied correctly*.
