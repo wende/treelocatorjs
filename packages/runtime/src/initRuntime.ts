@@ -27,6 +27,27 @@ export function initRuntime({
   installBrowserAPI(adapter);
   startMCPBridge(mcp);
 
+  // ponytail: warn only, no framework detection — tagged elements appear
+  // asynchronously, so we just re-check a few times. Upgrade path: wire the
+  // detected adapter id in and skip this for Vue/Svelte (no babel needed).
+  let tagChecks = 0;
+  const tagCheckTimer = setInterval(() => {
+    tagChecks++;
+    const tagged =
+      document.querySelector("[data-locatorjs-id]") ||
+      (window.__LOCATOR_DATA__ && Object.keys(window.__LOCATOR_DATA__).length > 0);
+    if (tagged || tagChecks >= 4) {
+      clearInterval(tagCheckTimer);
+      if (!tagged) {
+        console.warn(
+          "[treelocator] Runtime is active but no elements carry data-locatorjs-id. " +
+            "The babel plugin is probably not running (on Vite 7+/rolldown, @vitejs/plugin-react v5 silently skips babel). " +
+            "See https://github.com/wende/treelocatorjs/blob/main/docs/TROUBLESHOOTING.md"
+        );
+      }
+    }
+  }, 2000);
+
   // add style tag to head
   const style = document.createElement("style");
   style.id = "locatorjs-style";

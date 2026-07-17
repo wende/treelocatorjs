@@ -702,6 +702,15 @@ Updating ${info.entryFile}...`));
   }
   console.log(pc4.bold(pc4.green("\nTreeLocatorJS installed successfully!")));
   console.log(pc4.dim("\nUsage: Hold Alt and click any component to copy its ancestry.\n"));
+  if (info.buildTool === "vite" && frameworkNeedsBabelJsx(info.framework)) {
+    console.log(pc4.bold("Verify babel is tagging JSX (restart dev server first):"));
+    console.log(
+      pc4.cyan(
+        `  curl -s http://localhost:5173/${info.entryFile ?? "src/main.tsx"} | grep -c data-locatorjs-id`
+      )
+    );
+    console.log(pc4.dim("  Prints 0 \u2192 babel isn't running. See docs/TROUBLESHOOTING.md\n"));
+  }
 }
 function printHelp() {
   console.log(`

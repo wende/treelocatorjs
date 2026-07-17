@@ -80,21 +80,43 @@ If you prefer to set things up yourself:
 ```bash
 npm install -D @treelocator/runtime @treelocator/vite
 # JSX frameworks (React, Solid, Preact) also need:
-npm install -D @locator/babel-jsx @rolldown/plugin-babel @babel/core
+npm install -D @locator/babel-jsx @babel/core
+# With @vitejs/plugin-react v6+, ALSO need:
+npm install -D @rolldown/plugin-babel
 ```
 
-**Vite** — add to `vite.config.js`:
+**Vite + React/Solid/Preact** — pick ONE babel wiring based on your plugin version:
+
+```js
+// @vitejs/plugin-react v5 (or @vitejs/plugin-react-swc):
+// babel goes INSIDE the framework plugin's options.
+react({
+  babel: { plugins: [["@locator/babel-jsx/dist", { env: "development" }]] },
+})
+
+// @vitejs/plugin-react v6+ (rolldown engine):
+// babel goes through a separate plugin alongside react().
+import babel from "@rolldown/plugin-babel";
+plugins: [
+  react(),
+  babel({ plugins: [["@locator/babel-jsx/dist", { env: "development" }]] }),
+]
+```
+
+> **Warning:** with `@vitejs/plugin-react` v5 under rolldown-vite (Vite 7+), babel
+> options passed to `react()` are silently dropped — the plugin detects the
+> rolldown engine and skips its babel pipeline. If ancestry comes back empty
+> while `window.__treelocator__` exists, this is why. Run
+> `npx @treelocator/init --check` to verify your setup.
+
+Full `vite.config.js` example:
 
 ```js
 import treelocator from "@treelocator/vite";
-import babel from "@rolldown/plugin-babel"; // React/Solid/Preact only
 
 export default defineConfig({
   plugins: [
-    react(),
-    babel({
-      plugins: [["@locator/babel-jsx/dist", { env: "development" }]],
-    }),
+    react(/* babel wiring as above, if React/Solid/Preact */),
     treelocator(), // auto-injects runtime in dev — no main.tsx edit needed
   ],
 });
