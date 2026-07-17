@@ -317,6 +317,16 @@ importers:
         specifier: ^3.0.7
         version: 3.0.7
 
+  apps/vite-vanilla-broken:
+    dependencies:
+      '@treelocator/runtime':
+        specifier: workspace:^
+        version: link:../../packages/runtime
+    devDependencies:
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@22.18.12)
+
   apps/vite-vue-project:
     dependencies:
       vue:

@@ -89,6 +89,80 @@ const tree = await window.__treelocator__.getTree("main", {
 console.log(tree.root.children);
 ```
 
+### `queryBySource(options: QueryBySourceOptions): Promise<QueryBySourceResult>`
+
+Reverse lookup: given a source `file:line`, find the live DOM element(s) rendered from that location. The inverse of `getPath` — if `getPath(selector)` reports `file:line`, then `queryBySource({ file, line })` should find that element.
+
+**Parameters:**
+- `options.file` - Source file path (absolute or relative; normalized in the response)
+- `options.line` - Line number in the source file
+- `options.column` - Optional column (not strictly enforced; line + tolerance is primary)
+- `options.tolerance` - Lines of slack when the cursor isn't on the exact JSX opening tag (default `0`)
+- `options.includeHidden` - Include `display:none` / `visibility:hidden` nodes (default `false`)
+- `options.includeStyles` - Run `getStyles()` for each match (default `false`)
+- `options.includeCssReport` - Run `getCSSReport()` for each match (default `false`)
+- `options.maxMatches` - Cap returned matches; extras set `truncated` (default `10`)
+
+**Returns:**
+```typescript
+interface QueryBySourceResult {
+  found: boolean;
+  rendered: boolean;           // at least one match selector resolves in the live DOM
+  browserConnected: boolean;   // always true in-browser; MCP sets false when no tab connected
+  normalizedFile: string;
+  query: { file: string; line: number; column?: number; tolerance: number };
+  matches: SourceMatch[];
+  truncated: boolean;
+}
+```
+
+Each `SourceMatch` includes `selector`, `path`, `ancestry`, `confidence` (`high` | `medium` | `low`), and `matchStrategy` (`path-attr`, `locator-data`, `fiber`, `svelte-meta`, `vue-meta`, `server-component`, `tree-scan`).
+
+**Example:**
+```javascript
+const result = await window.__treelocator__.queryBySource({
+  file: "src/components/Button.tsx",
+  line: 23,
+  tolerance: 1,
+});
+if (result.found && result.rendered) {
+  console.log(result.matches[0].selector, result.matches[0].path);
+}
+```
+
+### `findBySource(options: FindBySourceOptions): Promise<FindBySourceResult>`
+
+Reverse lookup by component name and/or file. Answers "where does `<SaveButton />` render?" or "what did `src/Sidebar.tsx` produce?" Uses the source-aware tree (`getTree`) as its index.
+
+**Parameters:**
+- `options.component` - Component name to search for
+- `options.file` - File path to search for (at least one of `component` or `file` required)
+- `options.includeHidden` - Include hidden nodes (default `true`)
+- `options.maxMatches` - Cap results (default `25`)
+
+**Returns:** `{ found, matches[], truncated }` where each match has `selector`, `path`, `file`, `line`, and `confidence: "low"`.
+
+**Example:**
+```javascript
+const { matches } = await window.__treelocator__.findBySource({
+  component: "CommandBar",
+});
+```
+
+### `highlightBySource(options: QueryBySourceOptions, durationMs?: number): Promise<{ count: number; cancel: () => void }>`
+
+Same lookup as `queryBySource`, plus a transient outline around each match (default 3 seconds). Returns `{ count, cancel }` where `cancel()` removes the overlay early.
+
+**Example:**
+```javascript
+const { count } = await window.__treelocator__.highlightBySource({
+  file: "src/Button.tsx",
+  line: 23,
+}, 5000);
+```
+
+See [SOURCE-TO-DOM.md](./SOURCE-TO-DOM.md) for match strategies, verify-after-edit workflow, and design rationale.
+
 ### `takeSnapshot(selector: string, snapshotId: string, options?: SnapshotOptions): SnapshotResult | Promise<SnapshotResult>`
 
 Persists a reload-safe baseline under `snapshotId`.

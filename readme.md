@@ -241,7 +241,7 @@ browser runtime  ──wss──▶  @treelocator/mcp broker  ◀──stdio─�
 | Category | Tools |
 |---|---|
 | Session | `treelocator_list_sessions`, `treelocator_connect_session` |
-| Inspect | `treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report` |
+| Inspect | `treelocator_get_path`, `treelocator_get_ancestry`, `treelocator_get_path_data`, `treelocator_get_tree`, `treelocator_query_by_source`, `treelocator_find_source`, `treelocator_highlight_source`, `treelocator_get_styles`, `treelocator_get_css_rules`, `treelocator_get_css_report` |
 | Snapshot | `treelocator_take_snapshot`, `treelocator_get_snapshot_diff`, `treelocator_clear_snapshot` |
 | Interact | `treelocator_click`, `treelocator_hover`, `treelocator_type` |
 | Debug | `treelocator_execute_js`, `treelocator_get_console` |

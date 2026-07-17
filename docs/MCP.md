@@ -44,7 +44,20 @@ Published installs can use the `treelocator-mcp` bin from `@treelocator/mcp` aft
 
 ### 3. Register the MCP server
 
-**Cursor / Claude Code** — add to `.mcp.json` in your project (or global MCP config):
+**Cursor** — add to `.cursor/mcp.json` in your project (or global `~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "treelocator": {
+      "command": "node",
+      "args": ["${workspaceFolder}/packages/mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+**Claude Code** — add to `.mcp.json` at the project root:
 
 ```json
 {
@@ -59,7 +72,7 @@ Published installs can use the `treelocator-mcp` bin from `@treelocator/mcp` aft
 
 Adjust the path to your checkout or use `npx @treelocator/mcp` if installed from npm.
 
-Restart the editor so it picks up the server.
+Restart the editor so it picks up the server. In Cursor: **Settings → Tools & MCP** and ensure **treelocator** is enabled.
 
 ### 4. Use MCP tools
 
@@ -118,6 +131,30 @@ setup({ mcp: { enabled: false } });
 | `treelocator_type` | Type text into an input |
 | `treelocator_execute_js` | Run async JS in page context (`await` allowed) |
 | `treelocator_get_console` | Captured console log/warn/error from the page |
+| `treelocator_query_by_source` | Reverse lookup: `{ file, line }` → live DOM selectors + ancestry |
+| `treelocator_find_source` | Reverse lookup by component name or file (source-aware tree) |
+| `treelocator_highlight_source` | Same as `query_by_source` + transient browser outline |
+
+### Reverse lookup (source → DOM)
+
+After connecting a session, agents can resolve a source location to live elements without guessing selectors:
+
+```json
+{ "file": "src/components/Button.tsx", "line": 23, "tolerance": 1 }
+```
+
+via `treelocator_query_by_source`. Response includes `{ found, rendered, browserConnected, matches[] }` with per-match `selector`, `path`, `confidence`, and `matchStrategy`.
+
+Recommended verify-after-edit loop:
+
+```
+1. treelocator_query_by_source({ file, line })  → selector
+2. treelocator_take_snapshot({ selector, snapshotId: "fix-1" })
+3. [agent edits source, HMR reloads]
+4. treelocator_get_snapshot_diff({ snapshotId: "fix-1" })
+```
+
+See [SOURCE-TO-DOM.md](./SOURCE-TO-DOM.md) for strategy details and [BROWSER-API.md](./BROWSER-API.md) for the underlying browser API.
 
 ### Element tool arguments
 

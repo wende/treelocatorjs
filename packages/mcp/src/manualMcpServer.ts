@@ -4,9 +4,12 @@ import { CompatStdioServerTransport } from "./compatStdioTransport";
 import { BrokerClient } from "./brokerClient";
 import { errorResult, successResult, toErrorPayload } from "./toolResults";
 import {
+  findBySourceSchema,
   getCssReportSchema,
   getStylesSchema,
   getTreeSchema,
+  highlightBySourceSchema,
+  queryBySourceSchema,
   selectorSchema,
   sessionIdSchema,
   snapshotIdSchema,
@@ -191,6 +194,61 @@ const TOOL_DESCRIPTORS: ToolDescriptor[] = [
         submit: { type: "boolean" },
       },
       required: ["selector", "text"],
+    },
+  },
+  {
+    name: "treelocator_query_by_source",
+    description:
+      "Reverse lookup: given a source {file, line} (and optional column / tolerance), find the live DOM element(s) rendered from that source. Returns selectors + ancestry + optional styles for each match.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        file: { type: "string" },
+        line: { type: "integer", minimum: 1 },
+        column: { type: "integer", minimum: 0 },
+        tolerance: { type: "integer", minimum: 0 },
+        includeHidden: { type: "boolean" },
+        includeStyles: { type: "boolean" },
+        includeCssReport: { type: "boolean" },
+        maxMatches: { type: "integer", minimum: 1, maximum: 100 },
+      },
+      required: ["file", "line"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "treelocator_find_source",
+    description:
+      "Reverse lookup by component name or file. Pass { component: \"SaveButton\" } to find every rendered instance; pass { file: \"src/Sidebar.tsx\" } to find every element rendered from that file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        component: { type: "string" },
+        file: { type: "string" },
+        includeHidden: { type: "boolean" },
+        maxMatches: { type: "integer", minimum: 1, maximum: 200 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "treelocator_highlight_source",
+    description:
+      "Same lookup as treelocator_query_by_source but also draws a transient outline around each matched element in the browser for `durationMs` (default 3000).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        file: { type: "string" },
+        line: { type: "integer", minimum: 1 },
+        column: { type: "integer", minimum: 0 },
+        tolerance: { type: "integer", minimum: 0 },
+        durationMs: { type: "integer", minimum: 100, maximum: 60000 },
+      },
+      required: ["file", "line"],
+      additionalProperties: false,
     },
   },
 ];
@@ -546,6 +604,36 @@ export class ManualMcpServer {
         return errorResult("invalid_args", parsed.error.message);
       }
       return await this.runBridgeTool("type", parsed.data, signal);
+    }
+
+    if (toolName === "treelocator_query_by_source") {
+      const parsed = queryBySourceSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return errorResult("invalid_args", parsed.error.message);
+      }
+      return await this.runBridgeTool("query_by_source", parsed.data, signal);
+    }
+
+    if (toolName === "treelocator_find_source") {
+      const parsed = findBySourceSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return errorResult("invalid_args", parsed.error.message);
+      }
+      if (!parsed.data.component && !parsed.data.file) {
+        return errorResult(
+          "invalid_args",
+          "at least one of `component` or `file` is required"
+        );
+      }
+      return await this.runBridgeTool("find_by_source", parsed.data, signal);
+    }
+
+    if (toolName === "treelocator_highlight_source") {
+      const parsed = highlightBySourceSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return errorResult("invalid_args", parsed.error.message);
+      }
+      return await this.runBridgeTool("highlight_by_source", parsed.data, signal);
     }
 
     return errorResult("tool_not_found", `Unknown tool: ${toolName}`);

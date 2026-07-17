@@ -5,10 +5,13 @@ import { CompatStdioServerTransport } from "./compatStdioTransport";
 import { errorResult, successResult, toErrorPayload } from "./toolResults";
 import {
   executeJsSchema,
+  findBySourceSchema,
   getConsoleSchema,
   getCssReportSchema,
   getStylesSchema,
   getTreeSchema,
+  highlightBySourceSchema,
+  queryBySourceSchema,
   selectorSchema,
   sessionIdSchema,
   snapshotIdSchema,
@@ -300,6 +303,39 @@ export class TreeLocatorMCPServer {
         inputSchema: getConsoleSchema.shape,
       },
       async (args, extra) => this.runBridgeCommand("get_console", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_query_by_source",
+      {
+        title: "Query source location to live DOM element(s)",
+        description:
+          "Reverse lookup: given a source {file, line} (and optional column / tolerance), find the live DOM element(s) rendered from that source. Returns selectors + ancestry + optional styles for each match so the caller can follow up with treelocator_get_path, treelocator_click, or treelocator_take_snapshot. The inverse of treelocator_get_path: get_path reports an element's source; query_by_source finds the elements for a source.",
+        inputSchema: queryBySourceSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("query_by_source", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_find_source",
+      {
+        title: "Find source locations by component name or file",
+        description:
+          "Reverse lookup by component name and/or file. Pass `{ component: \"SaveButton\" }` to find every rendered instance of that component; pass `{ file: \"src/Sidebar.tsx\" }` to find every element rendered from that file. Returns selectors and paths so the caller can follow up with treelocator_get_path or treelocator_query_by_source. Backed by the source-aware tree (get_tree's index).",
+        inputSchema: findBySourceSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("find_by_source", args, extra)
+    );
+
+    this.server.registerTool(
+      "treelocator_highlight_source",
+      {
+        title: "Highlight live elements rendered from a source location",
+        description:
+          "Same lookup as treelocator_query_by_source, but also draws a transient outline around each matched element in the browser for `durationMs` (default 3000). Useful when an agent wants the user to visually confirm the target before an edit.",
+        inputSchema: highlightBySourceSchema.shape,
+      },
+      async (args, extra) => this.runBridgeCommand("highlight_by_source", args, extra)
     );
   }
 }

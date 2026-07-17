@@ -109,7 +109,41 @@ METHODS:
      });
      console.log(report.text);
 
-10. help()
+10. queryBySource({ file, line, column?, tolerance?, includeStyles?, maxMatches? })
+   Reverse lookup: file:line -> live DOM element(s) + ancestry. The inverse
+   of getPath. Returns selectors and ancestry so you can follow up with
+   getPath / click / takeSnapshot on the matched element.
+
+   Usage:
+     const result = await window.__treelocator__.queryBySource({
+       file: 'src/Button.tsx', line: 23
+     });
+     if (result.found) {
+       console.log(result.matches[0].selector);
+       console.log(result.matches[0].path);
+     }
+
+11. findBySource({ component?, file?, includeHidden?, maxMatches? })
+   Reverse lookup by component name and/or file. Backed by the source-aware
+   tree. Returns { found, matches[], truncated } with selector + path per match.
+
+   Usage:
+     const { matches } = await window.__treelocator__.findBySource({
+       component: 'SaveButton'
+     });
+     matches.forEach(m => console.log(m.selector, m.line));
+
+12. highlightBySource({ file, line, ... }, durationMs?)
+   Same lookup as queryBySource but draws a transient outline around each
+   matched element in the browser. Returns { count, cancel }.
+
+   Usage:
+     const { count } = await window.__treelocator__.highlightBySource({
+       file: 'src/Button.tsx', line: 23
+     }, 5000);
+     console.log(\`highlighted \${count} elements for 5s\`);
+
+13. help()
    Displays this help message.
 
 PLAYWRIGHT EXAMPLES:

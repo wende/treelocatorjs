@@ -13,6 +13,7 @@ import { isLocatorsOwnElement } from "../functions/isLocatorsOwnElement";
 import { Toast } from "./Toast";
 import { collectAncestry, formatAncestryChain, truncateAtFirstFile, getElementLabel } from "../functions/formatAncestryChain";
 import { enrichAncestryWithSourceMaps } from "../functions/enrichAncestrySourceMaps";
+import { buildSelector } from "../functions/buildSelector";
 import { extractComputedStyles } from "../functions/extractComputedStyles";
 import { createTreeNode } from "../adapters/createTreeNode";
 import { RecordingOutline } from "./RecordingOutline";
@@ -71,10 +72,16 @@ function Runtime(props: RuntimeProps) {
   // navigator.clipboard is undefined in insecure (non-HTTPS, non-localhost)
   // contexts, where accessing it would throw synchronously; fall back to the
   // legacy execCommand path so Alt+click still works on LAN/HTTP testing.
-  function copyToClipboard(text: string) {
+  function copyToClipboard(text: string, successMessage = "Copied to clipboard") {
+    // Never write an empty payload — writeText("") "succeeds" but silently
+    // clears the clipboard, which reads as "copy worked but clipboard is empty".
+    if (!text) {
+      setToastMessage("No component source found for this element");
+      return;
+    }
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => setToastMessage("Copied to clipboard"),
+        () => setToastMessage(successMessage),
         () => setToastMessage("Copy failed — check clipboard permissions")
       );
       return;
@@ -97,7 +104,7 @@ function Runtime(props: RuntimeProps) {
     }
     setToastMessage(
       successful
-        ? "Copied to clipboard"
+        ? successMessage
         : "Copy failed — check clipboard permissions"
     );
   }
@@ -188,15 +195,23 @@ function Runtime(props: RuntimeProps) {
 
     // Copy ancestry + computed styles to clipboard on alt+click
     const treeNode = createTreeNode(element as HTMLElement, props.adapterId);
-    if (treeNode) {
-      let ancestry = collectAncestry(treeNode);
+    let ancestry = treeNode ? collectAncestry(treeNode) : [];
 
-      // Default: truncate to the local file context and skip computed styles.
-      // Alt+Shift keeps the full chain and includes computed styles.
-      if (!e.shiftKey) {
-        ancestry = truncateAtFirstFile(ancestry);
-      }
+    // Default: truncate to the local file context and skip computed styles.
+    // Alt+Shift keeps the full chain and includes computed styles.
+    if (!e.shiftKey) {
+      ancestry = truncateAtFirstFile(ancestry);
+    }
 
+    if (ancestry.length === 0) {
+      // No component/source metadata resolved — e.g. a plain static-HTML page
+      // (no JSX/babel source attributes) or an element rendered outside any
+      // tracked component. Rather than silently copying an empty ancestry,
+      // fall back to a plain CSS selector so the copy is still useful, and
+      // report honestly what happened.
+      const selector = buildSelector(element as HTMLElement);
+      copyToClipboard(selector, "No component source — copied CSS selector");
+    } else {
       // Extract computed styles only for the full (Alt+Shift) variant
       const stylesEnabled = settings().computedStyles && e.shiftKey;
       const elementLabel = getElementLabel(ancestry);
