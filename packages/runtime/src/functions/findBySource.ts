@@ -96,8 +96,12 @@ function nodeMatches(
   component: string | undefined,
   normalizedFile: string | undefined
 ): boolean {
-  if (normalizedFile && node.file) {
-    if (normalizeFilePath(node.file) !== normalizedFile) return false;
+  if (normalizedFile) {
+    // A file filter must exclude nodes that lack a file or whose file differs —
+    // otherwise a component-less node in another file would slip through.
+    if (!node.file || normalizeFilePath(node.file) !== normalizedFile) {
+      return false;
+    }
   }
   if (component) {
     if (node.component === component) return true;
@@ -194,11 +198,14 @@ export async function findBySource(
   let truncated = false;
 
   for (const node of walkNodes(tree.root)) {
+    if (!nodeMatches(node, component, normalizedFile)) continue;
+    // Only flag truncation when an *actual match* exceeds the cap — checking
+    // the cap before the filter would report truncation for non-matching
+    // trailing nodes that would never have been returned.
     if (matches.length >= maxMatches) {
       truncated = true;
       break;
     }
-    if (!nodeMatches(node, component, normalizedFile)) continue;
 
     const element = pickLiveElement(node, component);
     // Even without a live element, we can still emit a path-only match —

@@ -88,6 +88,34 @@ describe("findBySource", () => {
     expect(result.truncated).toBe(true);
   });
 
+  test("file filter excludes nodes without a matching file", async () => {
+    document.body.innerHTML = `<div></div>`;
+    const tree = makeTree([
+      node({ tag: "button", component: "SaveButton", file: "src/Save.tsx", line: 12 }),
+      // Has a component but no file — must NOT leak into a file-scoped query.
+      node({ tag: "span", component: "Orphan", line: 3 }),
+      node({ tag: "a", component: "HeaderLink", file: "src/Header.tsx", line: 5 }),
+    ]);
+
+    const result = await findBySource({ file: "src/Save.tsx" }, tree);
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]!.file).toContain("Save.tsx");
+  });
+
+  test("truncated stays false when matches exactly fill maxMatches", async () => {
+    document.body.innerHTML = `<div></div>`;
+    const tree = makeTree([
+      node({ tag: "button", component: "Btn", file: "x.tsx", line: 1 }),
+      node({ tag: "button", component: "Btn", file: "x.tsx", line: 2 }),
+      // Trailing non-matching node must not trip the truncated flag.
+      node({ tag: "a", component: "Other", file: "y.tsx", line: 9 }),
+    ]);
+
+    const result = await findBySource({ component: "Btn", maxMatches: 2 }, tree);
+    expect(result.matches).toHaveLength(2);
+    expect(result.truncated).toBe(false);
+  });
+
   test("returns found:false when no nodes match", async () => {
     document.body.innerHTML = `<div></div>`;
     const tree = makeTree([
