@@ -111,6 +111,20 @@ async function runSetup(info: ProjectInfo, skipConfirm = false, useLocal = false
 
   console.log(pc.bold(pc.green("\nTreeLocatorJS installed successfully!")));
   console.log(pc.dim("\nUsage: Hold Alt and click any component to copy its ancestry.\n"));
+
+  if (info.buildTool === "vite" && frameworkNeedsBabelJsx(info.framework)) {
+    console.log(pc.bold("Verify babel is tagging JSX (restart dev server first):"));
+    console.log(
+      pc.cyan(
+        `  curl -s http://localhost:5173/${info.entryFile ?? "src/main.tsx"} | grep -c data-locatorjs-id`
+      )
+    );
+    console.log(
+      pc.dim(
+        "  (default Vite port 5173 — adjust if yours differs)\n  Prints 0 → babel isn't running. See docs/TROUBLESHOOTING.md\n"
+      )
+    );
+  }
 }
 
 function printHelp(): void {

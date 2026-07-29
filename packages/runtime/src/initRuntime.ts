@@ -5,6 +5,17 @@ import { MAX_ZINDEX } from "./index";
 import { installBrowserAPI } from "./browserApi";
 import { startMCPBridge } from "./mcpBridge";
 import type { MCPBridgeConfig } from "./mcpBridge";
+import { detectFramework } from "./adapters/detectFramework";
+import { detectPhoenix } from "./adapters/phoenix/detectPhoenix";
+
+function expectsBabelJsxTags(adapter?: AdapterId): boolean {
+  if (adapter === "vue" || adapter === "svelte") return false;
+  if (detectPhoenix()) return false;
+  const framework = adapter ?? detectFramework();
+  // Vue/Svelte use built-in source metadata; babel tags are JSX-framework only.
+  if (framework === "vue" || framework === "svelte") return false;
+  return true;
+}
 
 export function initRuntime({
   adapter,
@@ -26,6 +37,26 @@ export function initRuntime({
   // Install browser API on window.__treelocator__
   installBrowserAPI(adapter);
   startMCPBridge(mcp);
+
+  // Warn when JSX frameworks are missing babel tags. Elements appear
+  // asynchronously, so re-check a few times; skip Vue/Svelte/Phoenix.
+  let tagChecks = 0;
+  const tagCheckTimer = setInterval(() => {
+    tagChecks++;
+    const tagged =
+      document.querySelector("[data-locatorjs-id]") ||
+      (window.__LOCATOR_DATA__ && Object.keys(window.__LOCATOR_DATA__).length > 0);
+    if (tagged || tagChecks >= 4) {
+      clearInterval(tagCheckTimer);
+      if (!tagged && expectsBabelJsxTags(adapter)) {
+        console.warn(
+          "[treelocator] Runtime is active but no elements carry data-locatorjs-id. " +
+            "The babel plugin is probably not running (on Vite 7+/rolldown, @vitejs/plugin-react v5 silently skips babel). " +
+            "See https://github.com/wende/treelocatorjs/blob/main/docs/TROUBLESHOOTING.md"
+        );
+      }
+    }
+  }, 2000);
 
   // add style tag to head
   const style = document.createElement("style");
