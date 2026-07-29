@@ -119,7 +119,11 @@ async function runSetup(info: ProjectInfo, skipConfirm = false, useLocal = false
         `  curl -s http://localhost:5173/${info.entryFile ?? "src/main.tsx"} | grep -c data-locatorjs-id`
       )
     );
-    console.log(pc.dim("  Prints 0 → babel isn't running. See docs/TROUBLESHOOTING.md\n"));
+    console.log(
+      pc.dim(
+        "  (default Vite port 5173 — adjust if yours differs)\n  Prints 0 → babel isn't running. See docs/TROUBLESHOOTING.md\n"
+      )
+    );
   }
 }
 

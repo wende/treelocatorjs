@@ -5,6 +5,17 @@ import { MAX_ZINDEX } from "./index";
 import { installBrowserAPI } from "./browserApi";
 import { startMCPBridge } from "./mcpBridge";
 import type { MCPBridgeConfig } from "./mcpBridge";
+import { detectFramework } from "./adapters/detectFramework";
+import { detectPhoenix } from "./adapters/phoenix/detectPhoenix";
+
+function expectsBabelJsxTags(adapter?: AdapterId): boolean {
+  if (adapter === "vue" || adapter === "svelte") return false;
+  if (detectPhoenix()) return false;
+  const framework = adapter ?? detectFramework();
+  // Vue/Svelte use built-in source metadata; babel tags are JSX-framework only.
+  if (framework === "vue" || framework === "svelte") return false;
+  return true;
+}
 
 export function initRuntime({
   adapter,
@@ -27,9 +38,8 @@ export function initRuntime({
   installBrowserAPI(adapter);
   startMCPBridge(mcp);
 
-  // ponytail: warn only, no framework detection — tagged elements appear
-  // asynchronously, so we just re-check a few times. Upgrade path: wire the
-  // detected adapter id in and skip this for Vue/Svelte (no babel needed).
+  // Warn when JSX frameworks are missing babel tags. Elements appear
+  // asynchronously, so re-check a few times; skip Vue/Svelte/Phoenix.
   let tagChecks = 0;
   const tagCheckTimer = setInterval(() => {
     tagChecks++;
@@ -38,7 +48,7 @@ export function initRuntime({
       (window.__LOCATOR_DATA__ && Object.keys(window.__LOCATOR_DATA__).length > 0);
     if (tagged || tagChecks >= 4) {
       clearInterval(tagCheckTimer);
-      if (!tagged) {
+      if (!tagged && expectsBabelJsxTags(adapter)) {
         console.warn(
           "[treelocator] Runtime is active but no elements carry data-locatorjs-id. " +
             "The babel plugin is probably not running (on Vite 7+/rolldown, @vitejs/plugin-react v5 silently skips babel). " +

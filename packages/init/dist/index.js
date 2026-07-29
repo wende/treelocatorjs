@@ -709,7 +709,11 @@ Updating ${info.entryFile}...`));
         `  curl -s http://localhost:5173/${info.entryFile ?? "src/main.tsx"} | grep -c data-locatorjs-id`
       )
     );
-    console.log(pc4.dim("  Prints 0 \u2192 babel isn't running. See docs/TROUBLESHOOTING.md\n"));
+    console.log(
+      pc4.dim(
+        "  (default Vite port 5173 \u2014 adjust if yours differs)\n  Prints 0 \u2192 babel isn't running. See docs/TROUBLESHOOTING.md\n"
+      )
+    );
   }
 }
 function printHelp() {
